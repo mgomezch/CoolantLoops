@@ -31,6 +31,7 @@ public class CoolantLoops {
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         LOG.info("Initializing Coolant Loops...");
+        com.gtnewhorizons.coolantloops.common.metatileentity.ModMetaTileEntities.init();
     }
 
     @Mod.EventHandler
