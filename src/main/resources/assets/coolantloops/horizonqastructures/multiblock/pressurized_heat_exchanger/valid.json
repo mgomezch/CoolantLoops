@@ -1,0 +1,44 @@
+{
+  "format_version": 2,
+  "size": [3, 4, 3],
+  "palette": {
+    "A": {"name": "gregtech:gt.blockcasings4", "meta": 2, "label": "Robust Tungstensteel Machine Casing"},
+    "B": {"name": "gregtech:gt.blockmachines", "meta": 15102, "label": "Pressurized Heat Exchanger"},
+    "C": {"name": "gregtech:gt.blockmachines", "meta": 15101, "label": "Pressurized Fluid Hatch"},
+    "D": {"name": "gregtech:gt.blockmachines", "meta": 111, "label": "Maintenance Hatch"},
+    "E": {"name": "gregtech:gt.blockmachines", "meta": 31, "label": "Secondary Input Hatch (Distilled Water)"},
+    "F": {"name": "gregtech:gt.blockmachines", "meta": 41, "label": "Secondary Output Hatch (Steam)"}
+  },
+  "layers": [
+    [
+      "EBF",
+      "CDC",
+      "ADA"
+    ],
+    [
+      "AAA",
+      "A.A",
+      "AAA"
+    ],
+    [
+      "AAA",
+      "A.A",
+      "AAA"
+    ],
+    [
+      "AAA",
+      "AAA",
+      "AAA"
+    ]
+  ],
+  "annotations": {
+    "labels": {
+      "controller": [1, 0, 0],
+      "secondary_input": [0, 0, 0],
+      "secondary_output": [2, 0, 0],
+      "primary_inlet": [0, 0, 1],
+      "primary_outlet": [2, 0, 1],
+      "maintenance_hatch": [1, 0, 1]
+    }
+  }
+}

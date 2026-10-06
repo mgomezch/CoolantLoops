@@ -181,6 +181,22 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         return true;
     }
 
+    public boolean addBottomHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
+        if (aTileEntity == null) return false;
+        gregtech.api.interfaces.metatileentity.IMetaTileEntity aMetaTileEntity = aTileEntity.getMetaTileEntity();
+        if (aMetaTileEntity == null) return false;
+        if (aMetaTileEntity instanceof MTEHatchPressurizedFluid) {
+            if (mPrimaryInlet == null) {
+                mPrimaryInlet = (MTEHatchPressurizedFluid) aMetaTileEntity;
+                return true;
+            } else if (mPrimaryOutlet == null) {
+                mPrimaryOutlet = (MTEHatchPressurizedFluid) aMetaTileEntity;
+                return true;
+            }
+        }
+        return addToMachineList(aTileEntity, aBaseCasingIndex);
+    }
+
     private static IStructureDefinition<MTEPressurizedHeatExchanger> STRUCTURE_DEFINITION = null;
 
     @Override
@@ -192,7 +208,12 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                     StructureUtility.transpose(
                         new String[][] { { "CCC", "C~C", "CCC" }, { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" },
                             { "CCC", "CCC", "CCC" } }))
-                .addElement('C', StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2))
+                .addElement(
+                    'C',
+                    StructureUtility.ofChain(
+                        gregtech.api.util.GTStructureUtility
+                            .ofHatchAdder(MTEPressurizedHeatExchanger::addBottomHatch, 48 + 2, 1),
+                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2)))
                 .build();
         }
         return STRUCTURE_DEFINITION;

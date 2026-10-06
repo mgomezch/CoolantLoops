@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GTNH Coolant Loops Simulator & Circuit Designer</title>
+  <style>
+    :root {
+      --bg-dark: #121417;
+      --panel-bg: #1c2026;
+      --panel-border: #2d3440;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Segoe UI', monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 56px;
+    }
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-badge {
+      font-size: 0.75rem;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--accent);
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    button, select {
+      background: #272f3d;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    button:hover, select:hover {
+      background: #333d4e;
+      border-color: var(--accent);
+    }
+    button.primary {
+      background: var(--accent);
+      color: #0b1120;
+      border-color: var(--accent);
+      font-weight: bold;
+    }
+    button.primary:hover {
+      background: var(--accent-hover);
+    }
+    button.danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+    main {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 56px);
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 320px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .param-group {
+      background: #16191f;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .param-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .param-row label {
+      color: var(--text-muted);
+    }
+    .param-row input[type="range"] {
+      width: 110px;
+      accent-color: var(--accent);
+    }
+    .param-val {
+      font-weight: 600;
+      color: var(--text);
+      min-width: 48px;
+      text-align: right;
+    }
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      background: #0d0f12;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #telemetry-hud {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 360px;
+      background: rgba(28, 32, 38, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .telemetry-card {
+      background: #14171d;
+      border: 1px solid #232a35;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    .telemetry-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .telemetry-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 2px;
+    }
+    .alert-banner {
+      display: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-align: center;
+      animation: pulse 1s infinite;
+    }
+    .alert-banner.danger {
+      display: block;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger);
+      color: #f87171;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .thermal-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #38bdf8, #22c55e, #eab308, #ef4444);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      <span>⚡ GTNH Coolant Loops</span>
+      <span class="header-badge">Analytical Circuit Simulator</span>
+    </h1>
+    <div class="controls">
+      <select id="presetSelect" onchange="loadPreset(this.value)">
+        <option value="water_baseline">Preset: Water Baseline (0.1m Steel)</option>
+        <option value="sodium_fast">Preset: Liquid Sodium Fast Loop (0.15m Tungstensteel)</option>
+        <option value="manifold_split">Preset: Parallel Manifold Split</option>
+        <option value="overpressure_burst">Preset: Overpressure Pipe Rupture</option>
+      </select>
+      <button id="playBtn" class="primary" onclick="togglePlay()">⏸ Pause</button>
+      <button onclick="stepSim()">⏭ Step (1t)</button>
+      <button class="danger" onclick="resetSim()">↺ Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="sidebar">
+      <div>
+        <div class="section-title">Loop Fluid & Coolant</div>
+        <div class="param-group">
+          <div class="param-row">
+            <label>Coolant Fluid</label>
+            <select id="fluidSelect" onchange="updateFluid(this.value)">
+              <option value="water">Water (H₂O)</option>
+              <option value="distilled_water">Distilled Water</option>
+              <option value="heavy_water">Heavy Water (D₂O)</option>
+              <option value="ic2_coolant">IC2 Coolant</option>
+              <option value="sodium">Liquid Sodium (Na)</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>Fluid Density</label>
+            <span id="valDensity" class="param-val">1000 kg/m³</span>
+          </div>
+          <div class="param-row">
+            <label>Specific Heat (Cp)</label>
+            <span id="valCp" class="param-val">4184 J/kg·K</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Pump Parameters</div>
+        <div class="param-group">
+          <div class="param-row">
+            <label>Motor Throttle</label>
+            <input type="range" id="pumpThrottle" min="0" max="100" value="100" oninput="updateThrottle(this.value)">
+            <span id="valThrottle" class="param-val">100%</span>
+          </div>
+          <div class="param-row">
+            <label>Rated Power</label>
+            <span id="valPower" class="param-val">120 kW</span>
+          </div>
+          <div class="param-row">
+            <label>Rated Flow (Q₀)</label>
+            <span id="valRatedQ" class="param-val">80.0 L/s</span>
+          </div>
+          <div class="param-row">
+            <label>Rotor Efficiency</label>
+            <span id="valEfficiency" class="param-val">85.0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Piping & Structure</div>
+        <div class="param-group">
+          <div class="param-row">
+            <label>Pipe Diameter</label>
+            <select id="pipeSizeSelect" onchange="updatePipeSize(this.value)">
+              <option value="0.05">Tiny (0.05 m)</option>
+              <option value="0.075">Small (0.075 m)</option>
+              <option value="0.10" selected>Normal (0.10 m)</option>
+              <option value="0.15">Large (0.15 m)</option>
+              <option value="0.20">Huge (0.20 m)</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>Pipe Material</label>
+            <select id="pipeMatSelect" onchange="updateMaterial(this.value)">
+              <option value="bronze">Bronze (5 bar)</option>
+              <option value="steel" selected>Steel (20 bar)</option>
+              <option value="titanium">Titanium (80 bar)</option>
+              <option value="tungstensteel">Tungstensteel (300 bar)</option>
+              <option value="neutronium">Neutronium (10,000 bar)</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>Burst Limit</label>
+            <span id="valBurstLimit" class="param-val">20.0 bar</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Thermal Energy Source</div>
+        <div class="param-group">
+          <div class="param-row">
+            <label>Reservoir Temp</label>
+            <input type="range" id="resTemp" min="20" max="900" value="300" oninput="updateResTemp(this.value)">
+            <span id="valResTemp" class="param-val">300°C</span>
+          </div>
+          <div class="param-row">
+            <label>Heat Transfer Area</label>
+            <span class="param-val">12.0 m²</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="simCanvas"></canvas>
+
+      <div id="telemetry-hud">
+        <div id="alertBanner" class="alert-banner danger">⚠️ CATASTROPHIC LOOP RUPTURE: PIPE OVERPRESSURE!</div>
+        <div class="telemetry-grid">
+          <div class="telemetry-card">
+            <div class="telemetry-label">Mass Flow Rate</div>
+            <div id="hudMassFlow" class="telemetry-value">0.0 kg/s</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">Mean Velocity</div>
+            <div id="hudVelocity" class="telemetry-value">0.00 m/s</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">Pump Head (ΔP)</div>
+            <div id="hudPressure" class="telemetry-value">0.00 bar</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">Burst Margin</div>
+            <div id="hudMargin" class="telemetry-value">100.0%</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">Heat Exchanged</div>
+            <div id="hudHeatPower" class="telemetry-value">0.0 kW</div>
+          </div>
+          <div class="telemetry-card">
+            <div class="telemetry-label">Steam Output</div>
+            <div id="hudSteam" class="telemetry-value">0 L/s</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="legend">
+            <span>20°C (Cold Leg)</span>
+            <span>Temperature Spectrum</span>
+            <span>600°C+ (Hot Leg)</span>
+          </div>
+          <div class="thermal-bar"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Coolant Fluid Database
+    const FLUIDS = {
+      water: { name: "Water", density: 1000.0, cp: 4184.0, viscosity: 0.001, thermalCond: 0.6 },
+      distilled_water: { name: "Distilled Water", density: 998.0, cp: 4182.0, viscosity: 0.00098, thermalCond: 0.61 },
+      heavy_water: { name: "Heavy Water", density: 1105.0, cp: 4210.0, viscosity: 0.00125, thermalCond: 0.58 },
+      ic2_coolant: { name: "IC2 Coolant", density: 1050.0, cp: 4400.0, viscosity: 0.0015, thermalCond: 0.72 },
+      sodium: { name: "Liquid Sodium", density: 927.0, cp: 1260.0, viscosity: 0.0007, thermalCond: 86.0 }
+    };
+
+    const MATERIALS = {
+      bronze: { burstBar: 5.0, maxTemp: 450.0 },
+      steel: { burstBar: 20.0, maxTemp: 800.0 },
+      titanium: { burstBar: 80.0, maxTemp: 1400.0 },
+      tungstensteel: { burstBar: 300.0, maxTemp: 2800.0 },
+      neutronium: { burstBar: 10000.0, maxTemp: 9999.0 }
+    };
+
+    // Simulation State
+    const state = {
+      running: true,
+      fluidKey: "water",
+      throttle: 1.0,
+      ratedPowerW: 120000,
+      ratedFlowM3s: 0.08,
+      pipeDiameter: 0.10,
+      pipeMat: "steel",
+      reservoirTempC: 300.0,
+      isRuptured: false,
+
+      // Hydrodynamics
+      Q: 0.0,           // Volumetric flow (m^3/s)
+      velocity: 0.0,    // Flow velocity (m/s)
+      headLossPa: 0.0,  // Friction drop
+      pumpHeadPa: 0.0,  // Developed pump head
+      hotLegTemp: 20.0,
+      coldLegTemp: 20.0,
+      heatTransferredW: 0.0,
+      steamOutputLs: 0.0,
+
+      // Particles for visualization
+      particles: []
+    };
+
+    // Canvas setup
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth * window.devicePixelRatio;
+      canvas.height = canvas.parentElement.clientHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    // Initialize Particles
+    for (let i = 0; i < 40; i++) {
+      state.particles.push({ t: i / 40.0 });
+    }
+
+    // Churchill Friction Factor Correlation
+    function churchillFriction(Re, roughness, D) {
+      if (Re < 1e-4) return 0.064;
+      const epsD = roughness / D;
+      const A = Math.pow(2.457 * Math.log(1.0 / (Math.pow(7.0 / Re, 0.9) + 0.27 * epsD)), 16);
+      const B = Math.pow(37530.0 / Re, 16);
+      return 8.0 * Math.pow(Math.pow(8.0 / Re, 12) + 1.0 / Math.pow(A + B, 1.5), 1.0 / 12.0);
+    }
+
+    // 3-Regime Convection Model
+    function computeHeatTransfer(v, area, deltaT) {
+      if (v < 0.01) return 0.0;
+      let h = 0.0;
+      if (v < 0.5) {
+        h = 1500.0 * (v / 0.5); // Laminar
+      } else if (v < 2.0) {
+        h = 1500.0 + 8000.0 * Math.pow((v - 0.5) / 1.5, 1.4); // Turbulent steep rise
+      } else {
+        h = 9500.0 + 3500.0 * (1.0 - Math.exp(-(v - 2.0) / 1.5)); // Saturation asymptote
+      }
+      return h * area * deltaT;
+    }
+
+    // Discrete Tick Simulation (50ms / 20 TPS)
+    function tick() {
+      if (!state.running || state.isRuptured) return;
+
+      const fluid = FLUIDS[state.fluidKey];
+      const mat = MATERIALS[state.pipeMat];
+      const D = state.pipeDiameter;
+      const A = Math.PI * Math.pow(D / 2.0, 2);
+      const loopLength = 28.0; // Effective pipe loop length (m)
+
+      // Hydraulic Inertia: I = sum(rho * L / A)
+      const inertia = (fluid.density * loopLength) / A;
+
+      // Pump Torque / Head Curve matching CoolantLoopEngine.java
+      const mechPower = state.ratedPowerW * state.throttle;
+      let pumpDeltaP = 0.0;
+      if (state.throttle > 0.01) {
+        const qRated = Math.max(0.005, 0.02 * Math.sqrt(mechPower / 5000.0));
+        const effFlow = Math.max(state.Q, qRated);
+        pumpDeltaP = (mechPower * 0.85) / effFlow;
+      }
+
+      // Darcy-Weisbach Friction Loss
+      const v = Math.max(0.0, state.Q / A);
+      const Re = (fluid.density * v * D) / fluid.viscosity;
+      const f = churchillFriction(Re, 4.5e-5, D);
+      const minorLossK = 3.5; // Valves, elbows, heat exchanger core
+      const frictionLossPa = (f * (loopLength / D) + minorLossK) * (0.5 * fluid.density * v * v);
+
+      // Impeller Drag Braking when unpowered
+      let brakingLossPa = 0.0;
+      if (state.throttle < 0.01) {
+        brakingLossPa = 2.0 * (0.5 * fluid.density * v * v);
+      }
+
+      // 1D Momentum Equation: dQ/dt = (DeltaP_pump - DeltaP_loss) / Inertia
+      const totalDeltaP = pumpDeltaP - frictionLossPa - brakingLossPa;
+      const dt = 0.05; // 1 tick = 50ms
+      const dQ = (totalDeltaP / inertia) * dt;
+
+      state.Q = Math.max(0.0, state.Q + dQ);
+      state.velocity = state.Q / A;
+      state.pumpHeadPa = pumpDeltaP;
+      state.headLossPa = frictionLossPa + brakingLossPa;
+
+      // Check Burst Pressure
+      const loopMaxPressureBar = (pumpDeltaP / 100000.0);
+      if (loopMaxPressureBar > mat.burstBar) {
+        state.isRuptured = true;
+        document.getElementById("alertBanner").style.display = "block";
+        document.getElementById("alertBanner").textContent =
+          `💥 PIPE BURST CATASTROPHE! Pressure ${loopMaxPressureBar.toFixed(1)} bar > Material Rating ${mat.burstBar} bar!`;
+      }
+
+      // Thermal Advection & Heat Transfer
+      const reservoirArea = 12.0;
+      const deltaT = Math.max(0.0, state.reservoirTempC - state.hotLegTemp);
+      const qInWatts = computeHeatTransfer(state.velocity, reservoirArea, deltaT);
+
+      // PHE Heat Extraction
+      const pheArea = 24.0;
+      const pheDeltaT = Math.max(0.0, state.hotLegTemp - 100.0);
+      const qOutWatts = computeHeatTransfer(state.velocity, pheArea, pheDeltaT);
+      state.heatTransferredW = qOutWatts;
+
+      // Secondary Steam Boiling: 1 L Water requires ~2.26 MJ
+      // 1 L Water = 160 L Steam
+      const waterBoiledLps = (qOutWatts / 2260000.0);
+      state.steamOutputLs = waterBoiledLps * 160.0;
+
+      // Thermal relaxation
+      const massInHotLeg = fluid.density * A * 8.0; // 8m pipe
+      const thermalCap = massInHotLeg * fluid.cp;
+      state.hotLegTemp += (qInWatts * dt) / Math.max(thermalCap, 1000.0);
+      state.hotLegTemp -= (qOutWatts * dt) / Math.max(thermalCap, 1000.0);
+      state.hotLegTemp = Math.max(20.0, Math.min(state.reservoirTempC, state.hotLegTemp));
+      state.coldLegTemp = Math.max(20.0, state.hotLegTemp * 0.65);
+
+      // Update Telemetry
+      const massFlowKgS = state.Q * fluid.density;
+      document.getElementById("hudMassFlow").textContent = `${massFlowKgS.toFixed(1)} kg/s`;
+      document.getElementById("hudVelocity").textContent = `${state.velocity.toFixed(2)} m/s`;
+      document.getElementById("hudPressure").textContent = `${(pumpDeltaP / 100000.0).toFixed(2)} bar`;
+      const margin = Math.max(0.0, (1.0 - loopMaxPressureBar / mat.burstBar) * 100.0);
+      document.getElementById("hudMargin").textContent = `${margin.toFixed(1)}%`;
+      document.getElementById("hudHeatPower").textContent = `${(qOutWatts / 1000.0).toFixed(1)} kW`;
+      document.getElementById("hudSteam").textContent = `${state.steamOutputLs.toFixed(0)} L/s`;
+
+      // Animate particles
+      const speed = state.velocity * 0.008;
+      for (let p of state.particles) {
+        p.t = (p.t + speed) % 1.0;
+      }
+    }
+
+    // Interpolate Color from Temp (20°C to 600°C)
+    function tempToColor(tC) {
+      const norm = Math.max(0.0, Math.min(1.0, (tC - 20.0) / 580.0));
+      if (norm < 0.25) {
+        const f = norm / 0.25;
+        return `rgb(${Math.round(56 * (1 - f) + 34 * f)}, ${Math.round(189 * (1 - f) + 197 * f)}, ${Math.round(248 * (1 - f) + 94 * f)})`;
+      } else if (norm < 0.6) {
+        const f = (norm - 0.25) / 0.35;
+        return `rgb(${Math.round(34 * (1 - f) + 234 * f)}, ${Math.round(197 * (1 - f) + 179 * f)}, ${Math.round(94 * (1 - f) + 8 * f)})`;
+      } else {
+        const f = (norm - 0.6) / 0.4;
+        return `rgb(${Math.round(234 * (1 - f) + 239 * f)}, ${Math.round(179 * (1 - f) + 68 * f)}, ${Math.round(8 * (1 - f) + 68 * f)})`;
+      }
+    }
+
+    // Render Canvas
+    function render() {
+      const w = canvas.parentElement.clientWidth;
+      const h = canvas.parentElement.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Coordinate frames for loop circuit
+      const cx = w / 2 - 40;
+      const cy = h / 2 - 10;
+      const loopW = 440;
+      const loopH = 260;
+
+      // Pipe path points (clockwise)
+      const p1 = { x: cx - loopW/2, y: cy - loopH/2 }; // Top-left
+      const p2 = { x: cx + loopW/2, y: cy - loopH/2 }; // Top-right
+      const p3 = { x: cx + loopW/2, y: cy + loopH/2 }; // Bottom-right
+      const p4 = { x: cx - loopW/2, y: cy + loopH/2 }; // Bottom-left
+
+      // Draw Pipe Glow & Outline
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // Hot leg (Top): P1 -> P2
+      ctx.strokeStyle = tempToColor(state.hotLegTemp);
+      ctx.lineWidth = 14 * (state.pipeDiameter / 0.1);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+
+      // Right leg: P2 -> P3
+      ctx.strokeStyle = tempToColor((state.hotLegTemp + state.coldLegTemp) / 2);
+      ctx.beginPath();
+      ctx.moveTo(p2.x, p2.y);
+      ctx.lineTo(p3.x, p3.y);
+      ctx.stroke();
+
+      // Cold leg (Bottom): P3 -> P4
+      ctx.strokeStyle = tempToColor(state.coldLegTemp);
+      ctx.beginPath();
+      ctx.moveTo(p3.x, p3.y);
+      ctx.lineTo(p4.x, p4.y);
+      ctx.stroke();
+
+      // Left leg: P4 -> P1
+      ctx.strokeStyle = tempToColor(state.coldLegTemp);
+      ctx.beginPath();
+      ctx.moveTo(p4.x, p4.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+
+      // Draw Flow Particles
+      function getLoopPos(t) {
+        const perim = 2 * (loopW + loopH);
+        let dist = t * perim;
+        if (dist < loopW) return { x: p1.x + dist, y: p1.y };
+        dist -= loopW;
+        if (dist < loopH) return { x: p2.x, y: p2.y + dist };
+        dist -= loopH;
+        if (dist < loopW) return { x: p3.x - dist, y: p3.y };
+        dist -= loopW;
+        return { x: p4.x, y: p4.y - dist };
+      }
+
+      ctx.fillStyle = "#ffffff";
+      for (let p of state.particles) {
+        const pt = getLoopPos(p.t);
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw Machine Nodes
+      // 1. Multiblock Coolant Pump (Left, P4 -> P1)
+      const pumpPos = { x: p4.x, y: cy };
+      ctx.fillStyle = "#1e293b";
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.fillRect(pumpPos.x - 35, pumpPos.y - 45, 70, 90);
+      ctx.strokeRect(pumpPos.x - 35, pumpPos.y - 45, 70, 90);
+      // Impeller circle
+      ctx.fillStyle = state.throttle > 0 ? "#0284c7" : "#475569";
+      ctx.beginPath();
+      ctx.arc(pumpPos.x, pumpPos.y, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("PUMP", pumpPos.x, pumpPos.y - 28);
+      ctx.fillText(`${(state.throttle * 100).toFixed(0)}%`, pumpPos.x, pumpPos.y + 4);
+
+      // Railcraft Tank Above Pump
+      ctx.fillStyle = "#334155";
+      ctx.strokeStyle = "#64748b";
+      ctx.fillRect(pumpPos.x - 30, pumpPos.y - 95, 60, 42);
+      ctx.strokeRect(pumpPos.x - 30, pumpPos.y - 95, 60, 42);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "9px monospace";
+      ctx.fillText("RC TANK", pumpPos.x, pumpPos.y - 70);
+
+      // 2. Creative Heat Reservoir (Top, P1 -> P2)
+      const resPos = { x: cx - 60, y: p1.y };
+      ctx.fillStyle = "#450a0a";
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 2;
+      ctx.fillRect(resPos.x - 45, resPos.y - 30, 90, 60);
+      ctx.strokeRect(resPos.x - 45, resPos.y - 30, 90, 60);
+      ctx.fillStyle = "#fca5a5";
+      ctx.font = "bold 10px monospace";
+      ctx.fillText("HEAT SOURCE", resPos.x, resPos.y - 8);
+      ctx.fillText(`${state.reservoirTempC.toFixed(0)}°C`, resPos.x, resPos.y + 12);
+
+      // 3. Pressurized Heat Exchanger (Right, P2 -> P3)
+      const phePos = { x: p2.x, y: cy };
+      ctx.fillStyle = "#1e293b";
+      ctx.strokeStyle = "#eab308";
+      ctx.lineWidth = 2;
+      ctx.fillRect(phePos.x - 40, phePos.y - 50, 80, 100);
+      ctx.strokeRect(phePos.x - 40, phePos.y - 50, 80, 100);
+      ctx.fillStyle = "#fef08a";
+      ctx.font = "bold 11px monospace";
+      ctx.fillText("PHE (3x4)", phePos.x, phePos.y - 25);
+      ctx.font = "9px monospace";
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillText("H₂O ➔ Steam", phePos.x, phePos.y + 5);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillText(`${state.steamOutputLs.toFixed(0)} L/s`, phePos.x, phePos.y + 24);
+
+      // 4. Flow Meter & Thermometer Instruments (Bottom, P3 -> P4)
+      const instPos = { x: cx + 50, y: p3.y };
+      ctx.fillStyle = "#14532d";
+      ctx.strokeStyle = "#22c55e";
+      ctx.fillRect(instPos.x - 30, instPos.y - 22, 60, 44);
+      ctx.strokeRect(instPos.x - 30, instPos.y - 22, 60, 44);
+      ctx.fillStyle = "#86efac";
+      ctx.font = "9px monospace";
+      ctx.fillText("SENSORS", instPos.x, instPos.y - 4);
+      ctx.fillText(`${state.velocity.toFixed(1)} m/s`, instPos.x, instPos.y + 10);
+
+      if (state.isRuptured) {
+        // Red flashing rupture indicator
+        ctx.fillStyle = "rgba(239, 68, 68, 0.4)";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 140, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "bold 22px monospace";
+        ctx.fillText("RUPTURED", cx, cy + 8);
+      }
+    }
+
+    function loop() {
+      tick();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // UI Handlers
+    function togglePlay() {
+      state.running = !state.running;
+      document.getElementById("playBtn").textContent = state.running ? "⏸ Pause" : "▶ Play";
+    }
+
+    function stepSim() {
+      state.running = false;
+      document.getElementById("playBtn").textContent = "▶ Play";
+      tick();
+      render();
+    }
+
+    function resetSim() {
+      state.Q = 0.0;
+      state.velocity = 0.0;
+      state.hotLegTemp = 20.0;
+      state.coldLegTemp = 20.0;
+      state.isRuptured = false;
+      document.getElementById("alertBanner").style.display = "none";
+    }
+
+    function updateFluid(val) {
+      state.fluidKey = val;
+      const f = FLUIDS[val];
+      document.getElementById("valDensity").textContent = `${f.density} kg/m³`;
+      document.getElementById("valCp").textContent = `${f.cp} J/kg·K`;
+    }
+
+    function updateThrottle(val) {
+      state.throttle = val / 100.0;
+      document.getElementById("valThrottle").textContent = `${val}%`;
+    }
+
+    function updatePipeSize(val) {
+      state.pipeDiameter = parseFloat(val);
+    }
+
+    function updateMaterial(val) {
+      state.pipeMat = val;
+      const m = MATERIALS[val];
+      document.getElementById("valBurstLimit").textContent = `${m.burstBar.toFixed(1)} bar`;
+      if (!state.isRuptured && (state.pumpHeadPa / 100000.0) <= m.burstBar) {
+        document.getElementById("alertBanner").style.display = "none";
+      }
+    }
+
+    function updateResTemp(val) {
+      state.reservoirTempC = parseFloat(val);
+      document.getElementById("valResTemp").textContent = `${val}°C`;
+    }
+
+    function loadPreset(preset) {
+      resetSim();
+      if (preset === "water_baseline") {
+        document.getElementById("fluidSelect").value = "water";
+        updateFluid("water");
+        document.getElementById("pipeSizeSelect").value = "0.10";
+        updatePipeSize("0.10");
+        document.getElementById("pipeMatSelect").value = "steel";
+        updateMaterial("steel");
+        document.getElementById("pumpThrottle").value = "100";
+        updateThrottle(100);
+        document.getElementById("resTemp").value = "300";
+        updateResTemp(300);
+      } else if (preset === "sodium_fast") {
+        document.getElementById("fluidSelect").value = "sodium";
+        updateFluid("sodium");
+        document.getElementById("pipeSizeSelect").value = "0.15";
+        updatePipeSize("0.15");
+        document.getElementById("pipeMatSelect").value = "tungstensteel";
+        updateMaterial("tungstensteel");
+        document.getElementById("pumpThrottle").value = "100";
+        updateThrottle(100);
+        document.getElementById("resTemp").value = "650";
+        updateResTemp(650);
+      } else if (preset === "manifold_split") {
+        document.getElementById("fluidSelect").value = "distilled_water";
+        updateFluid("distilled_water");
+        document.getElementById("pipeSizeSelect").value = "0.15";
+        updatePipeSize("0.15");
+        document.getElementById("pipeMatSelect").value = "titanium";
+        updateMaterial("titanium");
+        document.getElementById("pumpThrottle").value = "75";
+        updateThrottle(75);
+        document.getElementById("resTemp").value = "400";
+        updateResTemp(400);
+      } else if (preset === "overpressure_burst") {
+        document.getElementById("fluidSelect").value = "water";
+        updateFluid("water");
+        document.getElementById("pipeSizeSelect").value = "0.05"; // Tiny pipe -> huge resistance
+        updatePipeSize("0.05");
+        document.getElementById("pipeMatSelect").value = "bronze"; // 5 bar limit
+        updateMaterial("bronze");
+        document.getElementById("pumpThrottle").value = "100";
+        updateThrottle(100);
+        document.getElementById("resTemp").value = "350";
+        updateResTemp(350);
+      }
+    }
+
+    // Startup
+    resizeCanvas();
+    updateFluid("water");
+    updateMaterial("steel");
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
