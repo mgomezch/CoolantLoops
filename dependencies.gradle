@@ -1,0 +1,19 @@
+configurations {
+    testCompileClasspath.extendsFrom(compileOnly)
+    testRuntimeClasspath.extendsFrom(compileOnly)
+}
+
+dependencies {
+    compileOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.186:dev") { transitive = false }
+    compileOnly("com.github.GTNewHorizons:ModularUI2:2.3.89-1.7.10:dev") { transitive = false }
+    compileOnly("com.github.GTNewHorizons:StructureLib:1.4.43:dev") { transitive = false }
+    compileOnly("com.github.GTNewHorizons:Railcraft:9.17.31:dev") { transitive = false }
+    compileOnly("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev") { transitive = false }
+    compileOnly("com.github.GTNewHorizons:NotEnoughItems:2.8.139-GTNH:dev")
+    implementation("com.github.GTNewHorizons:GTNHLib:0.11.48:dev")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockito:mockito-core:5.+")
+    testImplementation("it.unimi.dsi:fastutil:8.5.18")
+}
