@@ -25,6 +25,7 @@ public class CoolantLoops {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         LOG.info("Pre-initializing Coolant Loops thermodynamic engine...");
+        com.gtnewhorizons.coolantloops.common.block.ModBlocks.init();
     }
 
     @Mod.EventHandler
