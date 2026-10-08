@@ -278,7 +278,15 @@ public class CoolantPumpStructureTest {
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
         assertTrue(pump.getLoopStatus().contains("below declared GregTech melting point"));
 
-        // 2. Circulating molten coolant below melting point causes catastrophic explosion / rupture!
+        // 2. In a hot biome (e.g. Nether at ~55 °C > 46.85 °C), pump is allowed to start/circulate
+        pump.setSimulatedBiomeTemperatureCelsius(55.0);
+        coldSeg.setCurrentTemperatureCelsius(55.0);
+        assertTrue(pump.stepCoolantLoop());
+        // Temperature check passes! Pump advances all the way to circulation power check
+        assertFalse(pump.getLoopStatus().contains("below declared GregTech melting point"));
+        assertEquals("Pump unpowered (No EU in Energy Hatch)", pump.getLoopStatus());
+
+        // 3. Circulating molten coolant below melting point causes catastrophic explosion / rupture!
         com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine engine = new com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine(
             com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
         com.gtnewhorizons.coolantloops.engine.LoopSegment frozenSeg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(

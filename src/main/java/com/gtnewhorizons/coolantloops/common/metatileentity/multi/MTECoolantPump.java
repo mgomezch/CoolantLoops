@@ -543,11 +543,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         if (isMoltenFluid(availableFluid.getFluid(), availableFluid, prop)) {
             double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
-            double fluidTemp = getFluidStackTemperatureCelsius(availableFluid);
-            if (fluidTemp < declaredMelting) {
+            double biomeTemp = getBiomeTemperatureCelsius();
+            if (biomeTemp < declaredMelting) {
                 mLoopStatus = String.format(
-                    "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
-                    fluidTemp,
+                    "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                    biomeTemp,
                     declaredMelting,
                     prop.getFluidName());
                 return false;
@@ -658,25 +658,36 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return tempK - 273.15;
     }
 
+    protected double mSimulatedBiomeTempCelsius = 20.0;
+
+    public void setSimulatedBiomeTemperatureCelsius(double temp) {
+        this.mSimulatedBiomeTempCelsius = temp;
+    }
+
+    public double getBiomeTemperatureCelsius() {
+        IGregTechTileEntity te = getBaseMetaTileEntity();
+        if (te != null && te.getWorld() != null) {
+            int x = te.getXCoord();
+            int y = te.getYCoord();
+            int z = te.getZCoord();
+            net.minecraft.world.biome.BiomeGenBase biome = te.getBiome(x, z);
+            if (biome != null) {
+                float fTemp = biome.getFloatTemperature(x, y, z);
+                // Standard Minecraft biome float temperature to Celsius:
+                // 0.15F is freezing (0°C), 0.8F is temperate/plains (20°C), 2.0F is desert/nether (56.9°C)
+                return (fTemp - 0.15) * (20.0 / 0.65);
+            }
+        }
+        return mSimulatedBiomeTempCelsius;
+    }
+
     public double getCoolantTemperatureCelsius() {
-        double minTemp = Double.MAX_VALUE;
-        boolean hasData = false;
         if (mEngine != null && mEngine.getSegments() != null && !mEngine.getSegments().isEmpty()) {
-            minTemp = Math.min(minTemp, mEngine.getMinLoopTempCelsius());
-            hasData = true;
+            if (mLoopState == LoopState.CIRCULATING || mEngine.getVolumetricFlowRate() > 1e-5) {
+                return mEngine.getMinLoopTempCelsius();
+            }
         }
-        FluidStack res = getReservoirFluid();
-        if (res != null && res.getFluid() != null) {
-            minTemp = Math.min(minTemp, getFluidStackTemperatureCelsius(res));
-            hasData = true;
-        }
-        if (hasData) {
-            return minTemp;
-        }
-        if (mEngine != null && mEngine.getFluid() != null) {
-            return mEngine.getFluid().getDeclaredTemperatureCelsius();
-        }
-        return 20.0;
+        return getBiomeTemperatureCelsius();
     }
 
     public FluidStack getReservoirFluid() {
@@ -928,15 +939,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 }
             } else {
                 // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or accelerate!
-                double coolantTemp = getCoolantTemperatureCelsius();
-                if (coolantTemp < declaredMelting) {
+                double biomeTemp = getBiomeTemperatureCelsius();
+                if (biomeTemp < declaredMelting) {
                     mLoopState = LoopState.STOPPED;
                     mEngine.setPumpPowered(false);
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
                     mLoopStatus = String.format(
-                        "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
-                        coolantTemp,
+                        "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                        biomeTemp,
                         declaredMelting,
                         currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     mEngine.step(0.05);
@@ -1070,12 +1081,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
             if (drained > 0) {
                 mCurrentFillLiters += drained;
-                if (isMolten && reservoirFluid != null) {
-                    double resTemp = getFluidStackTemperatureCelsius(reservoirFluid);
-                    for (LoopSegment seg : mEngine.getSegments()) {
-                        if (seg.getCurrentTemperatureCelsius() < resTemp) {
-                            seg.setCurrentTemperatureCelsius(resTemp);
-                        }
+                double biomeTemp = getBiomeTemperatureCelsius();
+                for (LoopSegment seg : mEngine.getSegments()) {
+                    if (seg.getCurrentTemperatureCelsius() < biomeTemp) {
+                        seg.setCurrentTemperatureCelsius(biomeTemp);
                     }
                 }
                 if (mCurrentFillLiters >= mRequiredFillLiters) {
@@ -1131,14 +1140,23 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         triggerCatastrophicExplosion(mEngine.getFailureReason());
                         return false;
                     } else {
+                        double biomeTemp = getBiomeTemperatureCelsius();
                         mLoopState = LoopState.STOPPED;
                         mEngine.setPumpPowered(false);
                         mEngine.setPumpMechanicalPowerWatts(0.0);
-                        mLoopStatus = String.format(
-                            "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
-                            minLoopTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                        if (biomeTemp < declaredMelting) {
+                            mLoopStatus = String.format(
+                                "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                                biomeTemp,
+                                declaredMelting,
+                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                        } else {
+                            mLoopStatus = String.format(
+                                "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
+                                minLoopTemp,
+                                declaredMelting,
+                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                        }
                         return true;
                     }
                 }
