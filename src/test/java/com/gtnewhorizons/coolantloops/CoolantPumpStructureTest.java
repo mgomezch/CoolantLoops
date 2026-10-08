@@ -192,4 +192,32 @@ public class CoolantPumpStructureTest {
         final int tankInteriorOffset = pumpBaseHeight + 1;
         assertEquals(3, tankInteriorOffset, "Railcraft tank hollow air interior begins at y + 3");
     }
+
+    @Test
+    public void testEnergyHatchesAndRotorImpellerValidation() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump");
+
+        // Rotor validation tests
+        assertFalse(MTECoolantPump.isValidRotor(null));
+        assertFalse(pump.isCorrectMachinePart(null));
+        assertEquals(10000, pump.getMaxEfficiency(null));
+
+        // Energy hatch capacity tests
+        pump.mEnergyHatches.clear();
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch1 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch2 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch3 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+
+        // 1 hatch: valid
+        pump.mEnergyHatches.add(hatch1);
+        assertEquals(1, pump.mEnergyHatches.size());
+
+        // 2 hatches: valid
+        pump.mEnergyHatches.add(hatch2);
+        assertEquals(2, pump.mEnergyHatches.size());
+
+        // 3 hatches: invalid (> 2)
+        pump.mEnergyHatches.add(hatch3);
+        assertEquals(3, pump.mEnergyHatches.size());
+    }
 }

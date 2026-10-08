@@ -52,6 +52,7 @@ import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.items.MetaGeneratedTool;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
@@ -59,6 +60,7 @@ import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.TurbineStatCalculator;
 import gregtech.common.blocks.BlockFrameBox;
 import mods.railcraft.common.blocks.machine.MultiBlockPattern;
 import mods.railcraft.common.blocks.machine.TileMultiBlock;
@@ -325,8 +327,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 return false;
             }
 
-            if (mEnergyHatches.isEmpty()) {
-                mLoopStatus = "Requires at least 1 Energy Hatch";
+            if (mEnergyHatches.isEmpty() || mEnergyHatches.size() > 2) {
+                mLoopStatus = "Requires 1 or 2 Energy Hatches";
                 return false;
             }
 
@@ -713,12 +715,28 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true; // Pauses/stops cleanly without explosion!
         }
 
+        // Require valid turbine rotor impeller in controller slot
+        if (!updateRotorEfficiency()) {
+            mLoopState = LoopState.STOPPED;
+            mEngine.setPumpPowered(false);
+            mEngine.setPumpMechanicalPowerWatts(0.0);
+            mEngine.setBraking(false);
+            mLoopStatus = "Missing turbine rotor impeller in controller slot!";
+            mEngine.step(0.05); // Fluid inertia coast-down
+            return true;
+        }
+
         // Check if high-pressure output hatch is disabled by machine controller cover
         boolean dischargeDisabled = isDischargeHatchDisabled();
         if (dischargeDisabled) {
             checkMaintenance();
             double effFactor = getEfficiencyFactor();
-            long availableEU = getMaxInputVoltage() * getMaxInputAmps();
+            long availableEU = 0;
+            if (mEnergyHatches != null && !mEnergyHatches.isEmpty()) {
+                long voltage = getMaxInputVoltage();
+                long amps = mEnergyHatches.size() >= 2 ? 4 : 2;
+                availableEU = voltage * amps;
+            }
             if (availableEU == 0) availableEU = 512;
             boolean powered = drainEnergy(availableEU);
             double mechanicalWatts = powered ? (availableEU * 80.0 * mRotorEfficiency * effFactor) : 0.0;
@@ -848,7 +866,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         // Active Circulation Phase
         checkMaintenance();
         double effFactor = getEfficiencyFactor();
-        long availableEU = getMaxInputVoltage() * getMaxInputAmps();
+        long availableEU = 0;
+        if (mEnergyHatches != null && !mEnergyHatches.isEmpty()) {
+            long voltage = getMaxInputVoltage();
+            long amps = mEnergyHatches.size() >= 2 ? 4 : 2;
+            availableEU = voltage * amps;
+        }
         if (availableEU == 0) availableEU = 512;
         boolean hasPower = drainEnergy(availableEU);
         if (hasPower) {
@@ -923,12 +946,84 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
     }
 
+    public static boolean isValidRotor(ItemStack aStack) {
+        if (aStack == null) return false;
+        if (aStack.getItem() instanceof MetaGeneratedTool) {
+            int damage = aStack.getItemDamage();
+            return damage >= 170 && damage <= 179;
+        }
+        return false;
+    }
+
+    public ItemStack getRotor() {
+        ItemStack controller = getControllerSlot();
+        if (isValidRotor(controller)) {
+            return controller;
+        }
+        if (mRotorStack != null && isValidRotor(mRotorStack)) {
+            return mRotorStack;
+        }
+        return null;
+    }
+
+    public boolean updateRotorEfficiency() {
+        ItemStack rotor = getRotor();
+        if (rotor != null && rotor.getItem() instanceof MetaGeneratedTool) {
+            TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
+            mRotorEfficiency = calc.getBaseEfficiency();
+            mRotorStack = rotor;
+            return true;
+        }
+        // Headless mock or test environment fallback
+        if (getBaseMetaTileEntity() == null || getBaseMetaTileEntity().getWorld() == null) {
+            return true;
+        }
+        mRotorStack = null;
+        return false;
+    }
+
+    public void setRotorStack(ItemStack stack) {
+        this.mRotorStack = stack;
+        if (stack != null && stack.getItem() instanceof MetaGeneratedTool) {
+            TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) stack.getItem(), stack);
+            this.mRotorEfficiency = calc.getBaseEfficiency();
+        }
+    }
+
+    public ItemStack getRotorStack() {
+        return getRotor();
+    }
+
+    public double getRotorEfficiency() {
+        return mRotorEfficiency;
+    }
+
+    @Override
+    public boolean isCorrectMachinePart(ItemStack aStack) {
+        return isValidRotor(aStack);
+    }
+
+    @Override
+    public int getDamageToComponent(ItemStack aStack) {
+        return 1;
+    }
+
+    @Override
+    public int getMaxEfficiency(ItemStack aStack) {
+        if (aStack == null) return 10000;
+        if (isValidRotor(aStack)) return 10000;
+        return 0;
+    }
+
     protected void degradeRotor(long euPerTick) {
-        if (mRotorStack != null && mRotorStack.getItemDamage() < mRotorStack.getMaxDamage()) {
-            // Degrade 1 durability every 1000 EU/t hours
-            if (getBaseMetaTileEntity().getTimer() % 100 == 0) {
-                mRotorStack.setItemDamage(mRotorStack.getItemDamage() + 1);
-                if (mRotorStack.getItemDamage() >= mRotorStack.getMaxDamage()) {
+        ItemStack rotor = getRotor();
+        if (rotor != null && rotor.getItemDamage() < rotor.getMaxDamage()) {
+            if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getTimer() % 100 == 0) {
+                rotor.setItemDamage(rotor.getItemDamage() + 1);
+                if (rotor.getItemDamage() >= rotor.getMaxDamage()) {
+                    if (getControllerSlot() == rotor) {
+                        setInventorySlotContents(getControllerSlotIndex(), null);
+                    }
                     mRotorStack = null; // Rotor broken!
                 }
             }
@@ -1982,6 +2077,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc1"))
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc2"))
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc3"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc4"))
+            .addPerfectOCInfo()
             .addSeparator()
             .beginStructureBlock(3, 2, 3, false)
             .addController(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.controller"))
