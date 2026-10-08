@@ -88,7 +88,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public MTEHatchPressurizedFluid mSuctionHatch = null;
 
     // Simulation Engine
-    protected CoolantLoopEngine mEngine = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+    protected CoolantLoopEngine mEngine = new CoolantLoopEngine(CoolantFluidProperty.DISTILLED_WATER);
     protected List<ICoolantLoopDevice> mLoopDevices = new ArrayList<>();
     protected boolean mLoopFormed = false;
     protected String mLoopStatus = "Waiting for loop formation...";
@@ -517,50 +517,109 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
 
         // 2. Validate tank contains coolant fluid initially
-        FluidStack availableFluid = null;
-        if (masterBlock instanceof TileTankBase) {
-            TileTankBase tankBase = (TileTankBase) masterBlock;
-            StandardTank stdTank = tankBase.getTank();
-            if (stdTank != null) {
-                availableFluid = stdTank.getFluid();
-            }
-        } else if (masterBlock instanceof IFluidHandler) {
-            availableFluid = ((IFluidHandler) masterBlock).drain(ForgeDirection.DOWN, 1, false);
-        }
-
-        if (availableFluid == null || availableFluid.amount <= 0) {
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    TileEntity te = world.getTileEntity(bx, y, bz);
-                    if (te instanceof IFluidHandler) {
-                        FluidStack drained = ((IFluidHandler) te).drain(ForgeDirection.DOWN, 1, false);
-                        if (drained != null && drained.amount > 0) {
-                            availableFluid = drained;
-                            break;
-                        }
-                    }
-                }
-                if (availableFluid != null && availableFluid.amount > 0) break;
-            }
-        }
-
+        FluidStack availableFluid = getReservoirFluid();
         if (availableFluid == null || availableFluid.amount <= 0 || availableFluid.getFluid() == null) {
             mLoopStatus = "Railcraft tank is empty! Coolant fluid required before pump can operate.";
+            return false;
+        }
+
+        if (isPlainRegularWater(availableFluid)) {
+            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
+            return false;
+        }
+
+        if (isGaseousFluid(availableFluid)) {
+            mLoopStatus = "Pump refused to start: Gaseous fluid (" + availableFluid.getFluid().getName() + ") cannot be used as a coolant!";
             return false;
         }
 
         CoolantFluidProperty prop = CoolantFluidProperty.get(
             availableFluid.getFluid()
                 .getName());
-        if (prop == null) {
-            mLoopStatus = "Unrecognized coolant fluid in tank: " + availableFluid.getFluid()
-                .getName();
+        if (prop == null || prop.isPlainWater()) {
+            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
             return false;
         }
         mEngine.setFluid(prop);
         return true;
+    }
+
+    public static boolean isPlainRegularWater(net.minecraftforge.fluids.Fluid fluid) {
+        if (fluid == null) return false;
+        String name = fluid.getName().trim().toLowerCase();
+        if (name.contains("distill") || name.contains("heavy")) {
+            return false;
+        }
+        if (fluid == FluidRegistry.WATER) {
+            return true;
+        }
+        return name.equals("water") || name.equals("minecraft:water") || name.equals("fluid.water");
+    }
+
+    public static boolean isPlainRegularWater(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return false;
+        return isPlainRegularWater(stack.getFluid());
+    }
+
+    public static boolean isGaseousFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack) {
+        if (fluid == null) return false;
+        if (fluid.isGaseous() || (stack != null && fluid.isGaseous(stack))) {
+            return true;
+        }
+        String name = fluid.getName().trim().toLowerCase();
+        if (name.startsWith("gas_") || name.endsWith("_gas") || name.endsWith(".gas")) {
+            return true;
+        }
+        try {
+            Materials mat = Materials.FLUID_MAP.get(fluid);
+            if (mat != null && mat.mGas != null && mat.mGas == fluid) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    public static boolean isGaseousFluid(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return false;
+        return isGaseousFluid(stack.getFluid(), stack);
+    }
+
+    public FluidStack getReservoirFluid() {
+        IGregTechTileEntity te = getBaseMetaTileEntity();
+        if (te != null && te.getWorld() != null) {
+            World world = te.getWorld();
+            ForgeDirection front = te.getFrontFacing();
+            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
+                : ForgeDirection.SOUTH;
+            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
+                ? front.getRotation(ForgeDirection.UP)
+                : ForgeDirection.WEST;
+            int x0 = te.getXCoord();
+            int y0 = te.getYCoord();
+            int z0 = te.getZCoord();
+            int y = y0 + 2;
+            int R = mWidth / 2;
+
+            for (int localX = -R; localX <= R; localX++) {
+                for (int localZ = 0; localZ < mWidth; localZ++) {
+                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
+                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
+                    TileEntity tile = world.getTileEntity(bx, y, bz);
+                    if (tile instanceof TileTankBase) {
+                        TileTankBase master = (TileTankBase) ((TileTankBase) tile).getMasterBlock();
+                        if (master != null && master.getTank() != null && master.getTank().getFluid() != null) {
+                            return master.getTank().getFluid();
+                        }
+                    } else if (tile instanceof IFluidHandler) {
+                        FluidStack drained = ((IFluidHandler) tile).drain(ForgeDirection.DOWN, 1, false);
+                        if (drained != null && drained.amount > 0 && drained.getFluid() != null) {
+                            return drained;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -713,6 +772,37 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             }
             mEngine.step(0.05); // Fluid inertia coast-down
             return true; // Pauses/stops cleanly without explosion!
+        }
+
+        // Validate fluid in reservoir / loop: plain regular water and gases refuse to start pump
+        FluidStack reservoirFluid = getReservoirFluid();
+        if (reservoirFluid != null && reservoirFluid.getFluid() != null) {
+            if (isPlainRegularWater(reservoirFluid)) {
+                mLoopState = LoopState.STOPPED;
+                mEngine.setPumpPowered(false);
+                mEngine.setPumpMechanicalPowerWatts(0.0);
+                mEngine.setBraking(false);
+                mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
+                mEngine.step(0.05);
+                return true;
+            }
+            if (isGaseousFluid(reservoirFluid)) {
+                mLoopState = LoopState.STOPPED;
+                mEngine.setPumpPowered(false);
+                mEngine.setPumpMechanicalPowerWatts(0.0);
+                mEngine.setBraking(false);
+                mLoopStatus = "Pump refused to start: Gaseous fluid (" + reservoirFluid.getFluid().getName() + ") cannot be used as a coolant!";
+                mEngine.step(0.05);
+                return true;
+            }
+        } else if (mEngine.getFluid() != null && mEngine.getFluid().isPlainWater()) {
+            mLoopState = LoopState.STOPPED;
+            mEngine.setPumpPowered(false);
+            mEngine.setPumpMechanicalPowerWatts(0.0);
+            mEngine.setBraking(false);
+            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
+            mEngine.step(0.05);
+            return true;
         }
 
         // Require valid turbine rotor impeller in controller slot
@@ -1038,6 +1128,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return mLoopFormed;
     }
 
+    public void setLoopFormed(boolean formed) {
+        this.mLoopFormed = formed;
+    }
+
     public String getLoopStatus() {
         return mLoopStatus;
     }
@@ -1172,7 +1266,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                                 }
                                 int toFill = Math.min(liters, space);
                                 String fluidName = mEngine.getFluid() != null ? mEngine.getFluid()
-                                    .getFluidName() : "water";
+                                    .getFluidName() : "ic2distilledwater";
                                 net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
                                 if (f != null) {
                                     FluidStack stack = new FluidStack(f, toFill);
@@ -1183,7 +1277,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         }
                         if (tile instanceof IFluidHandler) {
                             String fluidName = mEngine.getFluid() != null ? mEngine.getFluid()
-                                .getFluidName() : "water";
+                                .getFluidName() : "ic2distilledwater";
                             net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
                             if (f != null) {
                                 FluidStack stack = new FluidStack(f, liters);
@@ -1370,7 +1464,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     @Override
     public CoolantFluidProperty getCoolantFluidProperty() {
-        return mEngine != null ? mEngine.getFluid() : CoolantFluidProperty.WATER;
+        return mEngine != null ? mEngine.getFluid() : CoolantFluidProperty.DISTILLED_WATER;
     }
 
     @Override

@@ -220,4 +220,37 @@ public class CoolantPumpStructureTest {
         pump.mEnergyHatches.add(hatch3);
         assertEquals(3, pump.mEnergyHatches.size());
     }
+
+    @Test
+    public void testPlainWaterAndGaseousFluidRefusal() {
+        net.minecraftforge.fluids.Fluid water = new net.minecraftforge.fluids.Fluid("water");
+        net.minecraftforge.fluids.Fluid distilled = new net.minecraftforge.fluids.Fluid("ic2distilledwater");
+        net.minecraftforge.fluids.Fluid heavy = new net.minecraftforge.fluids.Fluid("heavywater");
+        net.minecraftforge.fluids.Fluid cheese = new net.minecraftforge.fluids.Fluid("molten.cheese");
+
+        assertTrue(MTECoolantPump.isPlainRegularWater(water));
+        assertFalse(MTECoolantPump.isPlainRegularWater(distilled));
+        assertFalse(MTECoolantPump.isPlainRegularWater(heavy));
+        assertFalse(MTECoolantPump.isPlainRegularWater(cheese));
+
+        net.minecraftforge.fluids.Fluid gasFluid = new net.minecraftforge.fluids.Fluid("methane").setGaseous(true);
+        net.minecraftforge.fluids.Fluid namedGas = new net.minecraftforge.fluids.Fluid("gas_nitrogen");
+        assertTrue(MTECoolantPump.isGaseousFluid(gasFluid, null));
+        assertTrue(MTECoolantPump.isGaseousFluid(namedGas, null));
+        assertFalse(MTECoolantPump.isGaseousFluid(distilled, null));
+        assertFalse(MTECoolantPump.isGaseousFluid(cheese, null));
+
+        // Pump simulation step refusal on regular water
+        MTECoolantPump pump = new MTECoolantPump("test_pump_water");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito.mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork()).thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide()).thenReturn(true);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+        pump.getEngine().addSegment(new com.gtnewhorizons.coolantloops.engine.LoopSegment("test_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 20.0));
+        pump.getEngine().setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.WATER);
+        assertTrue(pump.stepCoolantLoop());
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+        assertTrue(pump.getLoopStatus().contains("Plain regular water cannot be used in a coolant loop"));
+    }
 }

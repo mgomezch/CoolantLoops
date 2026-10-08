@@ -62,7 +62,7 @@ public class PressurizedDegasserTest {
 
         @Override
         public CoolantFluidProperty getCoolantFluidProperty() {
-            return CoolantFluidProperty.WATER;
+            return CoolantFluidProperty.DISTILLED_WATER;
         }
 
         @Override

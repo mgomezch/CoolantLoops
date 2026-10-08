@@ -53,7 +53,7 @@ public class CoolantLoopEngine {
     }
 
     public CoolantLoopEngine(CoolantFluidProperty fluid) {
-        this.fluid = fluid != null ? fluid : CoolantFluidProperty.WATER;
+        this.fluid = fluid != null ? fluid : CoolantFluidProperty.DISTILLED_WATER;
     }
 
     public void addSegment(LoopSegment segment) {

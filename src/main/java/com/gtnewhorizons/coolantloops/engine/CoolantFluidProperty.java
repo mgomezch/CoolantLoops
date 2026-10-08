@@ -40,13 +40,25 @@ public class CoolantFluidProperty {
 
     public static CoolantFluidProperty get(String name) {
         if (name == null) {
-            return WATER;
+            return null;
         }
         String clean = name.trim().toLowerCase();
         if (clean.contains("cheese")) {
             return MOLTEN_CHEESE;
         }
-        return REGISTRY.getOrDefault(clean, WATER);
+        if (clean.contains("distill")) {
+            return DISTILLED_WATER;
+        }
+        if (clean.contains("heavy")) {
+            return HEAVY_WATER;
+        }
+        if (clean.contains("sodium")) {
+            return SODIUM;
+        }
+        if (clean.contains("ic2coolant") || clean.contains("coolant")) {
+            return IC2_COOLANT;
+        }
+        return REGISTRY.get(clean);
     }
 
     public static Map<String, CoolantFluidProperty> getRegistry() {
@@ -117,6 +129,16 @@ public class CoolantFluidProperty {
         register(MOLTEN_CHEESE);
         REGISTRY.put("cheese", MOLTEN_CHEESE);
         REGISTRY.put("moltencheese", MOLTEN_CHEESE);
+        REGISTRY.put("distilledwater", DISTILLED_WATER);
+        REGISTRY.put("distilled_water", DISTILLED_WATER);
+        REGISTRY.put("water.distilled", DISTILLED_WATER);
+        REGISTRY.put("heavywater", HEAVY_WATER);
+        REGISTRY.put("heavy_water", HEAVY_WATER);
+        REGISTRY.put("water.heavy", HEAVY_WATER);
+    }
+
+    public boolean isPlainWater() {
+        return this == WATER || "water".equalsIgnoreCase(this.fluidName);
     }
 
     public String getFluidName() {

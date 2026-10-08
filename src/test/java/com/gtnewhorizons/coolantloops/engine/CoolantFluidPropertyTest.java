@@ -61,9 +61,18 @@ class CoolantFluidPropertyTest {
     }
 
     @Test
-    void testUnknownFluidDefaultsToWater() {
-        CoolantFluidProperty unknown = CoolantFluidProperty.get("non_existent_fluid_xyz");
-        assertNotNull(unknown);
-        assertEquals("water", unknown.getFluidName());
+    void testUnknownFluidReturnsNull() {
+        assertNull(CoolantFluidProperty.get("non_existent_fluid_xyz"));
+        assertNull(CoolantFluidProperty.get(null));
+    }
+
+    @Test
+    void testIsPlainWater() {
+        assertTrue(CoolantFluidProperty.WATER.isPlainWater());
+        assertFalse(CoolantFluidProperty.DISTILLED_WATER.isPlainWater());
+        assertFalse(CoolantFluidProperty.HEAVY_WATER.isPlainWater());
+        assertFalse(CoolantFluidProperty.MOLTEN_CHEESE.isPlainWater());
+        assertFalse(CoolantFluidProperty.IC2_COOLANT.isPlainWater());
+        assertFalse(CoolantFluidProperty.SODIUM.isPlainWater());
     }
 }
