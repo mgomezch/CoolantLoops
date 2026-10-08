@@ -100,7 +100,8 @@ public class BlockManifold extends BlockContainer {
     }
 
     @Override
-    public void addCollisionBoxesToList(World world, int x, int y, int z, AxisAlignedBB mask, List list, Entity entity) {
+    public void addCollisionBoxesToList(World world, int x, int y, int z, AxisAlignedBB mask, List list,
+        Entity entity) {
         TileEntity te = world.getTileEntity(x, y, z);
         if (te instanceof TileEntityManifold manifold) {
             List<AxisAlignedBB> boxes = manifold.getComponentBoundingBoxes(x, y, z);
@@ -132,8 +133,12 @@ public class BlockManifold extends BlockContainer {
         if (te instanceof TileEntityManifold manifold) {
             AxisAlignedBB union = manifold.getUnionBoundingBox();
             setBlockBounds(
-                (float) union.minX, (float) union.minY, (float) union.minZ,
-                (float) union.maxX, (float) union.maxY, (float) union.maxZ);
+                (float) union.minX,
+                (float) union.minY,
+                (float) union.minZ,
+                (float) union.maxX,
+                (float) union.maxY,
+                (float) union.maxZ);
         } else {
             setBlockBounds(0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F);
         }
@@ -161,20 +166,25 @@ public class BlockManifold extends BlockContainer {
                     manifold.setFacing(newFacing);
                     world.markBlockForUpdate(x, y, z);
                     world.notifyBlocksOfNeighborChange(x, y, z, this);
-                    player.addChatMessage(new ChatComponentText(String.format(
-                        "Manifold: Plane oriented to %s (Normal: %s)",
-                        manifold.getPlaneName(),
-                        manifold.getFacing().name())));
+                    player.addChatMessage(
+                        new ChatComponentText(
+                            String.format(
+                                "Manifold: Plane oriented to %s (Normal: %s)",
+                                manifold.getPlaneName(),
+                                manifold.getFacing()
+                                    .name())));
                 } else {
                     // Regular rightclick with wrench: Toggle connection on wrenching side
                     ForgeDirection wrenchingSide = GTUtility.determineWrenchingSide(clickedSide, hitX, hitY, hitZ);
                     boolean connected = manifold.toggleConnectionWithNeighbor(wrenchingSide);
                     world.markBlockForUpdate(x, y, z);
                     world.notifyBlocksOfNeighborChange(x, y, z, this);
-                    player.addChatMessage(new ChatComponentText(String.format(
-                        "Manifold: %s connection %s",
-                        wrenchingSide.name(),
-                        connected ? "CONNECTED" : "DISCONNECTED")));
+                    player.addChatMessage(
+                        new ChatComponentText(
+                            String.format(
+                                "Manifold: %s connection %s",
+                                wrenchingSide.name(),
+                                connected ? "CONNECTED" : "DISCONNECTED")));
                 }
                 GTModHandler.damageOrDechargeItem(held, 1, 1000, player);
                 GTUtility.sendSoundToPlayers(world, SoundResource.GTCEU_OP_WRENCH, 1.0F, 1.0F, x, y, z);
@@ -183,14 +193,18 @@ public class BlockManifold extends BlockContainer {
         }
 
         if (!world.isRemote) {
-            int groupSize = manifold.findLinearGroup().size();
-            player.addChatMessage(new ChatComponentText(String.format(
-                "Manifold: Plane = %s, Normal = %s, Inline Group Size = %d/8 blocks, Flow = %.2f L/s, Temp = %.1f \u00B0C",
-                manifold.getPlaneName(),
-                manifold.getFacing().name(),
-                groupSize,
-                manifold.getTotalInputFlowRate() * 1000.0,
-                manifold.getDeviceTemperatureCelsius())));
+            int groupSize = manifold.findLinearGroup()
+                .size();
+            player.addChatMessage(
+                new ChatComponentText(
+                    String.format(
+                        "Manifold: Plane = %s, Normal = %s, Inline Group Size = %d/8 blocks, Flow = %.2f L/s, Temp = %.1f \u00B0C",
+                        manifold.getPlaneName(),
+                        manifold.getFacing()
+                            .name(),
+                        groupSize,
+                        manifold.getTotalInputFlowRate() * 1000.0,
+                        manifold.getDeviceTemperatureCelsius())));
         }
         return true;
     }

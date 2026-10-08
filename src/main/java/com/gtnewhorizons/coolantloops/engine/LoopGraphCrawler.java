@@ -254,6 +254,7 @@ public class LoopGraphCrawler {
     }
 
     public static class FlowNode {
+
         public final String id;
         public final NodeType type;
         public final Object data;
@@ -266,6 +267,7 @@ public class LoopGraphCrawler {
     }
 
     public static class ManifoldGroup {
+
         public final Set<BlockPosCoord> blockCoords = new LinkedHashSet<>();
         public final List<TileEntityManifold> tiles = new ArrayList<>();
         public ForgeDirection inputSide = ForgeDirection.UNKNOWN;
@@ -287,14 +289,15 @@ public class LoopGraphCrawler {
     }
 
     public static class FrontierStep {
+
         public final String fromNodeId;
         public final int x, y, z;
         public final ForgeDirection entrySide;
         public final Float segmentThickness;
         public final Integer segmentPipeAmount;
 
-        public FrontierStep(String fromNodeId, int x, int y, int z, ForgeDirection entrySide,
-            Float segmentThickness, Integer segmentPipeAmount) {
+        public FrontierStep(String fromNodeId, int x, int y, int z, ForgeDirection entrySide, Float segmentThickness,
+            Integer segmentPipeAmount) {
             this.fromNodeId = fromNodeId;
             this.x = x;
             this.y = y;
@@ -470,8 +473,8 @@ public class LoopGraphCrawler {
 
             TileEntity te = world.getTileEntity(step.x, step.y, step.z);
             if (te == null) {
-                return CrawlResult.fail(
-                    String.format("Loop broken: no tile entity at (%d, %d, %d)", step.x, step.y, step.z));
+                return CrawlResult
+                    .fail(String.format("Loop broken: no tile entity at (%d, %d, %d)", step.x, step.y, step.z));
             }
 
             // 1. Manifold Group Structure Handling
@@ -480,21 +483,31 @@ public class LoopGraphCrawler {
 
                 // Entry side check: must enter perpendicularly to the manifold plane (along normal axis)
                 if (!mf.isNormalDirection(step.entrySide)) {
-                    return CrawlResult.fail(String.format(
-                        "Invalid manifold connection: branch entered manifold at (%d, %d, %d) from side %s which is parallel to its plane (normal axis %s). Manifolds can only be entered and exited perpendicularly to their plane.",
-                        step.x, step.y, step.z, step.entrySide, mf.getNormalAxisName()));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Invalid manifold connection: branch entered manifold at (%d, %d, %d) from side %s which is parallel to its plane (normal axis %s). Manifolds can only be entered and exited perpendicularly to their plane.",
+                            step.x,
+                            step.y,
+                            step.z,
+                            step.entrySide,
+                            mf.getNormalAxisName()));
                 }
                 if (!mf.isConnected(step.entrySide)) {
-                    return CrawlResult.fail(String.format(
-                        "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
-                        step.x, step.y, step.z, step.entrySide));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
+                            step.x,
+                            step.y,
+                            step.z,
+                            step.entrySide));
                 }
 
                 BlockPosCoord mfCoord = new BlockPosCoord(step.x, step.y, step.z);
                 ManifoldGroup mg = coordToManifoldGroup.get(mfCoord);
 
                 if (mg == null) {
-                    // Discover all contiguous adjacent in-plane manifold blocks with matching plane orientation and mutual connection
+                    // Discover all contiguous adjacent in-plane manifold blocks with matching plane orientation and
+                    // mutual connection
                     Set<BlockPosCoord> groupCoords = new LinkedHashSet<>();
                     List<TileEntityManifold> groupTiles = new ArrayList<>();
                     Queue<BlockPosCoord> mfQueue = new ArrayDeque<>();
@@ -535,9 +548,13 @@ public class LoopGraphCrawler {
                     for (TileEntityManifold tile : groupTiles) {
                         String otherPump = tile.getActivePumpId();
                         if (otherPump != null && !otherPump.equals(pumpId) && isPumpActive(world, otherPump)) {
-                            return CrawlResult.fail(String.format(
-                                "Manifold at (%d, %d, %d) is already part of another active coolant loop (%s)!",
-                                tile.xCoord, tile.yCoord, tile.zCoord, otherPump));
+                            return CrawlResult.fail(
+                                String.format(
+                                    "Manifold at (%d, %d, %d) is already part of another active coolant loop (%s)!",
+                                    tile.xCoord,
+                                    tile.yCoord,
+                                    tile.zCoord,
+                                    otherPump));
                         }
                     }
 
@@ -554,7 +571,8 @@ public class LoopGraphCrawler {
                     // Validate external connections across every block in the manifold group
                     for (BlockPosCoord mPos : groupCoords) {
                         TileEntity mteRaw = world.getTileEntity(mPos.x, mPos.y, mPos.z);
-                        TileEntityManifold mTile = (mteRaw instanceof TileEntityManifold) ? (TileEntityManifold) mteRaw : null;
+                        TileEntityManifold mTile = (mteRaw instanceof TileEntityManifold) ? (TileEntityManifold) mteRaw
+                            : null;
 
                         for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
                             int nx = mPos.x + dir.offsetX;
@@ -571,17 +589,34 @@ public class LoopGraphCrawler {
                             }
 
                             boolean isConnected = isExternalBlockConnectedTo(
-                                world, nx, ny, nz, dir.getOpposite(), targetX, targetY, targetZ, targetSuctionSide,
-                                startX, startY, startZ, startDir);
+                                world,
+                                nx,
+                                ny,
+                                nz,
+                                dir.getOpposite(),
+                                targetX,
+                                targetY,
+                                targetZ,
+                                targetSuctionSide,
+                                startX,
+                                startY,
+                                startZ,
+                                startDir);
                             if (!isConnected) {
                                 continue;
                             }
 
                             // Disallow connections in any direction other than input or output axis
                             if (dir != groupInputSide && dir != groupOutputSide) {
-                                return CrawlResult.fail(String.format(
-                                    "Invalid manifold connection: manifold at (%d, %d, %d) has connection in unauthorized direction %s! All inputs must be from %s and all outputs to %s.",
-                                    mPos.x, mPos.y, mPos.z, dir, groupInputSide, groupOutputSide));
+                                return CrawlResult.fail(
+                                    String.format(
+                                        "Invalid manifold connection: manifold at (%d, %d, %d) has connection in unauthorized direction %s! All inputs must be from %s and all outputs to %s.",
+                                        mPos.x,
+                                        mPos.y,
+                                        mPos.z,
+                                        dir,
+                                        groupInputSide,
+                                        groupOutputSide));
                             }
 
                             if (dir == groupInputSide) {
@@ -597,14 +632,22 @@ public class LoopGraphCrawler {
                     }
 
                     if (mg.outputPorts.isEmpty()) {
-                        return CrawlResult.fail(String.format(
-                            "Manifold group at (%d, %d, %d) has no output connections in direction %s!",
-                            step.x, step.y, step.z, groupOutputSide));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Manifold group at (%d, %d, %d) has no output connections in direction %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                groupOutputSide));
                     }
                     if (mg.inputPorts.isEmpty()) {
-                        return CrawlResult.fail(String.format(
-                            "Manifold group at (%d, %d, %d) has no input connections in direction %s!",
-                            step.x, step.y, step.z, groupInputSide));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Manifold group at (%d, %d, %d) has no input connections in direction %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                groupInputSide));
                     }
 
                     for (BlockPosCoord c : groupCoords) {
@@ -617,15 +660,16 @@ public class LoopGraphCrawler {
                         if (!devices.contains(tile)) {
                             devices.add(tile);
                         }
-                        segments.add(new LoopSegment(
-                            tile.getDeviceId(),
-                            1.0,
-                            0.10,
-                            0.000045,
-                            tile.getMinorLossK(),
-                            500.0,
-                            2000.0,
-                            tile.getDeviceTemperatureCelsius()));
+                        segments.add(
+                            new LoopSegment(
+                                tile.getDeviceId(),
+                                1.0,
+                                0.10,
+                                0.000045,
+                                tile.getMinorLossK(),
+                                500.0,
+                                2000.0,
+                                tile.getDeviceTemperatureCelsius()));
                     }
                     allManifoldGroups.add(mg);
 
@@ -634,26 +678,36 @@ public class LoopGraphCrawler {
 
                     // Enqueue each output port as an independent downstream branch
                     for (BlockPosCoord outPort : mg.outputPorts) {
-                        frontier.add(new FrontierStep(
-                            mg.getGroupId(),
-                            outPort.x,
-                            outPort.y,
-                            outPort.z,
-                            groupOutputSide.getOpposite(),
-                            null, // Manifolds permit pipe diameter/amount transitions
-                            null));
+                        frontier.add(
+                            new FrontierStep(
+                                mg.getGroupId(),
+                                outPort.x,
+                                outPort.y,
+                                outPort.z,
+                                groupOutputSide.getOpposite(),
+                                null, // Manifolds permit pipe diameter/amount transitions
+                                null));
                     }
                 } else {
                     // Manifold group already discovered by another incoming branch
                     if (step.entrySide != mg.inputSide) {
-                        return CrawlResult.fail(String.format(
-                            "Invalid manifold connection: branch entered manifold group at (%d, %d, %d) from side %s, but group input side is %s!",
-                            step.x, step.y, step.z, step.entrySide, mg.inputSide));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Invalid manifold connection: branch entered manifold group at (%d, %d, %d) from side %s, but group input side is %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                step.entrySide,
+                                mg.inputSide));
                     }
                     if (!mf.isConnected(step.entrySide)) {
-                        return CrawlResult.fail(String.format(
-                            "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
-                            step.x, step.y, step.z, step.entrySide));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                step.entrySide));
                     }
                     addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, mg.getGroupId());
                 }
@@ -666,38 +720,59 @@ public class LoopGraphCrawler {
                 BaseMetaPipeEntity bmpe = (BaseMetaPipeEntity) te;
                 if (!(bmpe.getMetaTileEntity() instanceof MTECoolantPipe)) {
                     return CrawlResult.fail(
-                        String.format("Loop broken: pipe at (%d, %d, %d) is not an insulated coolant pipe! Coolant loops require specialized Coolant Pipes.", step.x, step.y, step.z));
+                        String.format(
+                            "Loop broken: pipe at (%d, %d, %d) is not an insulated coolant pipe! Coolant loops require specialized Coolant Pipes.",
+                            step.x,
+                            step.y,
+                            step.z));
                 }
                 MTECoolantPipe pipe = (MTECoolantPipe) bmpe.getMetaTileEntity();
                 lastPipe = pipe;
 
                 BlockPosCoord pCoord = new BlockPosCoord(step.x, step.y, step.z);
                 if (visitedPipeAndDevicePositions.contains(pCoord)) {
-                    return CrawlResult.fail(String.format(
-                        "Invalid pipe junction at (%d, %d, %d): flow merging requires a Manifold!",
-                        step.x, step.y, step.z));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Invalid pipe junction at (%d, %d, %d): flow merging requires a Manifold!",
+                            step.x,
+                            step.y,
+                            step.z));
                 }
                 visitedPipeAndDevicePositions.add(pCoord);
 
                 // Pipe material validation
                 Materials pipeMat = pipe.mMaterial;
                 if (!isAllowedCoolantPipeMaterial(pipeMat)) {
-                    return CrawlResult.fail(String.format(
-                        "Pipe material %s at (%d, %d, %d) is not allowed for coolant loops: only materials with both GT fluid pipes and Railcraft tanks are permitted (Iron/Cast Iron, Steel, Stainless Steel, Titanium, TungstenSteel, Osmium, Neutronium).",
-                        pipeMat != null ? pipeMat.mDefaultLocalName : "unknown", step.x, step.y, step.z));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Pipe material %s at (%d, %d, %d) is not allowed for coolant loops: only materials with both GT fluid pipes and Railcraft tanks are permitted (Iron/Cast Iron, Steel, Stainless Steel, Titanium, TungstenSteel, Osmium, Neutronium).",
+                            pipeMat != null ? pipeMat.mDefaultLocalName : "unknown",
+                            step.x,
+                            step.y,
+                            step.z));
                 }
 
                 if (detectedLoopMaterial == null) {
                     detectedLoopMaterial = pipeMat;
                 } else if (!areMaterialsEqual(pipeMat, detectedLoopMaterial)) {
                     if (expectedTankMaterial != null && areMaterialsEqual(detectedLoopMaterial, expectedTankMaterial)) {
-                        return CrawlResult.fail(String.format(
-                            "Pipe material mismatch at (%d, %d, %d): Pipe is %s but Railcraft tank requires %s!",
-                            step.x, step.y, step.z, pipeMat != null ? pipeMat.mDefaultLocalName : "unknown", expectedTankMaterial.mDefaultLocalName));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Pipe material mismatch at (%d, %d, %d): Pipe is %s but Railcraft tank requires %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                pipeMat != null ? pipeMat.mDefaultLocalName : "unknown",
+                                expectedTankMaterial.mDefaultLocalName));
                     } else {
-                        return CrawlResult.fail(String.format(
-                            "Pipe material mismatch at (%d, %d, %d): Pipe is %s but loop requires %s!",
-                            step.x, step.y, step.z, pipeMat != null ? pipeMat.mDefaultLocalName : "unknown", detectedLoopMaterial.mDefaultLocalName));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Pipe material mismatch at (%d, %d, %d): Pipe is %s but loop requires %s!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                pipeMat != null ? pipeMat.mDefaultLocalName : "unknown",
+                                detectedLoopMaterial.mDefaultLocalName));
                     }
                 }
 
@@ -709,9 +784,16 @@ public class LoopGraphCrawler {
                     currAmount = pipe.mPipeAmount;
                 } else {
                     if (Math.abs(pipe.mThickNess - currThickness) > 1e-4 || pipe.mPipeAmount != currAmount) {
-                        return CrawlResult.fail(String.format(
-                            "Pipe size mismatch at (%d, %d, %d): Expected pipe thickness %.3f (amount %d) but found %.3f (amount %d) in segment between devices. Pipe size transitions require a device or manifold!",
-                            step.x, step.y, step.z, currThickness, currAmount, pipe.mThickNess, pipe.mPipeAmount));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Pipe size mismatch at (%d, %d, %d): Expected pipe thickness %.3f (amount %d) but found %.3f (amount %d) in segment between devices. Pipe size transitions require a device or manifold!",
+                                step.x,
+                                step.y,
+                                step.z,
+                                currThickness,
+                                currAmount,
+                                pipe.mThickNess,
+                                pipe.mPipeAmount));
                     }
                 }
 
@@ -723,18 +805,38 @@ public class LoopGraphCrawler {
                 if (pipe.mFluids != null) {
                     for (FluidStack fs : pipe.mFluids) {
                         if (fs != null && fs.amount > 0) {
-                            return CrawlResult.fail(String.format(
-                                "Catastrophic loop disconnect: Pipe at (%d, %d, %d) contains Forge fluid (%s, %d L)! Coolant pipes must remain empty.",
-                                step.x, step.y, step.z, fs.getFluid().getName(), fs.amount));
+                            return CrawlResult.fail(
+                                String.format(
+                                    "Catastrophic loop disconnect: Pipe at (%d, %d, %d) contains Forge fluid (%s, %d L)! Coolant pipes must remain empty.",
+                                    step.x,
+                                    step.y,
+                                    step.z,
+                                    fs.getFluid()
+                                        .getName(),
+                                    fs.amount));
                         }
                     }
                 }
 
                 // Verify backward connection to incoming side
-                if (!isPipeConnectedAtSide(world, step.x, step.y, step.z, bmpe, pipe, step.entrySide, targetX, targetY, targetZ)) {
-                    return CrawlResult.fail(String.format(
-                        "Pipe at (%d, %d, %d) is not connected backwards to incoming side %s",
-                        step.x, step.y, step.z, step.entrySide));
+                if (!isPipeConnectedAtSide(
+                    world,
+                    step.x,
+                    step.y,
+                    step.z,
+                    bmpe,
+                    pipe,
+                    step.entrySide,
+                    targetX,
+                    targetY,
+                    targetZ)) {
+                    return CrawlResult.fail(
+                        String.format(
+                            "Pipe at (%d, %d, %d) is not connected backwards to incoming side %s",
+                            step.x,
+                            step.y,
+                            step.z,
+                            step.entrySide));
                 }
 
                 CoolantPipingRegistry.PipeProperties props = CoolantPipingRegistry.getProperties(pipe);
@@ -760,7 +862,17 @@ public class LoopGraphCrawler {
                 List<ForgeDirection> forwardDirs = new ArrayList<>();
                 for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
                     if (dir == step.entrySide) continue;
-                    if (isPipeConnectedAtSide(world, step.x, step.y, step.z, bmpe, pipe, dir, targetX, targetY, targetZ)) {
+                    if (isPipeConnectedAtSide(
+                        world,
+                        step.x,
+                        step.y,
+                        step.z,
+                        bmpe,
+                        pipe,
+                        dir,
+                        targetX,
+                        targetY,
+                        targetZ)) {
                         int nx = step.x + dir.offsetX;
                         int ny = step.y + dir.offsetY;
                         int nz = step.z + dir.offsetZ;
@@ -771,27 +883,35 @@ public class LoopGraphCrawler {
                 }
 
                 if (forwardDirs.isEmpty()) {
-                    return CrawlResult.fail(String.format(
-                        "Dead-end or missing forward connection at pipe (%d, %d, %d) [incoming=%s]",
-                        step.x, step.y, step.z, step.entrySide));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Dead-end or missing forward connection at pipe (%d, %d, %d) [incoming=%s]",
+                            step.x,
+                            step.y,
+                            step.z,
+                            step.entrySide));
                 }
                 if (forwardDirs.size() > 1) {
-                    return CrawlResult.fail(String.format(
-                        "Ambiguous pipe branching at (%d, %d, %d): flow splitting requires a Manifold!",
-                        step.x, step.y, step.z));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Ambiguous pipe branching at (%d, %d, %d): flow splitting requires a Manifold!",
+                            step.x,
+                            step.y,
+                            step.z));
                 }
 
                 ForgeDirection nextDir = forwardDirs.get(0);
                 pipeConfigs.add(new PipeFlowConfig(bmpe, pipe, nextDir));
 
-                frontier.add(new FrontierStep(
-                    pipeNodeId,
-                    step.x + nextDir.offsetX,
-                    step.y + nextDir.offsetY,
-                    step.z + nextDir.offsetZ,
-                    nextDir.getOpposite(),
-                    currThickness,
-                    currAmount));
+                frontier.add(
+                    new FrontierStep(
+                        pipeNodeId,
+                        step.x + nextDir.offsetX,
+                        step.y + nextDir.offsetY,
+                        step.z + nextDir.offsetZ,
+                        nextDir.getOpposite(),
+                        currThickness,
+                        currAmount));
                 stepCount++;
                 continue;
             }
@@ -802,7 +922,9 @@ public class LoopGraphCrawler {
                 if (mte instanceof MTEHatchPressurizedFluid) {
                     MTEHatchPressurizedFluid hatch = (MTEHatchPressurizedFluid) mte;
                     MTEPressurizedHeatExchanger phe = findAdjacentPHE(world, step.x, step.y, step.z);
-                    MTEPressurizedDegasser degasser = (phe == null) ? findAdjacentDegasser(world, step.x, step.y, step.z) : null;
+                    MTEPressurizedDegasser degasser = (phe == null)
+                        ? findAdjacentDegasser(world, step.x, step.y, step.z)
+                        : null;
 
                     if (phe != null) {
                         if (phe.getPrimaryOutlet() == null && phe.getBaseMetaTileEntity() != null) {
@@ -825,24 +947,32 @@ public class LoopGraphCrawler {
                         MTEHatchPressurizedFluid outlet = phe.getPrimaryOutlet();
                         if (outlet != null && outlet != hatch) {
                             IGregTechTileEntity outTE = outlet.getBaseMetaTileEntity();
-                            visitedPipeAndDevicePositions.add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
+                            visitedPipeAndDevicePositions
+                                .add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
                             ForgeDirection outFacing = outTE.getFrontFacing();
 
                             addGraphNode(graphNodes, phe.getDeviceId(), NodeType.DEVICE, phe);
                             addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, phe.getDeviceId());
 
-                            frontier.add(new FrontierStep(
-                                phe.getDeviceId(),
-                                outTE.getXCoord() + outFacing.offsetX,
-                                outTE.getYCoord() + outFacing.offsetY,
-                                outTE.getZCoord() + outFacing.offsetZ,
-                                outFacing.getOpposite(),
-                                null,
-                                null));
+                            frontier.add(
+                                new FrontierStep(
+                                    phe.getDeviceId(),
+                                    outTE.getXCoord() + outFacing.offsetX,
+                                    outTE.getYCoord() + outFacing.offsetY,
+                                    outTE.getZCoord() + outFacing.offsetZ,
+                                    outFacing.getOpposite(),
+                                    null,
+                                    null));
                             stepCount++;
                             continue;
                         } else {
-                            return CrawlResult.fail("PHE at (" + step.x + ", " + step.y + ", " + step.z + ") is unformed or missing a valid outlet hatch");
+                            return CrawlResult.fail(
+                                "PHE at (" + step.x
+                                    + ", "
+                                    + step.y
+                                    + ", "
+                                    + step.z
+                                    + ") is unformed or missing a valid outlet hatch");
                         }
                     } else if (degasser != null) {
                         if (degasser.getPrimaryOutlet() == null && degasser.getBaseMetaTileEntity() != null) {
@@ -868,34 +998,49 @@ public class LoopGraphCrawler {
                         MTEHatchPressurizedFluid outlet = degasser.getPrimaryOutlet();
                         if (outlet != null && outlet != hatch) {
                             IGregTechTileEntity outTE = outlet.getBaseMetaTileEntity();
-                            visitedPipeAndDevicePositions.add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
+                            visitedPipeAndDevicePositions
+                                .add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
                             ForgeDirection outFacing = outTE.getFrontFacing();
 
                             addGraphNode(graphNodes, degasser.getDeviceId(), NodeType.DEVICE, degasser);
                             addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, degasser.getDeviceId());
 
-                            frontier.add(new FrontierStep(
-                                degasser.getDeviceId(),
-                                outTE.getXCoord() + outFacing.offsetX,
-                                outTE.getYCoord() + outFacing.offsetY,
-                                outTE.getZCoord() + outFacing.offsetZ,
-                                outFacing.getOpposite(),
-                                null,
-                                null));
+                            frontier.add(
+                                new FrontierStep(
+                                    degasser.getDeviceId(),
+                                    outTE.getXCoord() + outFacing.offsetX,
+                                    outTE.getYCoord() + outFacing.offsetY,
+                                    outTE.getZCoord() + outFacing.offsetZ,
+                                    outFacing.getOpposite(),
+                                    null,
+                                    null));
                             stepCount++;
                             continue;
                         } else {
-                            return CrawlResult.fail("Pressurized Degasser at (" + step.x + ", " + step.y + ", " + step.z + ") is unformed or missing a valid outlet hatch");
+                            return CrawlResult.fail(
+                                "Pressurized Degasser at (" + step.x
+                                    + ", "
+                                    + step.y
+                                    + ", "
+                                    + step.z
+                                    + ") is unformed or missing a valid outlet hatch");
                         }
                     }
                 } else if (mte instanceof ICoolantPassageHatch) {
                     ICoolantPassageHatch passage = (ICoolantPassageHatch) mte;
                     if (!passage.isPassageInlet()) {
-                        return CrawlResult.fail(String.format("Loop enters passage through outlet at (%d, %d, %d)", step.x, step.y, step.z));
+                        return CrawlResult.fail(
+                            String
+                                .format("Loop enters passage through outlet at (%d, %d, %d)", step.x, step.y, step.z));
                     }
                     IGregTechTileEntity outTE = passage.getOppositeHatchTile();
                     if (outTE == null) {
-                        return CrawlResult.fail(String.format("Passage hatch at (%d, %d, %d) has no paired opposite hatch", step.x, step.y, step.z));
+                        return CrawlResult.fail(
+                            String.format(
+                                "Passage hatch at (%d, %d, %d) has no paired opposite hatch",
+                                step.x,
+                                step.y,
+                                step.z));
                     }
                     if (pump != null) {
                         passage.setConnectedPump(pump);
@@ -914,20 +1059,22 @@ public class LoopGraphCrawler {
                         passage.getDeviceTemperatureCelsius());
                     segments.add(devSeg);
 
-                    visitedPipeAndDevicePositions.add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
+                    visitedPipeAndDevicePositions
+                        .add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
                     ForgeDirection outFacing = outTE.getFrontFacing();
 
                     addGraphNode(graphNodes, passage.getDeviceId(), NodeType.DEVICE, passage);
                     addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, passage.getDeviceId());
 
-                    frontier.add(new FrontierStep(
-                        passage.getDeviceId(),
-                        outTE.getXCoord() + outFacing.offsetX,
-                        outTE.getYCoord() + outFacing.offsetY,
-                        outTE.getZCoord() + outFacing.offsetZ,
-                        outFacing.getOpposite(),
-                        null,
-                        null));
+                    frontier.add(
+                        new FrontierStep(
+                            passage.getDeviceId(),
+                            outTE.getXCoord() + outFacing.offsetX,
+                            outTE.getYCoord() + outFacing.offsetY,
+                            outTE.getZCoord() + outFacing.offsetZ,
+                            outFacing.getOpposite(),
+                            null,
+                            null));
                     stepCount++;
                     continue;
                 }
@@ -947,8 +1094,12 @@ public class LoopGraphCrawler {
             if (device != null) {
                 BlockPosCoord devCoord = new BlockPosCoord(step.x, step.y, step.z);
                 if (visitedPipeAndDevicePositions.contains(devCoord)) {
-                    return CrawlResult.fail(String.format(
-                        "Invalid device junction at (%d, %d, %d): flow merging requires a Manifold!", step.x, step.y, step.z));
+                    return CrawlResult.fail(
+                        String.format(
+                            "Invalid device junction at (%d, %d, %d): flow merging requires a Manifold!",
+                            step.x,
+                            step.y,
+                            step.z));
                 }
                 visitedPipeAndDevicePositions.add(devCoord);
 
@@ -984,21 +1135,27 @@ public class LoopGraphCrawler {
                     nextDir = step.entrySide.getOpposite();
                 }
 
-                frontier.add(new FrontierStep(
-                    device.getDeviceId(),
-                    step.x + nextDir.offsetX,
-                    step.y + nextDir.offsetY,
-                    step.z + nextDir.offsetZ,
-                    nextDir.getOpposite(),
-                    null,
-                    null));
+                frontier.add(
+                    new FrontierStep(
+                        device.getDeviceId(),
+                        step.x + nextDir.offsetX,
+                        step.y + nextDir.offsetY,
+                        step.z + nextDir.offsetZ,
+                        nextDir.getOpposite(),
+                        null,
+                        null));
                 stepCount++;
                 continue;
             }
 
-            return CrawlResult.fail(String.format(
-                "Loop broken: unknown non-coolant block at (%d, %d, %d): %s",
-                step.x, step.y, step.z, te.getClass().getSimpleName()));
+            return CrawlResult.fail(
+                String.format(
+                    "Loop broken: unknown non-coolant block at (%d, %d, %d): %s",
+                    step.x,
+                    step.y,
+                    step.z,
+                    te.getClass()
+                        .getSimpleName()));
         }
 
         // --- DAG Graph Verification: Single Source, Single Sink, and Acyclicity ---
@@ -1028,7 +1185,8 @@ public class LoopGraphCrawler {
 
         for (String nodeId : graphNodes.keySet()) {
             if (!canReachSink.contains(nodeId)) {
-                return CrawlResult.fail("Invalid loop topology: branch at " + nodeId + " does not lead to pump suction port!");
+                return CrawlResult
+                    .fail("Invalid loop topology: branch at " + nodeId + " does not lead to pump suction port!");
             }
         }
 
@@ -1075,7 +1233,12 @@ public class LoopGraphCrawler {
         }
 
         return CrawlResult.success(
-            segments, devices, visitedPipeAndDevicePositions, maxPumpPipeCap, detectedLoopMaterial, pipeConfigs);
+            segments,
+            devices,
+            visitedPipeAndDevicePositions,
+            maxPumpPipeCap,
+            detectedLoopMaterial,
+            pipeConfigs);
     }
 
     private MTEPressurizedHeatExchanger findAdjacentPHE(World world, int x, int y, int z) {

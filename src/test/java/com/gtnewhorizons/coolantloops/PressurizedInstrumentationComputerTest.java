@@ -291,4 +291,71 @@ class PressurizedInstrumentationComputerTest {
         legacyRestored.readFromNBT(legacyNbt);
         assertEquals(TrackedMetric.TEMPERATURE, legacyRestored.getTrackedMetric());
     }
+
+    @Test
+    void testNetworkPacketSyncing() {
+        TileEntityLoopInstrument te = new TileEntityLoopInstrument();
+        te.setFacing(ForgeDirection.SOUTH);
+        te.setTrackedMetric(TrackedMetric.TEMPERATURE);
+
+        net.minecraft.network.Packet pkt = te.getDescriptionPacket();
+        assertNotNull(pkt, "Description packet must not be null");
+        assertTrue(pkt instanceof net.minecraft.network.play.server.S35PacketUpdateTileEntity);
+
+        net.minecraft.network.play.server.S35PacketUpdateTileEntity s35 = (net.minecraft.network.play.server.S35PacketUpdateTileEntity) pkt;
+        assertNotNull(s35.func_148857_g(), "Packet NBT tag must not be null");
+
+        TileEntityLoopInstrument clientTe = new TileEntityLoopInstrument();
+        clientTe.onDataPacket(null, s35);
+
+        assertEquals(ForgeDirection.SOUTH, clientTe.getFacing(), "Client facing must sync from server packet");
+        assertEquals(
+            TrackedMetric.TEMPERATURE,
+            clientTe.getTrackedMetric(),
+            "Client metric must sync from server packet");
+    }
+
+    @Test
+    void testFacingSideDisallowsFluidConnection() {
+        TileEntityLoopInstrument te = new TileEntityLoopInstrument();
+        te.setFacing(ForgeDirection.SOUTH);
+
+        // SOUTH face is reserved for redstone output
+        assertFalse(te.canFill(ForgeDirection.SOUTH, null), "Facing side (SOUTH) must NOT accept fluid");
+        assertFalse(te.canDrain(ForgeDirection.SOUTH, null), "Facing side (SOUTH) must NOT drain fluid");
+        assertEquals(
+            0,
+            te.fill(
+                ForgeDirection.SOUTH,
+                new net.minecraftforge.fluids.FluidStack(net.minecraftforge.fluids.FluidRegistry.WATER, 1000),
+                true));
+        assertEquals(0, te.getTankInfo(ForgeDirection.SOUTH).length);
+
+        // Other 5 sides must accept fluid
+        for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+            if (dir != ForgeDirection.SOUTH) {
+                assertTrue(te.canFill(dir, null), "Non-facing side (" + dir + ") must accept fluid");
+                assertTrue(te.canDrain(dir, null), "Non-facing side (" + dir + ") must drain fluid");
+                assertTrue(te.getTankInfo(dir).length > 0);
+            }
+        }
+    }
+
+    @Test
+    void testWrenchRotationAndBlockRotation() {
+        BlockLoopInstrument block = new BlockLoopInstrument();
+        World mockWorld = Mockito.mock(World.class);
+        TileEntityLoopInstrument te = new TileEntityLoopInstrument();
+        te.setFacing(ForgeDirection.NORTH);
+
+        Mockito.when(mockWorld.getTileEntity(0, 0, 0))
+            .thenReturn(te);
+
+        // rotateBlock rotates around Y (UP)
+        assertTrue(block.rotateBlock(mockWorld, 0, 0, 0, ForgeDirection.UP));
+        assertEquals(ForgeDirection.EAST, te.getFacing());
+
+        assertTrue(block.rotateBlock(mockWorld, 0, 0, 0, ForgeDirection.UP));
+        assertEquals(ForgeDirection.SOUTH, te.getFacing());
+    }
 }

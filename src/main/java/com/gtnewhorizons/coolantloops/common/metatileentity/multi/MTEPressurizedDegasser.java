@@ -1,20 +1,19 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.world.World;
+import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
+import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
+import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
@@ -46,7 +45,7 @@ import gregtech.api.util.MultiblockTooltipBuilder;
  * from circulating closed coolant loops into top-layer output hatches.
  */
 public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressurizedDegasser>
-    implements ICoolantLoopDevice {
+    implements ICoolantLoopDevice, ISurvivalConstructable {
 
     protected MTEHatchPressurizedFluid mPrimaryInlet = null;
     protected MTEHatchPressurizedFluid mPrimaryOutlet = null;
@@ -137,187 +136,16 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         mOutputHatches.clear();
         mMaintenanceHatches.clear();
 
-        int x = aBaseMetaTileEntity.getXCoord();
-        int y = aBaseMetaTileEntity.getYCoord();
-        int z = aBaseMetaTileEntity.getZCoord();
-        World world = aBaseMetaTileEntity.getWorld();
-
-        ForgeDirection front = aBaseMetaTileEntity.getFrontFacing();
-        ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-            : ForgeDirection.SOUTH;
-        int centerX = x + back.offsetX;
-        int centerZ = z + back.offsetZ;
-
-        List<MTEHatchPressurizedFluid> pressHatches = new ArrayList<>();
-
-        // Layer 0 (Bottom layer, Y = y): 3x3 footprint
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                int bx = centerX + dx;
-                int bz = centerZ + dz;
-                if (bx == x && bz == z) {
-                    continue; // Controller
-                }
-                TileEntity te = world.getTileEntity(bx, y, bz);
-                if (te instanceof IGregTechTileEntity) {
-                    IGregTechTileEntity gte = (IGregTechTileEntity) te;
-                    IMetaTileEntity mte = gte.getMetaTileEntity();
-                    if (mte instanceof MTEHatchPressurizedFluid) {
-                        MTEHatchPressurizedFluid ph = (MTEHatchPressurizedFluid) mte;
-                        if (!pressHatches.contains(ph)) {
-                            pressHatches.add(ph);
-                        }
-                    } else if (mte instanceof MTEHatchEnergy) {
-                        // Support any amount of single-amp energy hatches. Reject multi-amp.
-                        if (mte.getClass()
-                            .getName()
-                            .contains("Multi")) {
-                            return false;
-                        }
-                        if (!mEnergyHatches.contains(mte)) {
-                            mEnergyHatches.add((MTEHatchEnergy) mte);
-                        }
-                    } else if (mte instanceof MTEHatchMaintenance) {
-                        if (!mMaintenanceHatches.contains(mte)) {
-                            mMaintenanceHatches.add((MTEHatchMaintenance) mte);
-                        }
-                    } else {
-                        return false;
-                    }
-                } else {
-                    if (world.getBlock(bx, y, bz) != GregTechAPI.sBlockCasings4
-                        || world.getBlockMetadata(bx, y, bz) != 2) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        // Layer 1 to 5 (Middle 5 layers): Outer ring must be casings, center can be hollow/casing
-        for (int dy = 1; dy <= 5; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    if (dx == 0 && dz == 0) {
-                        continue; // Hollow column center
-                    }
-                    int bx = centerX + dx;
-                    int bz = centerZ + dz;
-                    if (world.getBlock(bx, y + dy, bz) != GregTechAPI.sBlockCasings4
-                        || world.getBlockMetadata(bx, y + dy, bz) != 2) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        // Layer 6 (Top layer, Y = y + 6): Casings and regular Output Hatches
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                int bx = centerX + dx;
-                int bz = centerZ + dz;
-                TileEntity te = world.getTileEntity(bx, y + 6, bz);
-                if (te instanceof IGregTechTileEntity) {
-                    IGregTechTileEntity gte = (IGregTechTileEntity) te;
-                    IMetaTileEntity mte = gte.getMetaTileEntity();
-                    if (mte instanceof MTEHatchOutput) {
-                        if (!mOutputHatches.contains(mte)) {
-                            mOutputHatches.add((MTEHatchOutput) mte);
-                        }
-                    } else {
-                        return false;
-                    }
-                } else {
-                    if (world.getBlock(bx, y + 6, bz) != GregTechAPI.sBlockCasings4
-                        || world.getBlockMetadata(bx, y + 6, bz) != 2) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        // Assign primary inlet and outlet from pressHatches
-        for (MTEHatchPressurizedFluid ph : pressHatches) {
-            if (ph.getMode() == MTEHatchPressurizedFluid.HatchMode.SUCTION && mPrimaryInlet == null) {
-                mPrimaryInlet = ph;
-            } else if (ph.getMode() == MTEHatchPressurizedFluid.HatchMode.DISCHARGE && mPrimaryOutlet == null) {
-                mPrimaryOutlet = ph;
-            }
-        }
-        if (mPrimaryInlet == null || mPrimaryOutlet == null) {
-            for (MTEHatchPressurizedFluid ph : pressHatches) {
-                IGregTechTileEntity bte = ph.getBaseMetaTileEntity();
-                if (bte.getXCoord() < centerX && mPrimaryInlet == null) {
-                    mPrimaryInlet = ph;
-                    ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
-                } else if (bte.getXCoord() > centerX && mPrimaryOutlet == null) {
-                    mPrimaryOutlet = ph;
-                    ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-                }
-            }
-        }
-        if (mPrimaryInlet == null && !pressHatches.isEmpty()) {
-            mPrimaryInlet = pressHatches.get(0);
-            mPrimaryInlet.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
-        }
-        if (mPrimaryOutlet == null && pressHatches.size() > 1) {
-            mPrimaryOutlet = pressHatches.get(1);
-            mPrimaryOutlet.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
+        if (!checkPiece("degasser_3x3x7", 1, 0, 1)) {
+            return false;
         }
 
         if (mPrimaryInlet == null || mPrimaryOutlet == null) {
             return false;
         }
 
-        if (mEnergyHatches.isEmpty()) {
+        if (mEnergyHatches.isEmpty() || mOutputHatches.isEmpty() || mMaintenanceHatches.size() != 1) {
             return false;
-        }
-
-        if (mOutputHatches.isEmpty()) {
-            return false;
-        }
-
-        if (mMaintenanceHatches.size() != 1) {
-            return false;
-        }
-
-        for (MTEHatchPressurizedFluid ph : pressHatches) {
-            ph.updateTexture(48 + 2);
-        }
-        for (MTEHatchEnergy eh : mEnergyHatches) {
-            eh.updateTexture(48 + 2);
-        }
-        for (MTEHatchMaintenance mh : mMaintenanceHatches) {
-            mh.updateTexture(48 + 2);
-        }
-        for (MTEHatchOutput oh : mOutputHatches) {
-            oh.updateTexture(48 + 2);
-        }
-        if (mPrimaryInlet != null) {
-            mPrimaryInlet.updateTexture(48 + 2);
-        }
-        if (mPrimaryOutlet != null) {
-            mPrimaryOutlet.updateTexture(48 + 2);
-        }
-        if (getBaseMetaTileEntity() != null) {
-            ItemStack icon = getMachineCraftingIcon();
-            for (MTEHatchPressurizedFluid ph : pressHatches) {
-                ph.updateCraftingIcon(icon);
-            }
-            for (MTEHatchEnergy eh : mEnergyHatches) {
-                eh.updateCraftingIcon(icon);
-            }
-            for (MTEHatchMaintenance mh : mMaintenanceHatches) {
-                mh.updateCraftingIcon(icon);
-            }
-            for (MTEHatchOutput oh : mOutputHatches) {
-                oh.updateCraftingIcon(icon);
-            }
-            if (mPrimaryInlet != null) {
-                mPrimaryInlet.updateCraftingIcon(icon);
-            }
-            if (mPrimaryOutlet != null) {
-                mPrimaryOutlet.updateCraftingIcon(icon);
-            }
         }
 
         checkMaintenance();
@@ -409,6 +237,12 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece("degasser_3x3x7", stackSize, hintsOnly, 1, 0, 1);
+    }
+
+    @Override
+    public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
+        if (mMachine) return -1;
+        return survivalBuildPiece("degasser_3x3x7", stackSize, 1, 0, 1, elementBudget, env, false, true);
     }
 
     @Override
@@ -673,20 +507,31 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
-        tt.addMachineType("Pressurized Degasser")
-            .addInfo("Extracts dissolved radiolytic and byproduct gases from closed coolant loops")
-            .addInfo("Extraction rate scales with loop coolant flow rate (25% crossing gas/sec)")
-            .addInfo("Consumes 8 EU/t per 1 L/s extraction capacity; supports single-amp overclocking")
+        tt.addMachineType(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.machine_type"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.desc1"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.desc2"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.desc3"))
             .addSeparator()
             .beginStructureBlock(3, 7, 3, false)
-            .addController("Center of bottom front layer")
-            .addCasingInfoMin("Reinforced Machine Casings", 48, false)
-            .addOtherStructurePart("Pressurized Fluid Hatch (Inlet)", "1x Bottom layer")
-            .addOtherStructurePart("Pressurized Fluid Hatch (Outlet)", "1x Bottom layer")
-            .addEnergyHatch("1x+ Single-Amp Energy Hatch (Bottom layer)", 1)
-            .addMaintenanceHatch("1x Maintenance Hatch (Bottom layer)", 1)
-            .addOutputHatch("1x+ Regular Fluid Output Hatch (Top layer, gas recovery)", 2)
-            .toolTipFinisher("Coolant Loops");
+            .addController(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.controller"))
+            .addCasingInfoMin(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.casings"),
+                48,
+                false)
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.hatch_inlet"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.hatch_inlet_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.hatch_outlet"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.hatch_outlet_pos"))
+            .addEnergyHatch(StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.energy"), 1)
+            .addMaintenanceHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.maintenance"),
+                1)
+            .addOutputHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_degasser.structure.output_hatch"),
+                2)
+            .toolTipFinisher(StatCollector.translateToLocal("gt.multiblock.coolantloops.finisher"));
         return tt;
     }
 }

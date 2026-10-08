@@ -61,15 +61,15 @@ public class BlockLoopInstrument extends BlockContainer {
     @Override
     @SideOnly(Side.CLIENT)
     public IIcon getIcon(IBlockAccess world, int x, int y, int z, int side) {
-        if (side == ForgeDirection.UP.ordinal()) {
-            return iconTop;
-        }
         TileEntity te = world.getTileEntity(x, y, z);
         if (te instanceof TileEntityLoopInstrument inst) {
             if (side == inst.getFacing()
                 .ordinal()) {
                 return iconFront;
             }
+        }
+        if (side == ForgeDirection.UP.ordinal()) {
+            return iconTop;
         }
         return iconSide;
     }
@@ -163,6 +163,27 @@ public class BlockLoopInstrument extends BlockContainer {
     }
 
     @Override
+    public boolean rotateBlock(World worldObj, int x, int y, int z, ForgeDirection axis) {
+        TileEntity te = worldObj.getTileEntity(x, y, z);
+        if (te instanceof TileEntityLoopInstrument inst) {
+            ForgeDirection cur = inst.getFacing();
+            ForgeDirection next = cur.getRotation(axis != null ? axis : ForgeDirection.UP);
+            if (next == cur || next == ForgeDirection.UNKNOWN) {
+                next = switch (cur) {
+                    case NORTH -> ForgeDirection.EAST;
+                    case EAST -> ForgeDirection.SOUTH;
+                    case SOUTH -> ForgeDirection.WEST;
+                    case WEST -> ForgeDirection.NORTH;
+                    default -> ForgeDirection.NORTH;
+                };
+            }
+            inst.setFacing(next);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player, int side, float hitX,
         float hitY, float hitZ) {
         TileEntity te = world.getTileEntity(x, y, z);
@@ -174,8 +195,21 @@ public class BlockLoopInstrument extends BlockContainer {
         if (held != null) {
             if (isWrench(held)) {
                 if (!world.isRemote) {
-                    ForgeDirection nextFacing = inst.getFacing()
-                        .getRotation(ForgeDirection.UP);
+                    ForgeDirection clickedSide = ForgeDirection.getOrientation(side);
+                    ForgeDirection nextFacing;
+                    if (clickedSide == inst.getFacing()) {
+                        nextFacing = switch (inst.getFacing()) {
+                            case NORTH -> ForgeDirection.EAST;
+                            case EAST -> ForgeDirection.SOUTH;
+                            case SOUTH -> ForgeDirection.WEST;
+                            case WEST -> ForgeDirection.NORTH;
+                            case UP -> ForgeDirection.DOWN;
+                            case DOWN -> ForgeDirection.NORTH;
+                            default -> ForgeDirection.NORTH;
+                        };
+                    } else {
+                        nextFacing = clickedSide;
+                    }
                     inst.setFacing(nextFacing);
                     world.markBlockForUpdate(x, y, z);
                     world.notifyBlocksOfNeighborChange(x, y, z, this);

@@ -93,6 +93,8 @@ public class CoolantLoopFlowStopTest {
             .thenReturn(true);
         Mockito.when(mockPumpBase.getStoredEU())
             .thenReturn(1000000L);
+        Mockito.when(mockPumpBase.decreaseStoredEnergyUnits(Mockito.anyLong(), Mockito.anyBoolean()))
+            .thenReturn(true);
         Mockito.when(mockPumpBase.getXCoord())
             .thenReturn(0);
         Mockito.when(mockPumpBase.getYCoord())
@@ -327,5 +329,40 @@ public class CoolantLoopFlowStopTest {
         assertTrue(
             pump.getLoopStatus()
                 .contains("Beginning circulation"));
+    }
+
+    @Test
+    public void testPumpUnpoweredProducesZeroFlowAndPower() {
+        // Cut off power from base TE
+        Mockito.when(mockPumpBase.decreaseStoredEnergyUnits(Mockito.anyLong(), Mockito.anyBoolean()))
+            .thenReturn(false);
+        Mockito.when(mockPumpBase.getStoredEU())
+            .thenReturn(0L);
+
+        pump.getEngine()
+            .setVolumetricFlowRate(0.0);
+        pump.stepCoolantLoop();
+
+        assertFalse(
+            pump.getEngine()
+                .isPumpPowered(),
+            "Unpowered pump must not set isPumpPowered to true");
+        assertEquals(
+            0.0,
+            pump.getEngine()
+                .getPumpMechanicalPowerWatts(),
+            1e-6,
+            "Unpowered pump mechanical power must be 0");
+        assertEquals(
+            0.0,
+            pump.getEngine()
+                .getVolumetricFlowRate(),
+            1e-6,
+            "Flow rate must remain 0 when pump is unpowered");
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+        assertTrue(
+            pump.getLoopStatus()
+                .contains("Pump unpowered"),
+            "Status must indicate pump is unpowered");
     }
 }

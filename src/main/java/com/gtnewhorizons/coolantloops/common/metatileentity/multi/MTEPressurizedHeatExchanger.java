@@ -3,12 +3,15 @@ package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 import java.util.ArrayList;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
+import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
+import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
@@ -41,7 +44,7 @@ import gregtech.api.util.MultiblockTooltipBuilder;
  * (e.g. Distilled Water -> Steam at standard 1:160 expansion ratio).
  */
 public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPressurizedHeatExchanger>
-    implements ICoolantLoopDevice {
+    implements ICoolantLoopDevice, ISurvivalConstructable {
 
     public static final int CASING_INDEX_HEAT_PROOF = 11;
 
@@ -120,28 +123,19 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
         java.util.List<gregtech.api.structure.error.StructureError> errors = new java.util.ArrayList<>();
         if (!checkPiece("exchanger_3x5x3", 1, 1, 0, errors)) {
-            for (gregtech.api.structure.error.StructureError err : errors) {
-                System.out.println("[PHE DEBUG] Error: " + err.getDisplayString());
-            }
             return false;
         }
 
         if (mMaintenanceHatches.size() != 1) {
-            System.out.println("[PHE DEBUG] Maintenance hatches != 1: " + mMaintenanceHatches.size());
             return false;
         }
         if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2) {
-            System.out.println("[PHE DEBUG] Energy hatches not 1-2: " + mEnergyHatches.size());
             return false;
         }
         if (mPrimaryInlet == null || mPrimaryOutlet == null) {
-            System.out.println(
-                "[PHE DEBUG] Primary inlet/outlet null: inlet=" + mPrimaryInlet + ", outlet=" + mPrimaryOutlet);
             return false;
         }
         if (mInputHatches.size() != 1 || mOutputHatches.size() != 1) {
-            System.out.println(
-                "[PHE DEBUG] Input/Output hatches != 1: in=" + mInputHatches.size() + ", out=" + mOutputHatches.size());
             return false;
         }
 
@@ -436,25 +430,54 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     @Override
+    public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
+        if (mMachine) return -1;
+        return survivalBuildPiece("exchanger_3x5x3", stackSize, 1, 1, 0, elementBudget, env, false, true);
+    }
+
+    @Override
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
-        tt.addMachineType("Pressurized Heat Exchanger")
-            .addInfo("Extracts thermal energy from closed coolant loops")
-            .addInfo("Converts secondary Distilled Water -> Steam / Superheated / Supercritical Steam at 1:160 expansion")
+        tt.addMachineType(StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.machine_type"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.desc1"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.desc2"))
             .addSeparator()
             .beginStructureBlock(3, 3, 5, false)
-            .addController("Center of middle front layer")
-            .addCasingInfoMin("Heat Proof Machine Casings", 15, false)
-            .addOtherStructurePart("Cooling Duct", "9x (secondary cold side)")
-            .addOtherStructurePart("Heating Duct", "9x (primary hot side)")
-            .addOtherStructurePart("Copper Sheetmetal", "3x (middle center)")
-            .addOtherStructurePart("Pressurized Fluid Hatch (Inlet)", "1x (middle layer)")
-            .addOtherStructurePart("Pressurized Fluid Hatch (Outlet)", "1x (middle layer)")
-            .addInputHatch("1x Secondary Fluid Input (Distilled Water)", 1)
-            .addOutputHatch("1x Secondary Fluid Output (Steam / Superheated / Supercritical)", 1)
-            .addMaintenanceHatch("1x Maintenance Hatch", 1)
-            .addEnergyHatch("1-2x Energy Hatch", 1)
-            .toolTipFinisher("Coolant Loops");
+            .addController(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.controller"))
+            .addCasingInfoMin(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.casings"),
+                15,
+                false)
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.cooling_duct"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.cooling_duct_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.heating_duct"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.heating_duct_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal"),
+                StatCollector
+                    .translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet"),
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet_pos"))
+            .addInputHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.input_hatch"),
+                1)
+            .addOutputHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.output_hatch"),
+                1)
+            .addMaintenanceHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.maintenance"),
+                1)
+            .addEnergyHatch(
+                StatCollector.translateToLocal("gt.multiblock.pressurized_heat_exchanger.structure.energy"),
+                1)
+            .toolTipFinisher(StatCollector.translateToLocal("gt.multiblock.coolantloops.finisher"));
         return tt;
     }
 }

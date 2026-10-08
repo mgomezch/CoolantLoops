@@ -93,6 +93,26 @@ tasks.register("composeInstrumentTextures") {
             gRes.dispose()
             ImageIO.write(resImg, "PNG", File(outDir, "creative_heat_reservoir.png"))
         }
+
+        // 6. pipe_insulation.png: 16x16 seamless subtle thermal insulation cladding overlay
+        val insImg = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+        for (y in 0 until 16) {
+            for (x in 0 until 16) {
+                // Seamless periodic noise with subtle thermal weave pattern
+                val weaveX = if (x % 4 == 0) 10 else 0
+                val weaveY = if (y % 4 == 0) 10 else 0
+                val noise = ((Math.sin(x * Math.PI / 8.0) * Math.cos(y * Math.PI / 8.0) * 8.0) +
+                             (Math.sin(x * Math.PI / 4.0) * Math.sin(y * Math.PI / 4.0) * 5.0)).toInt()
+                val base = 212 + weaveX + weaveY + noise
+                val r = Math.max(0, Math.min(255, base - 6))
+                val g = Math.max(0, Math.min(255, base))
+                val b = Math.max(0, Math.min(255, base + 8))
+                val a = 190 // Semi-transparent overlay letting base pipe metal texture subtly show through
+                val argb = (a shl 24) or (r shl 16) or (g shl 8) or b
+                insImg.setRGB(x, y, argb)
+            }
+        }
+        ImageIO.write(insImg, "PNG", File(outDir, "pipe_insulation.png"))
     }
 }
 

@@ -27,7 +27,8 @@ public class ModMetaTileEntitiesCollisionTest {
         coolantLoopIds.add(ModMetaTileEntities.HEAT_EXCHANGER_ID);
         coolantLoopIds.add(ModMetaTileEntities.DEGASSER_ID);
 
-        int totalPipes = ModMetaTileEntities.COOLANT_PIPE_MATERIALS.length * ModMetaTileEntities.PIPE_THICKNESSES.length;
+        int totalPipes = ModMetaTileEntities.COOLANT_PIPE_MATERIALS.length
+            * ModMetaTileEntities.PIPE_THICKNESSES.length;
         for (int i = 0; i < totalPipes; i++) {
             coolantLoopIds.add(ModMetaTileEntities.COOLANT_PIPE_START_ID + i);
         }
@@ -35,16 +36,12 @@ public class ModMetaTileEntitiesCollisionTest {
         for (int id : coolantLoopIds) {
             assertFalse(
                 gtIds.contains(id),
-                "CoolantLoops MTE ID " + id + " collides with a core GT/TecTech MetaTileEntityID enum!"
-            );
+                "CoolantLoops MTE ID " + id + " collides with a core GT/TecTech MetaTileEntityID enum!");
         }
 
         // Also verify no overlap with ModularNuclear IDs (32100..32115)
         for (int mnId = 32100; mnId <= 32115; mnId++) {
-            assertFalse(
-                coolantLoopIds.contains(mnId),
-                "CoolantLoops MTE ID collides with ModularNuclear ID " + mnId
-            );
+            assertFalse(coolantLoopIds.contains(mnId), "CoolantLoops MTE ID collides with ModularNuclear ID " + mnId);
         }
 
         assertTrue(coolantLoopIds.size() >= 39, "Expected at least 39 distinct CoolantLoops MTE IDs");

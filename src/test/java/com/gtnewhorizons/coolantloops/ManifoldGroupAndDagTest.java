@@ -21,13 +21,13 @@ import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.BaseMetaPipeEntity;
-import gregtech.api.metatileentity.implementations.MTEFluidPipe;
 
 public class ManifoldGroupAndDagTest {
 
     @BeforeAll
     static void initEnvironment() {
-        Thread.currentThread().setName("Server thread");
+        Thread.currentThread()
+            .setName("Server thread");
         try {
             cpw.mods.fml.common.Loader mockLoader = Mockito.mock(cpw.mods.fml.common.Loader.class);
             Mockito.when(mockLoader.getCallableCrashInformation())
@@ -45,6 +45,7 @@ public class ManifoldGroupAndDagTest {
     }
 
     private static class WorldTileMap {
+
         final World world = Mockito.mock(World.class);
         final java.util.Map<String, TileEntity> tiles = new java.util.HashMap<>();
 
@@ -91,7 +92,13 @@ public class ManifoldGroupAndDagTest {
         }
 
         public BaseMetaPipeEntity putPipe(int x, int y, int z, ForgeDirection... connectedSides) {
-            MTECoolantPipe pipe = new MTECoolantPipe("pipe_" + x + "_" + y + "_" + z, 0.5f, Materials.Steel, 1000, 1000, true);
+            MTECoolantPipe pipe = new MTECoolantPipe(
+                "pipe_" + x + "_" + y + "_" + z,
+                0.5f,
+                Materials.Steel,
+                1000,
+                1000,
+                true);
             byte conns = 0;
             for (ForgeDirection dir : connectedSides) {
                 conns |= (1 << dir.ordinal());
@@ -99,7 +106,8 @@ public class ManifoldGroupAndDagTest {
             pipe.mConnections = conns;
 
             BaseMetaPipeEntity bmpe = Mockito.mock(BaseMetaPipeEntity.class);
-            Mockito.when(bmpe.getMetaTileEntity()).thenReturn(pipe);
+            Mockito.when(bmpe.getMetaTileEntity())
+                .thenReturn(pipe);
             bmpe.mConnections = conns;
             put(x, y, z, bmpe);
             return bmpe;
@@ -176,14 +184,13 @@ public class ManifoldGroupAndDagTest {
         mf.setFacing(ForgeDirection.NORTH);
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlResult result = crawler.crawl(
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
-            "pump:10:10:10");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
         assertFalse(result.isSuccess, "Crawl must fail when branch enters manifold parallel to its plane");
-        assertTrue(result.failureReason.contains("parallel to its plane")
-            || result.failureReason.contains("perpendicularly to their plane"),
+        assertTrue(
+            result.failureReason.contains("parallel to its plane")
+                || result.failureReason.contains("perpendicularly to their plane"),
             "Error message should mention perpendicularity: " + result.failureReason);
     }
 
@@ -206,14 +213,12 @@ public class ManifoldGroupAndDagTest {
         map.putPipe(13, 10, 10, ForgeDirection.WEST, ForgeDirection.NORTH);
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlResult result = crawler.crawl(
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
-            "pump:10:10:10");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
         assertFalse(result.isSuccess, "Crawl must fail when manifold has lateral connections");
-        assertTrue(result.failureReason.contains("unauthorized direction")
-            || result.failureReason.contains("lateral"),
+        assertTrue(
+            result.failureReason.contains("unauthorized direction") || result.failureReason.contains("lateral"),
             "Error message should mention unauthorized direction: " + result.failureReason);
     }
 
@@ -222,11 +227,15 @@ public class ManifoldGroupAndDagTest {
         WorldTileMap map = new WorldTileMap();
 
         // Foreign active pump at (50, 50, 50)
-        gregtech.api.metatileentity.BaseMetaTileEntity foreignBase = Mockito.mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
+        gregtech.api.metatileentity.BaseMetaTileEntity foreignBase = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
         MTECoolantPump foreignPump = Mockito.mock(MTECoolantPump.class);
-        Mockito.when(foreignPump.isLoopFormed()).thenReturn(true);
-        Mockito.when(foreignPump.getBaseMetaTileEntity()).thenReturn(foreignBase);
-        Mockito.when(foreignBase.getMetaTileEntity()).thenReturn(foreignPump);
+        Mockito.when(foreignPump.isLoopFormed())
+            .thenReturn(true);
+        Mockito.when(foreignPump.getBaseMetaTileEntity())
+            .thenReturn(foreignBase);
+        Mockito.when(foreignBase.getMetaTileEntity())
+            .thenReturn(foreignPump);
         map.put(50, 50, 50, foreignBase);
 
         // Pipe from discharge
@@ -244,13 +253,12 @@ public class ManifoldGroupAndDagTest {
         map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH); // target suction at (10, 10, 8) facing NORTH
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlResult result = crawler.crawl(
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
-            "pump:10:10:10");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
         assertFalse(result.isSuccess, "Crawl must fail when manifold is claimed by another active pump");
-        assertTrue(result.failureReason.contains("already part of another active coolant loop"),
+        assertTrue(
+            result.failureReason.contains("already part of another active coolant loop"),
             "Error message should mention already part of another active loop: " + result.failureReason);
     }
 
@@ -284,14 +292,13 @@ public class ManifoldGroupAndDagTest {
         map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH); // targetSuctionSide=NORTH at (10, 10, 8)
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlResult result = crawler.crawl(
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
-            "pump:10:10:10");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
         assertFalse(result.isSuccess, "Crawl must fail when manifold output loops back to its input without pump");
-        assertTrue(result.failureReason.contains("Invalid cyclic loop topology")
-            && result.failureReason.contains("path from manifold output loops back to its input"),
+        assertTrue(
+            result.failureReason.contains("Invalid cyclic loop topology")
+                && result.failureReason.contains("path from manifold output loops back to its input"),
             "Error message must specify manifold cycle: " + result.failureReason);
     }
 
@@ -337,12 +344,12 @@ public class ManifoldGroupAndDagTest {
         map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH); // target suction at (10, 10, 8) facing NORTH
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlResult result = crawler.crawl(
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
-            "pump:10:10:10");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
-        assertTrue(result.isSuccess, "Parallel split and merge through manifold groups must succeed as a valid DAG: " + result.failureReason);
+        assertTrue(
+            result.isSuccess,
+            "Parallel split and merge through manifold groups must succeed as a valid DAG: " + result.failureReason);
 
         // Verify active pump ID set on all manifold blocks across both groups
         assertEquals("pump:10:10:10", split1.getActivePumpId());

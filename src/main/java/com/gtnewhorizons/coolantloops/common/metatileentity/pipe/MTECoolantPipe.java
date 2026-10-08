@@ -1,32 +1,5 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.pipe;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import net.minecraft.client.renderer.RenderBlocks;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraftforge.common.util.ForgeDirection;
-
-import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
-
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-import gregtech.api.enums.Materials;
-import gregtech.api.enums.Textures;
-import gregtech.api.interfaces.IIconContainer;
-import gregtech.api.interfaces.ITexture;
-import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
-import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
-import gregtech.api.metatileentity.BaseMetaPipeEntity;
-import gregtech.api.metatileentity.implementations.MTEFluidPipe;
-import gregtech.api.render.ISBRContext;
-import gregtech.api.render.ISBRInventoryContext;
-import gregtech.api.render.ISBRWorldContext;
-import gregtech.api.render.TextureFactory;
-
 import static gregtech.api.interfaces.metatileentity.IConnectable.CONNECTED_DOWN;
 import static gregtech.api.interfaces.metatileentity.IConnectable.CONNECTED_EAST;
 import static gregtech.api.interfaces.metatileentity.IConnectable.CONNECTED_NORTH;
@@ -41,12 +14,74 @@ import static net.minecraftforge.common.util.ForgeDirection.SOUTH;
 import static net.minecraftforge.common.util.ForgeDirection.UP;
 import static net.minecraftforge.common.util.ForgeDirection.WEST;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import net.minecraft.client.renderer.RenderBlocks;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IIcon;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import gregtech.api.GregTechAPI;
+import gregtech.api.enums.Materials;
+import gregtech.api.interfaces.IIconContainer;
+import gregtech.api.interfaces.ITexture;
+import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.metatileentity.BaseMetaPipeEntity;
+import gregtech.api.metatileentity.implementations.MTEFluidPipe;
+import gregtech.api.render.ISBRContext;
+import gregtech.api.render.ISBRInventoryContext;
+import gregtech.api.render.ISBRWorldContext;
+import gregtech.api.render.TextureFactory;
+
 /**
  * Thermally Insulated Coolant Pipe for closed coolant loops.
  * Features beveled/cut-out corners along its 3D geometry and thermal insulation
  * cladding overlays to visually distinguish coolant pipes from regular GregTech pipes.
  */
 public class MTECoolantPipe extends MTEFluidPipe {
+
+    public static class CustomPipeIcon implements IIconContainer, Runnable {
+
+        protected IIcon mIcon;
+        protected final String mModID;
+        protected final String mIconName;
+
+        public CustomPipeIcon(final String aModID, final String aIconName) {
+            this.mModID = aModID;
+            this.mIconName = aIconName;
+            GregTechAPI.sGTBlockIconload.add(this);
+        }
+
+        @Override
+        public IIcon getIcon() {
+            return this.mIcon;
+        }
+
+        @Override
+        public IIcon getOverlayIcon() {
+            return null;
+        }
+
+        @Override
+        public net.minecraft.util.ResourceLocation getTextureFile() {
+            return net.minecraft.client.renderer.texture.TextureMap.locationBlocksTexture;
+        }
+
+        @Override
+        public void run() {
+            this.mIcon = GregTechAPI.sBlockIcons.registerIcon(this.mModID + ":" + this.mIconName);
+        }
+    }
+
+    public static final IIconContainer INSULATION_OVERLAY_ICON = new CustomPipeIcon("coolantloops", "pipe_insulation");
 
     private volatile ITexture[][] mInventoryTextureCache;
 
@@ -68,6 +103,10 @@ public class MTECoolantPipe extends MTEFluidPipe {
     @Override
     public boolean canConnect(ForgeDirection side, net.minecraft.tileentity.TileEntity tileEntity) {
         if (tileEntity == null) return false;
+        if (tileEntity instanceof com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument inst) {
+            // Coolant pipes cannot connect to the instrument's facing side (which is reserved for redstone output)
+            return side.getOpposite() != inst.getFacing();
+        }
         if (tileEntity instanceof com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice
             || tileEntity instanceof com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold) {
             return true;
@@ -129,7 +168,8 @@ public class MTECoolantPipe extends MTEFluidPipe {
     /**
      * Returns the 3 non-overlapping sub-boxes forming the beveled/cut-out cross-section along the X axis.
      */
-    public static List<AxisAlignedBB> getBeveledSubBoxesX(float xMin, float xMax, float pipeMin, float pipeMax, float b) {
+    public static List<AxisAlignedBB> getBeveledSubBoxesX(float xMin, float xMax, float pipeMin, float pipeMax,
+        float b) {
         List<AxisAlignedBB> boxes = new ArrayList<>(3);
         // Center horizontal bar (spans full Z, height T - 2b)
         boxes.add(AxisAlignedBB.getBoundingBox(xMin, pipeMin + b, pipeMin, xMax, pipeMax - b, pipeMax));
@@ -143,7 +183,8 @@ public class MTECoolantPipe extends MTEFluidPipe {
     /**
      * Returns the 3 non-overlapping sub-boxes forming the beveled/cut-out cross-section along the Y axis.
      */
-    public static List<AxisAlignedBB> getBeveledSubBoxesY(float yMin, float yMax, float pipeMin, float pipeMax, float b) {
+    public static List<AxisAlignedBB> getBeveledSubBoxesY(float yMin, float yMax, float pipeMin, float pipeMax,
+        float b) {
         List<AxisAlignedBB> boxes = new ArrayList<>(3);
         // Center bar (spans full Z in XZ plane, width T - 2b in X)
         boxes.add(AxisAlignedBB.getBoundingBox(pipeMin + b, yMin, pipeMin, pipeMax - b, yMax, pipeMax));
@@ -157,7 +198,8 @@ public class MTECoolantPipe extends MTEFluidPipe {
     /**
      * Returns the 3 non-overlapping sub-boxes forming the beveled/cut-out cross-section along the Z axis.
      */
-    public static List<AxisAlignedBB> getBeveledSubBoxesZ(float zMin, float zMax, float pipeMin, float pipeMax, float b) {
+    public static List<AxisAlignedBB> getBeveledSubBoxesZ(float zMin, float zMax, float pipeMin, float pipeMax,
+        float b) {
         List<AxisAlignedBB> boxes = new ArrayList<>(3);
         // Center bar (spans full X in XY plane, height T - 2b in Y)
         boxes.add(AxisAlignedBB.getBoundingBox(pipeMin, pipeMin + b, zMin, pipeMax, pipeMax - b, zMax));
@@ -185,21 +227,8 @@ public class MTECoolantPipe extends MTEFluidPipe {
 
     protected ITexture getInsulationOverlay() {
         try {
-            IIconContainer icon;
-            if (mThickNess <= 0.251f) {
-                icon = Textures.BlockIcons.INSULATION_TINY;
-            } else if (mThickNess <= 0.376f) {
-                icon = Textures.BlockIcons.INSULATION_SMALL;
-            } else if (mThickNess <= 0.501f) {
-                icon = Textures.BlockIcons.INSULATION_MEDIUM;
-            } else if (mThickNess <= 0.751f) {
-                icon = Textures.BlockIcons.INSULATION_LARGE;
-            } else {
-                icon = Textures.BlockIcons.INSULATION_HUGE;
-            }
-            if (icon == null) return null;
-            // Cool pale cyan/silver thermal insulation wrap overlay
-            return TextureFactory.of(icon, new short[] { 220, 240, 255, 180 });
+            if (INSULATION_OVERLAY_ICON == null) return null;
+            return TextureFactory.of(INSULATION_OVERLAY_ICON);
         } catch (Throwable t) {
             return null;
         }
@@ -217,18 +246,30 @@ public class MTECoolantPipe extends MTEFluidPipe {
         ITexture[][] textures = mInventoryTextureCache;
         if (textures == null) {
             final IGregTechTileEntity mte = getBaseMetaTileEntity();
-            textures = new ITexture[][] {
-                getTexture(mte, DOWN, (CONNECTED_WEST | CONNECTED_EAST), -1, false, false),
-                getTexture(mte, WEST, (CONNECTED_WEST | CONNECTED_EAST), -1, true, false)
-            };
+            textures = new ITexture[][] { getTexture(mte, DOWN, (CONNECTED_WEST | CONNECTED_EAST), -1, false, false),
+                getTexture(mte, WEST, (CONNECTED_WEST | CONNECTED_EAST), -1, true, false) };
             mInventoryTextureCache = textures;
         }
         final ITexture[] sideTexture = textures[0];
         final ITexture[] endTexture = textures[1];
 
         // Render straight X segment with beveled corners in inventory
-        renderBeveledSegmentX(ctx, renderBlocks, 0.0F, 1.0F, pipeMin, pipeMax, b,
-            sideTexture, sideTexture, sideTexture, sideTexture, endTexture, endTexture, true, true);
+        renderBeveledSegmentX(
+            ctx,
+            renderBlocks,
+            0.0F,
+            1.0F,
+            pipeMin,
+            pipeMax,
+            b,
+            sideTexture,
+            sideTexture,
+            sideTexture,
+            sideTexture,
+            endTexture,
+            endTexture,
+            true,
+            true);
         return true;
     }
 
@@ -265,56 +306,204 @@ public class MTECoolantPipe extends MTEFluidPipe {
 
         switch (aConnections) {
             case NO_CONNECTION -> {
-                renderBeveledCenterJoint(ctx, renderBlocks, pipeMin, pipeMax, b, aConnections,
-                    textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast);
+                renderBeveledCenterJoint(
+                    ctx,
+                    renderBlocks,
+                    pipeMin,
+                    pipeMax,
+                    b,
+                    aConnections,
+                    textureDown,
+                    textureUp,
+                    textureNorth,
+                    textureSouth,
+                    textureWest,
+                    textureEast);
             }
             case CONNECTED_EAST | CONNECTED_WEST -> {
-                renderBeveledSegmentX(ctx, renderBlocks, 0.0F, 1.0F, pipeMin, pipeMax, b,
-                    textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, true);
+                renderBeveledSegmentX(
+                    ctx,
+                    renderBlocks,
+                    0.0F,
+                    1.0F,
+                    pipeMin,
+                    pipeMax,
+                    b,
+                    textureDown,
+                    textureUp,
+                    textureNorth,
+                    textureSouth,
+                    textureWest,
+                    textureEast,
+                    true,
+                    true);
             }
             case CONNECTED_DOWN | CONNECTED_UP -> {
-                renderBeveledSegmentY(ctx, renderBlocks, 0.0F, 1.0F, pipeMin, pipeMax, b,
-                    textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, true);
+                renderBeveledSegmentY(
+                    ctx,
+                    renderBlocks,
+                    0.0F,
+                    1.0F,
+                    pipeMin,
+                    pipeMax,
+                    b,
+                    textureDown,
+                    textureUp,
+                    textureNorth,
+                    textureSouth,
+                    textureWest,
+                    textureEast,
+                    true,
+                    true);
             }
             case CONNECTED_NORTH | CONNECTED_SOUTH -> {
-                renderBeveledSegmentZ(ctx, renderBlocks, 0.0F, 1.0F, pipeMin, pipeMax, b,
-                    textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, true);
+                renderBeveledSegmentZ(
+                    ctx,
+                    renderBlocks,
+                    0.0F,
+                    1.0F,
+                    pipeMin,
+                    pipeMax,
+                    b,
+                    textureDown,
+                    textureUp,
+                    textureNorth,
+                    textureSouth,
+                    textureWest,
+                    textureEast,
+                    true,
+                    true);
             }
             default -> {
                 // West branch
                 if ((aConnections & CONNECTED_WEST) != 0) {
-                    renderBeveledSegmentX(ctx, renderBlocks, 0.0F, pipeMin, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, false);
+                    renderBeveledSegmentX(
+                        ctx,
+                        renderBlocks,
+                        0.0F,
+                        pipeMin + b,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        true,
+                        false);
                 }
                 // East branch
                 if ((aConnections & CONNECTED_EAST) != 0) {
-                    renderBeveledSegmentX(ctx, renderBlocks, pipeMax, 1.0F, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, false, true);
+                    renderBeveledSegmentX(
+                        ctx,
+                        renderBlocks,
+                        pipeMax - b,
+                        1.0F,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        false,
+                        true);
                 }
                 // Down branch
                 if ((aConnections & CONNECTED_DOWN) != 0) {
-                    renderBeveledSegmentY(ctx, renderBlocks, 0.0F, pipeMin, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, false);
+                    renderBeveledSegmentY(
+                        ctx,
+                        renderBlocks,
+                        0.0F,
+                        pipeMin + b,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        true,
+                        false);
                 }
                 // Up branch
                 if ((aConnections & CONNECTED_UP) != 0) {
-                    renderBeveledSegmentY(ctx, renderBlocks, pipeMax, 1.0F, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, false, true);
+                    renderBeveledSegmentY(
+                        ctx,
+                        renderBlocks,
+                        pipeMax - b,
+                        1.0F,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        false,
+                        true);
                 }
                 // North branch
                 if ((aConnections & CONNECTED_NORTH) != 0) {
-                    renderBeveledSegmentZ(ctx, renderBlocks, 0.0F, pipeMin, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, true, false);
+                    renderBeveledSegmentZ(
+                        ctx,
+                        renderBlocks,
+                        0.0F,
+                        pipeMin + b,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        true,
+                        false);
                 }
                 // South branch
                 if ((aConnections & CONNECTED_SOUTH) != 0) {
-                    renderBeveledSegmentZ(ctx, renderBlocks, pipeMax, 1.0F, pipeMin, pipeMax, b,
-                        textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast, false, true);
+                    renderBeveledSegmentZ(
+                        ctx,
+                        renderBlocks,
+                        pipeMax - b,
+                        1.0F,
+                        pipeMin,
+                        pipeMax,
+                        b,
+                        textureDown,
+                        textureUp,
+                        textureNorth,
+                        textureSouth,
+                        textureWest,
+                        textureEast,
+                        false,
+                        true);
                 }
 
                 // Center junction
-                renderBeveledCenterJoint(ctx, renderBlocks, pipeMin, pipeMax, b, aConnections,
-                    textureDown, textureUp, textureNorth, textureSouth, textureWest, textureEast);
+                renderBeveledCenterJoint(
+                    ctx,
+                    renderBlocks,
+                    pipeMin,
+                    pipeMax,
+                    b,
+                    aConnections,
+                    textureDown,
+                    textureUp,
+                    textureNorth,
+                    textureSouth,
+                    textureWest,
+                    textureEast);
             }
         }
 
@@ -323,9 +512,9 @@ public class MTECoolantPipe extends MTEFluidPipe {
     }
 
     @SideOnly(Side.CLIENT)
-    private static void renderBeveledSegmentX(ISBRContext ctx, RenderBlocks rb, float xMin, float xMax,
-        float pipeMin, float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south,
-        ITexture[] west, ITexture[] east, boolean renderWestEnd, boolean renderEastEnd) {
+    private static void renderBeveledSegmentX(ISBRContext ctx, RenderBlocks rb, float xMin, float xMax, float pipeMin,
+        float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south, ITexture[] west,
+        ITexture[] east, boolean renderWestEnd, boolean renderEastEnd) {
         // 1. Center horizontal bar
         rb.setRenderBounds(xMin, pipeMin + b, pipeMin, xMax, pipeMax - b, pipeMax);
         ctx.renderNegativeZFacing(north);
@@ -353,9 +542,9 @@ public class MTECoolantPipe extends MTEFluidPipe {
     }
 
     @SideOnly(Side.CLIENT)
-    private static void renderBeveledSegmentY(ISBRContext ctx, RenderBlocks rb, float yMin, float yMax,
-        float pipeMin, float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south,
-        ITexture[] west, ITexture[] east, boolean renderDownEnd, boolean renderUpEnd) {
+    private static void renderBeveledSegmentY(ISBRContext ctx, RenderBlocks rb, float yMin, float yMax, float pipeMin,
+        float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south, ITexture[] west,
+        ITexture[] east, boolean renderDownEnd, boolean renderUpEnd) {
         // 1. Center bar (spans full Z in XZ plane, width T - 2b in X)
         rb.setRenderBounds(pipeMin + b, yMin, pipeMin, pipeMax - b, yMax, pipeMax);
         ctx.renderNegativeZFacing(north);
@@ -383,9 +572,9 @@ public class MTECoolantPipe extends MTEFluidPipe {
     }
 
     @SideOnly(Side.CLIENT)
-    private static void renderBeveledSegmentZ(ISBRContext ctx, RenderBlocks rb, float zMin, float zMax,
-        float pipeMin, float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south,
-        ITexture[] west, ITexture[] east, boolean renderNorthEnd, boolean renderSouthEnd) {
+    private static void renderBeveledSegmentZ(ISBRContext ctx, RenderBlocks rb, float zMin, float zMax, float pipeMin,
+        float pipeMax, float b, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south, ITexture[] west,
+        ITexture[] east, boolean renderNorthEnd, boolean renderSouthEnd) {
         // 1. Center bar (spans full X in XY plane, height T - 2b in Y)
         rb.setRenderBounds(pipeMin, pipeMin + b, zMin, pipeMax, pipeMax - b, zMax);
         ctx.renderNegativeXFacing(west);
@@ -414,20 +603,78 @@ public class MTECoolantPipe extends MTEFluidPipe {
 
     @SideOnly(Side.CLIENT)
     private static void renderBeveledCenterJoint(ISBRContext ctx, RenderBlocks rb, float pipeMin, float pipeMax,
-        float b, byte connections, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south,
-        ITexture[] west, ITexture[] east) {
-        // Center cross-section sub-boxes with unconnected faces rendered
-        rb.setRenderBounds(pipeMin + b, pipeMin + b, pipeMin, pipeMax - b, pipeMax - b, pipeMax);
-        if ((connections & CONNECTED_NORTH) == 0) ctx.renderNegativeZFacing(north);
-        if ((connections & CONNECTED_SOUTH) == 0) ctx.renderPositiveZFacing(south);
+        float b, byte connections, ITexture[] down, ITexture[] up, ITexture[] north, ITexture[] south, ITexture[] west,
+        ITexture[] east) {
+        final float x0 = pipeMin, x1 = pipeMin + b, x2 = pipeMax - b, x3 = pipeMax;
+        final float y0 = pipeMin, y1 = pipeMin + b, y2 = pipeMax - b, y3 = pipeMax;
+        final float z0 = pipeMin, z1 = pipeMin + b, z2 = pipeMax - b, z3 = pipeMax;
 
-        rb.setRenderBounds(pipeMin, pipeMin + b, pipeMin + b, pipeMax, pipeMax - b, pipeMax - b);
-        if ((connections & CONNECTED_WEST) == 0) ctx.renderNegativeXFacing(west);
-        if ((connections & CONNECTED_EAST) == 0) ctx.renderPositiveXFacing(east);
+        final boolean cDown = (connections & CONNECTED_DOWN) != 0;
+        final boolean cUp = (connections & CONNECTED_UP) != 0;
+        final boolean cNorth = (connections & CONNECTED_NORTH) != 0;
+        final boolean cSouth = (connections & CONNECTED_SOUTH) != 0;
+        final boolean cWest = (connections & CONNECTED_WEST) != 0;
+        final boolean cEast = (connections & CONNECTED_EAST) != 0;
 
-        rb.setRenderBounds(pipeMin + b, pipeMin, pipeMin + b, pipeMax - b, pipeMax, pipeMax - b);
-        if ((connections & CONNECTED_DOWN) == 0) ctx.renderNegativeYFacing(down);
-        if ((connections & CONNECTED_UP) == 0) ctx.renderPositiveYFacing(up);
+        // 1. Top Plate (Y in [y2, y3]) if not connected UP
+        if (!cUp) {
+            rb.setRenderBounds(x1, y2, z1, x2, y3, z2);
+            ctx.renderPositiveYFacing(up);
+            if (!cNorth) ctx.renderNegativeZFacing(north);
+            if (!cSouth) ctx.renderPositiveZFacing(south);
+            if (!cWest) ctx.renderNegativeXFacing(west);
+            if (!cEast) ctx.renderPositiveXFacing(east);
+        }
+
+        // 2. Bottom Plate (Y in [y0, y1]) if not connected DOWN
+        if (!cDown) {
+            rb.setRenderBounds(x1, y0, z1, x2, y1, z2);
+            ctx.renderNegativeYFacing(down);
+            if (!cNorth) ctx.renderNegativeZFacing(north);
+            if (!cSouth) ctx.renderPositiveZFacing(south);
+            if (!cWest) ctx.renderNegativeXFacing(west);
+            if (!cEast) ctx.renderPositiveXFacing(east);
+        }
+
+        // 3. North Plate (Z in [z0, z1]) if not connected NORTH
+        if (!cNorth) {
+            rb.setRenderBounds(x1, y1, z0, x2, y2, z1);
+            ctx.renderNegativeZFacing(north);
+            if (!cUp) ctx.renderPositiveYFacing(up);
+            if (!cDown) ctx.renderNegativeYFacing(down);
+            if (!cWest) ctx.renderNegativeXFacing(west);
+            if (!cEast) ctx.renderPositiveXFacing(east);
+        }
+
+        // 4. South Plate (Z in [z2, z3]) if not connected SOUTH
+        if (!cSouth) {
+            rb.setRenderBounds(x1, y1, z2, x2, y2, z3);
+            ctx.renderPositiveZFacing(south);
+            if (!cUp) ctx.renderPositiveYFacing(up);
+            if (!cDown) ctx.renderNegativeYFacing(down);
+            if (!cWest) ctx.renderNegativeXFacing(west);
+            if (!cEast) ctx.renderPositiveXFacing(east);
+        }
+
+        // 5. West Plate (X in [x0, x1]) if not connected WEST
+        if (!cWest) {
+            rb.setRenderBounds(x0, y1, z1, x1, y2, z2);
+            ctx.renderNegativeXFacing(west);
+            if (!cUp) ctx.renderPositiveYFacing(up);
+            if (!cDown) ctx.renderNegativeYFacing(down);
+            if (!cNorth) ctx.renderNegativeZFacing(north);
+            if (!cSouth) ctx.renderPositiveZFacing(south);
+        }
+
+        // 6. East Plate (X in [x2, x3]) if not connected EAST
+        if (!cEast) {
+            rb.setRenderBounds(x2, y1, z1, x3, y2, z2);
+            ctx.renderPositiveXFacing(east);
+            if (!cUp) ctx.renderPositiveYFacing(up);
+            if (!cDown) ctx.renderNegativeYFacing(down);
+            if (!cNorth) ctx.renderNegativeZFacing(north);
+            if (!cSouth) ctx.renderPositiveZFacing(south);
+        }
     }
 
     @SideOnly(Side.CLIENT)

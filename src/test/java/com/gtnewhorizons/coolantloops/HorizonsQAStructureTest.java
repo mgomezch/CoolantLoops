@@ -129,11 +129,13 @@ public class HorizonsQAStructureTest {
         int countCasings = 0;
 
         for (int y = 0; y < 3; y++) {
-            JsonArray layer = layers.get(y).getAsJsonArray();
+            JsonArray layer = layers.get(y)
+                .getAsJsonArray();
             assertEquals(5, layer.size(), "Layer " + y + " must have 5 rows (Z=0..4)");
 
             for (int z = 0; z < 5; z++) {
-                String row = layer.get(z).getAsString();
+                String row = layer.get(z)
+                    .getAsString();
                 assertEquals(3, row.length(), "Row " + z + " in layer " + y + " must have 3 columns (X=0..2)");
 
                 for (int x = 0; x < 3; x++) {
@@ -146,12 +148,24 @@ public class HorizonsQAStructureTest {
 
                 // Verify internal ducts row by row: rows z=1..3 must have heating and cooling ducts on ALL layers
                 if (z >= 1 && z <= 3) {
-                    assertEquals('h', row.charAt(0), "Row z=" + z + " on layer y=" + y + " must start with Heating Duct 'h'");
-                    assertEquals('l', row.charAt(2), "Row z=" + z + " on layer y=" + y + " must end with Cooling Duct 'l'");
+                    assertEquals(
+                        'h',
+                        row.charAt(0),
+                        "Row z=" + z + " on layer y=" + y + " must start with Heating Duct 'h'");
+                    assertEquals(
+                        'l',
+                        row.charAt(2),
+                        "Row z=" + z + " on layer y=" + y + " must end with Cooling Duct 'l'");
                     if (y == 1) {
-                        assertEquals('c', row.charAt(1), "Center of row z=" + z + " on layer y=1 must be Copper Sheetmetal 'c'");
+                        assertEquals(
+                            'c',
+                            row.charAt(1),
+                            "Center of row z=" + z + " on layer y=1 must be Copper Sheetmetal 'c'");
                     } else {
-                        assertEquals('x', row.charAt(1), "Center of row z=" + z + " on layer y=" + y + " must be Casing 'x'");
+                        assertEquals(
+                            'x',
+                            row.charAt(1),
+                            "Center of row z=" + z + " on layer y=" + y + " must be Casing 'x'");
                     }
                 }
             }

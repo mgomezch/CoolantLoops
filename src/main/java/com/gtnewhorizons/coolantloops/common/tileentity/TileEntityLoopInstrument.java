@@ -5,6 +5,10 @@ import java.util.Arrays;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidTankInfo;
+import net.minecraftforge.fluids.IFluidHandler;
 
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
@@ -24,11 +28,6 @@ import com.gtnewhorizons.modularui.common.widget.TextWidget;
 import cpw.mods.fml.common.Optional;
 import gregtech.api.gui.modularui.GTUITextures;
 import mrtjp.projectred.api.IBundledTile;
-
-import net.minecraftforge.fluids.Fluid;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidTankInfo;
-import net.minecraftforge.fluids.IFluidHandler;
 
 /**
  * Pressurized Instrumentation Computer.
@@ -53,39 +52,6 @@ public class TileEntityLoopInstrument extends TileEntity
         TrackedMetric(String displayName, String unit) {
             this.displayName = displayName;
             this.unit = unit;
-        }
-    }
-
-    @Deprecated
-    public enum InstrumentType {
-
-        FLOW_METER,
-        THERMOMETER,
-        DISSOLVED_GAS_SENSOR;
-
-        public TrackedMetric toTrackedMetric() {
-            return switch (this) {
-                case FLOW_METER -> TrackedMetric.FLOW_RATE;
-                case THERMOMETER -> TrackedMetric.TEMPERATURE;
-                case DISSOLVED_GAS_SENSOR -> TrackedMetric.DISSOLVED_GAS;
-            };
-        }
-    }
-
-    @Deprecated
-    public InstrumentType getType() {
-        return switch (trackedMetric) {
-            case FLOW_RATE -> InstrumentType.FLOW_METER;
-            case TEMPERATURE -> InstrumentType.THERMOMETER;
-            case DISSOLVED_GAS -> InstrumentType.DISSOLVED_GAS_SENSOR;
-            default -> InstrumentType.THERMOMETER;
-        };
-    }
-
-    @Deprecated
-    public void setType(InstrumentType type) {
-        if (type != null) {
-            setTrackedMetric(type.toTrackedMetric());
         }
     }
 
@@ -502,10 +468,36 @@ public class TileEntityLoopInstrument extends TileEntity
         nbt.setDouble("gas", currentGasFraction);
     }
 
+    // --- Network Synchronization ---
+
+    @Override
+    public net.minecraft.network.Packet getDescriptionPacket() {
+        NBTTagCompound nbt = new NBTTagCompound();
+        writeToNBT(nbt);
+        return new net.minecraft.network.play.server.S35PacketUpdateTileEntity(
+            this.xCoord,
+            this.yCoord,
+            this.zCoord,
+            1,
+            nbt);
+    }
+
+    @Override
+    public void onDataPacket(net.minecraft.network.NetworkManager net,
+        net.minecraft.network.play.server.S35PacketUpdateTileEntity pkt) {
+        if (pkt != null && pkt.func_148857_g() != null) {
+            readFromNBT(pkt.func_148857_g());
+            if (worldObj != null) {
+                worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+            }
+        }
+    }
+
     // --- IFluidHandler Implementation for GT Fluid Pipe Connectivity ---
 
     @Override
     public int fill(ForgeDirection from, FluidStack resource, boolean doFill) {
+        if (from == facing) return 0;
         return resource != null ? resource.amount : 0;
     }
 
@@ -521,16 +513,19 @@ public class TileEntityLoopInstrument extends TileEntity
 
     @Override
     public boolean canFill(ForgeDirection from, Fluid fluid) {
-        return true;
+        return from != facing;
     }
 
     @Override
     public boolean canDrain(ForgeDirection from, Fluid fluid) {
-        return true;
+        return from != facing;
     }
 
     @Override
     public FluidTankInfo[] getTankInfo(ForgeDirection from) {
+        if (from == facing) {
+            return new FluidTankInfo[0];
+        }
         return new FluidTankInfo[] { new FluidTankInfo(null, 1000) };
     }
 }

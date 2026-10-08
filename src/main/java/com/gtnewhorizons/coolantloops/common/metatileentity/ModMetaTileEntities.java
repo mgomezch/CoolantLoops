@@ -22,45 +22,33 @@ public class ModMetaTileEntities {
     public static final int DEGASSER_ID = 32123;
     public static final int COOLANT_PIPE_START_ID = 32125;
 
-    public static final Materials[] COOLANT_PIPE_MATERIALS = new Materials[] {
-        Materials.CastIron,
-        Materials.Steel,
-        Materials.StainlessSteel,
-        Materials.Titanium,
-        Materials.TungstenSteel,
-        Materials.Osmium,
-        Materials.Neutronium
-    };
+    public static final Materials[] COOLANT_PIPE_MATERIALS = new Materials[] { Materials.CastIron, Materials.Steel,
+        Materials.StainlessSteel, Materials.Titanium, Materials.TungstenSteel, Materials.Osmium, Materials.Neutronium };
 
-    public static final float[] PIPE_THICKNESSES = new float[] {
-        0.25F,  // Tiny
+    public static final float[] PIPE_THICKNESSES = new float[] { 0.25F, // Tiny
         0.375F, // Small
-        0.50F,  // Medium
-        0.75F,  // Large
-        0.875F  // Huge
+        0.50F, // Medium
+        0.75F, // Large
+        0.875F // Huge
     };
 
-    public static final String[] SIZE_NAMES = new String[] {
-        "Tiny", "Small", "Medium", "Large", "Huge"
+    public static final String[] SIZE_NAMES = new String[] { "Tiny", "Small", "Medium", "Large", "Huge" };
+
+    public static final int[] BASE_CAPACITIES = new int[] { 180, // CastIron
+        240, // Steel
+        360, // StainlessSteel
+        480, // Titanium
+        600, // TungstenSteel
+        1200, // Osmium
+        16800 // Neutronium
     };
 
-    public static final int[] BASE_CAPACITIES = new int[] {
-        180,    // CastIron
-        240,    // Steel
-        360,    // StainlessSteel
-        480,    // Titanium
-        600,    // TungstenSteel
-        1200,   // Osmium
-        16800   // Neutronium
-    };
-
-    public static final int[] HEAT_RESISTANCES = new int[] {
-        2250,   // CastIron
-        2500,   // Steel
-        3000,   // StainlessSteel
-        5000,   // Titanium
-        7500,   // TungstenSteel
-        10000,  // Osmium
+    public static final int[] HEAT_RESISTANCES = new int[] { 2250, // CastIron
+        2500, // Steel
+        3000, // StainlessSteel
+        5000, // Titanium
+        7500, // TungstenSteel
+        10000, // Osmium
         1000000 // Neutronium
     };
 
@@ -100,7 +88,15 @@ public class ModMetaTileEntities {
                 else cap = baseCap * 4;
 
                 String internalName = "coolantpipe." + mat.mName.toLowerCase() + "." + SIZE_NAMES[s].toLowerCase();
-                MTECoolantPipe pipe = new MTECoolantPipe(id, internalName, "gt.oreprefix.material_fluid_pipe", thick, mat, cap, heatRes, true);
+                MTECoolantPipe pipe = new MTECoolantPipe(
+                    id,
+                    internalName,
+                    "gt.oreprefix.material_fluid_pipe",
+                    thick,
+                    mat,
+                    cap,
+                    heatRes,
+                    true);
                 coolantPipes[m][s] = pipe;
                 coolantPipeItems[m][s] = pipe.getStackForm(1L);
                 id++;

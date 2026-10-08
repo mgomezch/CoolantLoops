@@ -144,7 +144,8 @@ public class MTEHatchPressurizedFluid extends MTEHatch implements ICoolantLoopDe
 
     @Override
     public net.minecraftforge.fluids.FluidTankInfo[] getTankInfo(ForgeDirection aSide) {
-        return new net.minecraftforge.fluids.FluidTankInfo[] { new net.minecraftforge.fluids.FluidTankInfo(null, 1000) };
+        return new net.minecraftforge.fluids.FluidTankInfo[] {
+            new net.minecraftforge.fluids.FluidTankInfo(null, 1000) };
     }
 
     @Override

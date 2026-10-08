@@ -19,7 +19,8 @@ public class CoolantPipeVisualTest {
 
     @BeforeAll
     static void initEnvironment() {
-        Thread.currentThread().setName("Server thread");
+        Thread.currentThread()
+            .setName("Server thread");
         try {
             cpw.mods.fml.common.Loader mockLoader = Mockito.mock(cpw.mods.fml.common.Loader.class);
             Mockito.when(mockLoader.getCallableCrashInformation())
@@ -55,7 +56,7 @@ public class CoolantPipeVisualTest {
     public void testBeveledCrossSectionVolumeAndArea() {
         float thickness = 0.50F;
         float pipeMin = (1.0F - thickness) / 2.0F; // 0.25
-        float pipeMax = 1.0F - pipeMin;            // 0.75
+        float pipeMax = 1.0F - pipeMin; // 0.75
         float b = MTECoolantPipe.getBezelSize(thickness); // 0.0625
         float length = 1.0F;
 
@@ -69,10 +70,13 @@ public class CoolantPipeVisualTest {
         }
 
         double standardVolume = length * (thickness * thickness); // 1.0 * 0.25 = 0.25
-        double cornerCutoutsVolume = 4.0 * (b * b) * length;     // 4 * 0.0625^2 * 1.0 = 0.015625
+        double cornerCutoutsVolume = 4.0 * (b * b) * length; // 4 * 0.0625^2 * 1.0 = 0.015625
         double expectedBeveledVolume = standardVolume - cornerCutoutsVolume; // 0.234375
 
-        assertEquals(expectedBeveledVolume, totalVolume, 1e-6,
+        assertEquals(
+            expectedBeveledVolume,
+            totalVolume,
+            1e-6,
             "Beveled pipe volume must match standard box minus 4 corner cut-outs");
         assertTrue(totalVolume < standardVolume, "Beveled pipe volume must be strictly less than un-beveled box");
     }
@@ -94,7 +98,11 @@ public class CoolantPipeVisualTest {
                 double overlapY = Math.max(0.0, Math.min(b1.maxY, b2.maxY) - Math.max(b1.minY, b2.minY));
                 double overlapZ = Math.max(0.0, Math.min(b1.maxZ, b2.maxZ) - Math.max(b1.minZ, b2.minZ));
                 double intersectionVolume = overlapX * overlapY * overlapZ;
-                assertEquals(0.0, intersectionVolume, 1e-6, "Sub-boxes must have zero intersection volume (no z-fighting)");
+                assertEquals(
+                    0.0,
+                    intersectionVolume,
+                    1e-6,
+                    "Sub-boxes must have zero intersection volume (no z-fighting)");
             }
         }
     }
@@ -111,50 +119,101 @@ public class CoolantPipeVisualTest {
     @Test
     public void testDistinctiveTextureOverlay() {
         MTECoolantPipe pipe = new MTECoolantPipe("test.coolantpipe", 0.50F, Materials.Steel, 240, 2500, true);
-        ITexture[] textures = pipe.getTexture(null, net.minecraftforge.common.util.ForgeDirection.NORTH, 0, -1, false, false);
+        ITexture[] textures = pipe
+            .getTexture(null, net.minecraftforge.common.util.ForgeDirection.NORTH, 0, -1, false, false);
         assertNotNull(textures, "Pipe textures must not be null");
         assertTrue(textures.length >= 1, "Must contain base and optional insulation textures");
     }
 
-    static class DummyDeviceTile extends net.minecraft.tileentity.TileEntity implements com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice {
-        @Override public String getDeviceId() { return "dummy"; }
-        @Override public double getMinorLossK() { return 0.2; }
-        @Override public double getDeviceTemperatureCelsius() { return 20.0; }
-        @Override public void processThermalExchange(double flow, double dt, com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty fluid, com.gtnewhorizons.coolantloops.engine.LoopSegment seg) {}
+    static class DummyDeviceTile extends net.minecraft.tileentity.TileEntity
+        implements com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice {
+
+        @Override
+        public String getDeviceId() {
+            return "dummy";
+        }
+
+        @Override
+        public double getMinorLossK() {
+            return 0.2;
+        }
+
+        @Override
+        public double getDeviceTemperatureCelsius() {
+            return 20.0;
+        }
+
+        @Override
+        public void processThermalExchange(double flow, double dt,
+            com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty fluid,
+            com.gtnewhorizons.coolantloops.engine.LoopSegment seg) {}
     }
 
     @Test
     public void testCoolantPipeCanConnectToPressurizedHatch() {
         MTECoolantPipe pipe = new MTECoolantPipe("test.coolantpipe", 0.50F, Materials.Steel, 240, 2500, true);
-        gregtech.api.metatileentity.BaseMetaTileEntity mockGte = Mockito.mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
-        com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid hatch =
-            new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid("hatch", 4, new String[0], new gregtech.api.interfaces.ITexture[0][0][0]);
-        Mockito.when(mockGte.getMetaTileEntity()).thenReturn(hatch);
+        gregtech.api.metatileentity.BaseMetaTileEntity mockGte = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
+        com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid hatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid(
+            "hatch",
+            4,
+            new String[0],
+            new gregtech.api.interfaces.ITexture[0][0][0]);
+        Mockito.when(mockGte.getMetaTileEntity())
+            .thenReturn(hatch);
 
-        assertTrue(pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.WEST, mockGte),
+        assertTrue(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.WEST, mockGte),
             "MTECoolantPipe must allow connection to MTEHatchPressurizedFluid");
     }
 
     @Test
     public void testCoolantPipeCanConnectToManifoldAndDevices() {
         MTECoolantPipe pipe = new MTECoolantPipe("test.coolantpipe", 0.50F, Materials.Steel, 240, 2500, true);
-        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold mockManifold =
-            Mockito.mock(com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold.class);
-        assertTrue(pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.EAST, mockManifold),
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold mockManifold = Mockito
+            .mock(com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold.class);
+        assertTrue(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.EAST, mockManifold),
             "MTECoolantPipe must allow connection to TileEntityManifold");
 
         DummyDeviceTile deviceTile = new DummyDeviceTile();
-        assertTrue(pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.NORTH, deviceTile),
+        assertTrue(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.NORTH, deviceTile),
             "MTECoolantPipe must allow connection to ICoolantLoopDevice");
     }
 
     @Test
     public void testPressurizedHatchReturnsNonEmptyTankInfo() {
-        com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid hatch =
-            new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid("hatch", 4, new String[0], new gregtech.api.interfaces.ITexture[0][0][0]);
-        net.minecraftforge.fluids.FluidTankInfo[] infos = hatch.getTankInfo(net.minecraftforge.common.util.ForgeDirection.UNKNOWN);
+        com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid hatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid(
+            "hatch",
+            4,
+            new String[0],
+            new gregtech.api.interfaces.ITexture[0][0][0]);
+        net.minecraftforge.fluids.FluidTankInfo[] infos = hatch
+            .getTankInfo(net.minecraftforge.common.util.ForgeDirection.UNKNOWN);
         assertNotNull(infos, "Tank info array must not be null");
         assertTrue(infos.length > 0, "Tank info array must not be empty (prevents GT pipe auto-disconnect)");
         assertTrue(infos[0].capacity > 0, "Tank capacity must be positive so pipe canConnect succeeds");
+    }
+
+    @Test
+    public void testCoolantPipeRejectsInstrumentFacingConnection() {
+        MTECoolantPipe pipe = new MTECoolantPipe("test.coolantpipe", 0.50F, Materials.Steel, 240, 2500, true);
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument inst = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument();
+        inst.setFacing(net.minecraftforge.common.util.ForgeDirection.SOUTH);
+
+        // Pipe is to the SOUTH of instrument, querying towards NORTH (oppositeSide is SOUTH, which matches facing)
+        assertFalse(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.NORTH, inst),
+            "Pipe must NOT connect to instrument's facing side (SOUTH)");
+
+        // Pipe is to the NORTH of instrument, querying towards SOUTH (oppositeSide is NORTH, not facing)
+        assertTrue(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.SOUTH, inst),
+            "Pipe must connect to instrument's non-facing side");
+        // Pipe is to the WEST of instrument, querying towards EAST
+        assertTrue(
+            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.EAST, inst),
+            "Pipe must connect to instrument's non-facing side");
     }
 }

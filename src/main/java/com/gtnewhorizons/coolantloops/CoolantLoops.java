@@ -36,7 +36,9 @@ public class CoolantLoops {
         com.gtnewhorizons.coolantloops.common.opencomputers.OpenComputersIntegration.register();
         com.gtnewhorizons.coolantloops.common.projectred.ProjectRedIntegration.register();
 
-        if (cpw.mods.fml.common.FMLCommonHandler.instance().getSide().isClient()) {
+        if (cpw.mods.fml.common.FMLCommonHandler.instance()
+            .getSide()
+            .isClient()) {
             com.gtnewhorizons.coolantloops.client.renderer.RenderBlockManifold.init();
         }
     }

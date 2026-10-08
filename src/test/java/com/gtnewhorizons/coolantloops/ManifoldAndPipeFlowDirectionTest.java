@@ -211,16 +211,21 @@ public class ManifoldAndPipeFlowDirectionTest {
     public void testRegularFluidPipeRejectedByCrawler() {
         World mockWorld = Mockito.mock(World.class);
         MTEFluidPipe regularPipe = new MTEFluidPipe("regular", 0.5f, Materials.Steel, 1000, 1000, true, 1);
-        regularPipe.mConnections = (byte) ((1 << ForgeDirection.WEST.ordinal()) | (1 << ForgeDirection.SOUTH.ordinal()));
+        regularPipe.mConnections = (byte) ((1 << ForgeDirection.WEST.ordinal())
+            | (1 << ForgeDirection.SOUTH.ordinal()));
         BaseMetaPipeEntity bmpe = Mockito.mock(BaseMetaPipeEntity.class);
-        Mockito.when(bmpe.getMetaTileEntity()).thenReturn(regularPipe);
+        Mockito.when(bmpe.getMetaTileEntity())
+            .thenReturn(regularPipe);
         bmpe.mConnections = regularPipe.mConnections;
-        Mockito.when(mockWorld.getTileEntity(11, 10, 10)).thenReturn((TileEntity) bmpe);
+        Mockito.when(mockWorld.getTileEntity(11, 10, 10))
+            .thenReturn((TileEntity) bmpe);
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(mockWorld, 100);
-        CrawlResult result = crawler.crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 10, ForgeDirection.NORTH, "test_pump");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 10, ForgeDirection.NORTH, "test_pump");
         assertFalse(result.isSuccess, "Regular GT fluid pipe must be rejected by crawler");
-        assertTrue(result.failureReason.contains("not an insulated coolant pipe"),
+        assertTrue(
+            result.failureReason.contains("not an insulated coolant pipe"),
             "Failure message must state that coolant loops require specialized Coolant Pipes: " + result.failureReason);
     }
 
@@ -232,31 +237,41 @@ public class ManifoldAndPipeFlowDirectionTest {
         MTECoolantPipe pipe0 = new MTECoolantPipe("pipe0", 0.5f, Materials.Steel, 1000, 1000, true);
         pipe0.mConnections = (byte) ((1 << ForgeDirection.WEST.ordinal()) | (1 << ForgeDirection.SOUTH.ordinal()));
         BaseMetaPipeEntity bmpe0 = Mockito.mock(BaseMetaPipeEntity.class);
-        Mockito.when(bmpe0.getMetaTileEntity()).thenReturn(pipe0);
+        Mockito.when(bmpe0.getMetaTileEntity())
+            .thenReturn(pipe0);
         bmpe0.mConnections = pipe0.mConnections;
 
         // Pipe 1: REGULAR fluid pipe at (11, 10, 11) connected NORTH and WEST
         MTEFluidPipe regularPipe1 = new MTEFluidPipe("regular1", 0.5f, Materials.Steel, 1000, 1000, true, 1);
-        regularPipe1.mConnections = (byte) ((1 << ForgeDirection.NORTH.ordinal()) | (1 << ForgeDirection.WEST.ordinal()));
+        regularPipe1.mConnections = (byte) ((1 << ForgeDirection.NORTH.ordinal())
+            | (1 << ForgeDirection.WEST.ordinal()));
         BaseMetaPipeEntity bmpe1 = Mockito.mock(BaseMetaPipeEntity.class);
-        Mockito.when(bmpe1.getMetaTileEntity()).thenReturn(regularPipe1);
+        Mockito.when(bmpe1.getMetaTileEntity())
+            .thenReturn(regularPipe1);
         bmpe1.mConnections = regularPipe1.mConnections;
 
         // Pipe 2: Coolant pipe at (10, 10, 11) connected EAST and NORTH
         MTECoolantPipe pipe2 = new MTECoolantPipe("pipe2", 0.5f, Materials.Steel, 1000, 1000, true);
         pipe2.mConnections = (byte) ((1 << ForgeDirection.EAST.ordinal()) | (1 << ForgeDirection.NORTH.ordinal()));
         BaseMetaPipeEntity bmpe2 = Mockito.mock(BaseMetaPipeEntity.class);
-        Mockito.when(bmpe2.getMetaTileEntity()).thenReturn(pipe2);
+        Mockito.when(bmpe2.getMetaTileEntity())
+            .thenReturn(pipe2);
         bmpe2.mConnections = pipe2.mConnections;
 
-        Mockito.when(mockWorld.getTileEntity(11, 10, 10)).thenReturn((TileEntity) bmpe0);
-        Mockito.when(mockWorld.getTileEntity(11, 10, 11)).thenReturn((TileEntity) bmpe1);
-        Mockito.when(mockWorld.getTileEntity(10, 10, 11)).thenReturn((TileEntity) bmpe2);
+        Mockito.when(mockWorld.getTileEntity(11, 10, 10))
+            .thenReturn((TileEntity) bmpe0);
+        Mockito.when(mockWorld.getTileEntity(11, 10, 11))
+            .thenReturn((TileEntity) bmpe1);
+        Mockito.when(mockWorld.getTileEntity(10, 10, 11))
+            .thenReturn((TileEntity) bmpe2);
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(mockWorld, 100);
-        CrawlResult result = crawler.crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 10, ForgeDirection.NORTH, "test_pump");
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 10, ForgeDirection.NORTH, "test_pump");
         assertFalse(result.isSuccess, "Loop with regular fluid pipe in the middle must fail");
-        assertTrue(result.failureReason.contains("pipe at (11, 10, 11) is not an insulated coolant pipe"),
-            "Failure message must identify pipe at (11, 10, 11) as not an insulated coolant pipe, but got: " + result.failureReason);
+        assertTrue(
+            result.failureReason.contains("pipe at (11, 10, 11) is not an insulated coolant pipe"),
+            "Failure message must identify pipe at (11, 10, 11) as not an insulated coolant pipe, but got: "
+                + result.failureReason);
     }
 }

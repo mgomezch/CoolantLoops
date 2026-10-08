@@ -50,13 +50,8 @@ public class ModRecipes {
         registerCoolantPipeCraftingRecipes();
     }
 
-    private static final OrePrefixes[] PIPE_PREFIXES = new OrePrefixes[] {
-        OrePrefixes.pipeTiny,
-        OrePrefixes.pipeSmall,
-        OrePrefixes.pipeMedium,
-        OrePrefixes.pipeLarge,
-        OrePrefixes.pipeHuge
-    };
+    private static final OrePrefixes[] PIPE_PREFIXES = new OrePrefixes[] { OrePrefixes.pipeTiny, OrePrefixes.pipeSmall,
+        OrePrefixes.pipeMedium, OrePrefixes.pipeLarge, OrePrefixes.pipeHuge };
 
     public static int getMaterialInsulationTier(Materials mat) {
         if (mat == Materials.CastIron || mat == Materials.Steel) return 1;
@@ -124,14 +119,7 @@ public class ModRecipes {
                     GTModHandler.addCraftingRecipe(
                         gregtech.api.util.GTUtility.copyAmount(3, coolantPipe),
                         GTModHandler.RecipeBits.NOT_REMOVABLE | GTModHandler.RecipeBits.REVERSIBLE,
-                        new Object[] {
-                            "ZPZ",
-                            "ZPZ",
-                            "ZPZ",
-                            'Z', insulation,
-                            'P', originalPipe
-                        }
-                    );
+                        new Object[] { "ZPZ", "ZPZ", "ZPZ", 'Z', insulation, 'P', originalPipe });
                 }
             }
         }

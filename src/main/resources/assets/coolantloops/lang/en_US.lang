@@ -1,2 +1,59 @@
-tile.coolantloops.instrument.name=Pressurized Instrumentation Computer
-tile.coolantloops.manifold.name=Coolant Loop Manifold
+tile.coolantloops.instrument.name=Pressurized instrumentation computer
+tile.coolantloops.manifold.name=Coolant loop manifold
+
+# Pressurized Heat Exchanger
+gt.multiblock.pressurized_heat_exchanger.machine_type=Pressurized heat exchanger
+gt.multiblock.pressurized_heat_exchanger.desc1=Extracts thermal energy from closed coolant loops
+gt.multiblock.pressurized_heat_exchanger.desc2=Converts secondary distilled water -> steam / superheated / supercritical steam at 1:160 expansion
+gt.multiblock.pressurized_heat_exchanger.structure.controller=Center of middle front layer
+gt.multiblock.pressurized_heat_exchanger.structure.casings=Heat proof machine casings
+gt.multiblock.pressurized_heat_exchanger.structure.cooling_duct=Cooling duct
+gt.multiblock.pressurized_heat_exchanger.structure.cooling_duct_pos=9x (secondary cold side)
+gt.multiblock.pressurized_heat_exchanger.structure.heating_duct=Heating duct
+gt.multiblock.pressurized_heat_exchanger.structure.heating_duct_pos=9x (primary hot side)
+gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal=Copper sheetmetal
+gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal_pos=3x (middle center)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet=Pressurized fluid hatch (inlet)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet_pos=1x (middle layer)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet=Pressurized fluid hatch (outlet)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet_pos=1x (middle layer)
+gt.multiblock.pressurized_heat_exchanger.structure.input_hatch=Secondary fluid input (distilled water)
+gt.multiblock.pressurized_heat_exchanger.structure.output_hatch=Secondary fluid output (steam / superheated / supercritical)
+gt.multiblock.pressurized_heat_exchanger.structure.maintenance=Maintenance hatch
+gt.multiblock.pressurized_heat_exchanger.structure.energy=1-2x Energy hatch
+
+# Pressurized Degasser
+gt.multiblock.pressurized_degasser.machine_type=Pressurized degasser
+gt.multiblock.pressurized_degasser.desc1=Extracts dissolved radiolytic and byproduct gases from closed coolant loops
+gt.multiblock.pressurized_degasser.desc2=Extraction rate scales with loop coolant flow rate (25% crossing gas/sec)
+gt.multiblock.pressurized_degasser.desc3=Consumes 8 EU/t per 1 L/s extraction capacity; supports single-amp overclocking
+gt.multiblock.pressurized_degasser.structure.controller=Center of bottom front layer
+gt.multiblock.pressurized_degasser.structure.casings=Reinforced machine casings
+gt.multiblock.pressurized_degasser.structure.hatch_inlet=Pressurized fluid hatch (inlet)
+gt.multiblock.pressurized_degasser.structure.hatch_inlet_pos=1x bottom layer
+gt.multiblock.pressurized_degasser.structure.hatch_outlet=Pressurized fluid hatch (outlet)
+gt.multiblock.pressurized_degasser.structure.hatch_outlet_pos=1x bottom layer
+gt.multiblock.pressurized_degasser.structure.energy=Single-amp energy hatch (bottom layer)
+gt.multiblock.pressurized_degasser.structure.maintenance=Maintenance hatch (bottom layer)
+gt.multiblock.pressurized_degasser.structure.output_hatch=Regular fluid output hatch (top layer, gas recovery)
+
+# Coolant Loop Pump
+gt.multiblock.coolant_pump.machine_type=Coolant loop pump
+gt.multiblock.coolant_pump.desc1=Closed-loop hydrodynamic and thermodynamic circulation pump
+gt.multiblock.coolant_pump.desc2=Sits directly underneath a Railcraft multiblock tank
+gt.multiblock.coolant_pump.desc3=Circulates coolant through empty GregTech fluid pipes
+gt.multiblock.coolant_pump.structure.controller=Center of bottom front layer
+gt.multiblock.coolant_pump.structure.casings=Robust tungstensteel machine casings
+gt.multiblock.coolant_pump.structure.frames=Corner frame boxes (4x at layer 0 and 1)
+gt.multiblock.coolant_pump.structure.frames_pos=Matches Railcraft tank material
+gt.multiblock.coolant_pump.structure.energy=Single-amp energy hatch
+gt.multiblock.coolant_pump.structure.maintenance=Maintenance hatch
+gt.multiblock.coolant_pump.structure.hatch_discharge=Pressurized fluid hatch (discharge)
+gt.multiblock.coolant_pump.structure.hatch_discharge_pos=1x
+gt.multiblock.coolant_pump.structure.hatch_suction=Pressurized fluid hatch (suction)
+gt.multiblock.coolant_pump.structure.hatch_suction_pos=1x
+gt.multiblock.coolant_pump.structure.rc_tank=Railcraft multiblock tank
+gt.multiblock.coolant_pump.structure.rc_tank_pos=Directly above pump (height 4-8, width 3, 5, 7, 9)
+
+# Common
+gt.multiblock.coolantloops.finisher=Coolant Loops

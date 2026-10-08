@@ -13,6 +13,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.IChatComponent;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidRegistry;
@@ -321,6 +322,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
             if (mMaintenanceHatches.size() != 1) {
                 mLoopStatus = "Requires 1 Maintenance Hatch";
+                return false;
+            }
+
+            if (mEnergyHatches.isEmpty()) {
+                mLoopStatus = "Requires at least 1 Energy Hatch";
                 return false;
             }
 
@@ -663,6 +669,14 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
     }
 
+    public boolean drainEnergy(long aEU) {
+        if (drainEnergyInput(aEU)) return true;
+        if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() >= aEU) {
+            return getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
+        }
+        return false;
+    }
+
     public boolean stepCoolantLoop() {
         if (!mLoopFormed || mEngine.getSegments()
             .isEmpty()) {
@@ -706,8 +720,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             double effFactor = getEfficiencyFactor();
             long availableEU = getMaxInputVoltage() * getMaxInputAmps();
             if (availableEU == 0) availableEU = 512;
-            boolean powered = drainEnergyInput(availableEU) || (baseTE.getStoredEU() > 0) || mEnergyHatches.isEmpty();
-            double mechanicalWatts = (powered ? availableEU : 512) * 80.0 * mRotorEfficiency * effFactor;
+            boolean powered = drainEnergy(availableEU);
+            double mechanicalWatts = powered ? (availableEU * 80.0 * mRotorEfficiency * effFactor) : 0.0;
             if (powered) {
                 degradeRotor(availableEU);
             }
@@ -716,7 +730,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             if (flowRate > 1e-5) {
                 // Phase A: Active deceleration down to zero
                 mLoopState = LoopState.DECELERATING;
-                mEngine.setPumpPowered(true);
+                mEngine.setPumpPowered(powered);
                 mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
                 mEngine.setBraking(true);
 
@@ -832,21 +846,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
 
         // Active Circulation Phase
-        mLoopState = LoopState.CIRCULATING;
-        mEngine.setPumpPowered(true);
-
         checkMaintenance();
         double effFactor = getEfficiencyFactor();
         long availableEU = getMaxInputVoltage() * getMaxInputAmps();
         if (availableEU == 0) availableEU = 512;
-        if (drainEnergyInput(availableEU)
-            || (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() > 0)
-            || mEnergyHatches.isEmpty()) {
+        boolean hasPower = drainEnergy(availableEU);
+        if (hasPower) {
+            mLoopState = LoopState.CIRCULATING;
+            mEngine.setPumpPowered(true);
             double mechanicalWatts = availableEU * 80.0 * mRotorEfficiency * effFactor;
             mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
             degradeRotor(availableEU);
         } else {
-            mEngine.setPumpMechanicalPowerWatts(512 * 80.0 * mRotorEfficiency * effFactor);
+            mLoopState = LoopState.STOPPED;
+            mEngine.setPumpPowered(false);
+            mEngine.setPumpMechanicalPowerWatts(0.0);
+            mLoopStatus = "Pump unpowered (No EU in Energy Hatch)";
         }
 
         // Synchronize dissolved gas fraction across engine and all segments
@@ -1963,23 +1978,31 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
-        tt.addMachineType("Coolant Loop Pump")
-            .addInfo("Closed-loop hydrodynamic and thermodynamic circulation pump")
-            .addInfo("Sits directly underneath a Railcraft multiblock tank")
-            .addInfo("Circulates coolant through empty GregTech fluid pipes")
+        tt.addMachineType(StatCollector.translateToLocal("gt.multiblock.coolant_pump.machine_type"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc1"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc2"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc3"))
             .addSeparator()
             .beginStructureBlock(3, 2, 3, false)
-            .addController("Center of bottom front layer")
-            .addCasingInfoMin("Robust Tungstensteel Machine Casings", 5, false)
-            .addOtherStructurePart("Corner Frame Boxes (4x at layer 0 and 1)", "Matches Railcraft tank material")
-            .addEnergyHatch("1x Single-Amp Energy Hatch", 1)
-            .addMaintenanceHatch("1x Maintenance Hatch", 1)
-            .addOtherStructurePart("Pressurized Fluid Hatch (Discharge)", "1x")
-            .addOtherStructurePart("Pressurized Fluid Hatch (Suction)", "1x")
-            .addOtherStructurePart("Railcraft Multiblock Tank", "Directly above pump (height 4-8, width 3, 5, 7, 9)")
+            .addController(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.controller"))
+            .addCasingInfoMin(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.casings"), 5, false)
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.frames"),
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.frames_pos"))
+            .addEnergyHatch(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.energy"), 1)
+            .addMaintenanceHatch(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.maintenance"), 1)
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_discharge"),
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_discharge_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_suction"),
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_suction_pos"))
+            .addOtherStructurePart(
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.rc_tank"),
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.rc_tank_pos"))
             .addSubChannel(CoolantStructureChannels.STRUCTURE_WIDTH)
             .addSubChannel(CoolantStructureChannels.STRUCTURE_HEIGHT)
-            .toolTipFinisher("Coolant Loops");
+            .toolTipFinisher(StatCollector.translateToLocal("gt.multiblock.coolantloops.finisher"));
         return tt;
     }
 }

@@ -11,7 +11,7 @@ class LoopInstrumentTest {
     @Test
     void testThermometerRedstoneScaling() {
         TileEntityLoopInstrument thermometer = new TileEntityLoopInstrument();
-        thermometer.setType(TileEntityLoopInstrument.InstrumentType.THERMOMETER);
+        thermometer.setTrackedMetric(TileEntityLoopInstrument.TrackedMetric.TEMPERATURE);
 
         LoopSegment coldSeg = new LoopSegment("cold", 1.0, 0.1, 0.000045, 0.05, 50.0, 1000.0, 20.0);
         thermometer.processThermalExchange(0.01, 1.0, CoolantFluidProperty.WATER, coldSeg);
@@ -29,7 +29,7 @@ class LoopInstrumentTest {
     @Test
     void testFlowMeterRedstoneScaling() {
         TileEntityLoopInstrument flowMeter = new TileEntityLoopInstrument();
-        flowMeter.setType(TileEntityLoopInstrument.InstrumentType.FLOW_METER);
+        flowMeter.setTrackedMetric(TileEntityLoopInstrument.TrackedMetric.FLOW_RATE);
 
         // Pipe area = pi * 0.05^2 ~= 0.007854 m^2
         LoopSegment seg = new LoopSegment("pipe", 1.0, 0.1, 0.000045, 0.05, 50.0, 1000.0, 20.0);
