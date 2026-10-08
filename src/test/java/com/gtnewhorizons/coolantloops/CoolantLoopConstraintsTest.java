@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 /**
@@ -109,5 +110,20 @@ public class CoolantLoopConstraintsTest {
             engine.step(0.05);
             assertTrue(engine.getVolumetricFlowRate() <= 1.2 + 1e-9);
         }
+    }
+
+    @Test
+    public void testLoopBrokenFailureReporting() {
+        CrawlResult broken = CrawlResult.fail("Loop broken: no path reached the pump suction port!");
+        assertFalse(broken.isSuccess);
+        assertEquals("Loop broken: no path reached the pump suction port!", broken.failureReason);
+        assertNotNull(broken.segments);
+        assertTrue(broken.segments.isEmpty());
+        assertNotNull(broken.devices);
+        assertTrue(broken.devices.isEmpty());
+        assertNotNull(broken.pipePositions);
+        assertTrue(broken.pipePositions.isEmpty());
+        assertNotNull(broken.pipeConfigs);
+        assertTrue(broken.pipeConfigs.isEmpty());
     }
 }

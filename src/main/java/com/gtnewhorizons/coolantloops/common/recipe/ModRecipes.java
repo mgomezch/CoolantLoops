@@ -125,9 +125,9 @@ public class ModRecipes {
                         gregtech.api.util.GTUtility.copyAmount(3, coolantPipe),
                         GTModHandler.RecipeBits.NOT_REMOVABLE | GTModHandler.RecipeBits.REVERSIBLE,
                         new Object[] {
-                            "Z P Z",
-                            "Z P Z",
-                            "Z P Z",
+                            "ZPZ",
+                            "ZPZ",
+                            "ZPZ",
                             'Z', insulation,
                             'P', originalPipe
                         }

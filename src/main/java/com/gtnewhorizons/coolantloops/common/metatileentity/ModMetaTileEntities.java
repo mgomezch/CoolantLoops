@@ -16,11 +16,11 @@ public class ModMetaTileEntities {
     public static com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger pressurizedHeatExchanger;
     public static com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser pressurizedDegasser;
 
-    public static final int PUMP_ID = 15370;
-    public static final int PRESSURIZED_HATCH_ID = 15371;
-    public static final int HEAT_EXCHANGER_ID = 15372;
-    public static final int DEGASSER_ID = 15373;
-    public static final int COOLANT_PIPE_START_ID = 15400;
+    public static final int PUMP_ID = 32120;
+    public static final int PRESSURIZED_HATCH_ID = 32121;
+    public static final int HEAT_EXCHANGER_ID = 32122;
+    public static final int DEGASSER_ID = 32123;
+    public static final int COOLANT_PIPE_START_ID = 32125;
 
     public static final Materials[] COOLANT_PIPE_MATERIALS = new Materials[] {
         Materials.CastIron,

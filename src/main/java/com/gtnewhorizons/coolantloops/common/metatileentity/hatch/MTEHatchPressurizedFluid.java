@@ -143,6 +143,11 @@ public class MTEHatchPressurizedFluid extends MTEHatch implements ICoolantLoopDe
     }
 
     @Override
+    public net.minecraftforge.fluids.FluidTankInfo[] getTankInfo(ForgeDirection aSide) {
+        return new net.minecraftforge.fluids.FluidTankInfo[] { new net.minecraftforge.fluids.FluidTankInfo(null, 1000) };
+    }
+
+    @Override
     public boolean allowCoverOnSide(ForgeDirection side, net.minecraft.item.ItemStack coverItem) {
         return true;
     }

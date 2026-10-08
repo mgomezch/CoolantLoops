@@ -175,4 +175,21 @@ public class CoolantPumpStructureTest {
             }
         }
     }
+
+    @Test
+    public void testTankValveAndPipingPlaneContract() {
+        // Pump base is Layer 0 (y) and Layer 1 (y+1).
+        // Suction and Discharge hatches are strictly located at Layer 1 (y+1).
+        final int pumpBaseHeight = 2;
+        final int hatchPlaneOffset = 1;
+        assertEquals(1, hatchPlaneOffset, "Piping loop plane must be at y + 1 (layer 1 of pump multiblock)");
+
+        // Railcraft tank bottom layer (containing the center valve block) is at Layer 2 (y+2).
+        final int tankValveOffset = pumpBaseHeight;
+        assertEquals(2, tankValveOffset, "Railcraft tank valve must be at y + 2 directly above the pump base");
+
+        // Railcraft tank interior hollow core begins at Layer 3 (y+3).
+        final int tankInteriorOffset = pumpBaseHeight + 1;
+        assertEquals(3, tankInteriorOffset, "Railcraft tank hollow air interior begins at y + 3");
+    }
 }

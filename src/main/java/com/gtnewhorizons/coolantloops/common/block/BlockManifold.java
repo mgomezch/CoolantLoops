@@ -76,7 +76,11 @@ public class BlockManifold extends BlockContainer {
 
     @Override
     public TileEntity createNewTileEntity(World world, int meta) {
-        return new TileEntityManifold();
+        TileEntityManifold te = new TileEntityManifold();
+        if (meta > 0 && meta < ForgeDirection.VALID_DIRECTIONS.length) {
+            te.setFacing(ForgeDirection.getOrientation(meta));
+        }
+        return te;
     }
 
     @Override

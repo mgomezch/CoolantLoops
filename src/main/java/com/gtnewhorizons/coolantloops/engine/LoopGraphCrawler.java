@@ -1112,9 +1112,7 @@ public class LoopGraphCrawler {
         if (x == targetX && y == targetY && z == targetZ) return true;
         TileEntity te = world.getTileEntity(x, y, z);
         if (te == null) return false;
-        if (te instanceof BaseMetaPipeEntity) {
-            return ((BaseMetaPipeEntity) te).getMetaTileEntity() instanceof MTECoolantPipe;
-        }
+        if (te instanceof BaseMetaPipeEntity) return true;
         if (te instanceof ICoolantLoopDevice) return true;
         if (te instanceof IGregTechTileEntity) {
             IMetaTileEntity mte = ((IGregTechTileEntity) te).getMetaTileEntity();
