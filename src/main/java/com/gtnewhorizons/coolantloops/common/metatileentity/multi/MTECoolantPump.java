@@ -69,6 +69,10 @@ import mods.railcraft.common.blocks.machine.beta.TileTankBase;
 import mods.railcraft.common.fluids.tanks.StandardTank;
 import mods.railcraft.common.modules.ModuleAdvancedTanks;
 
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.util.CoolantPumpReservoir;
+import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
+
 /**
  * Multiblock Coolant Loop Pump.
  *
@@ -115,11 +119,37 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     protected long mRequiredFillLiters = 0L;
     protected long mFillRateLitersPerTick = 1000L;
 
-    // Byproduct gases and coolant reservoir state
-    protected final Map<String, Long> mDissolvedGases = new LinkedHashMap<>();
-    protected long mSimulatedCoolantLiters = 100000L;
-    protected long mSimulatedTankCapacityLiters = 200000L;
+    // Reservoir management
+    protected final CoolantPumpReservoir mReservoir = new CoolantPumpReservoir(this);
     protected boolean mHasEverBeenEnabled = false;
+
+    public boolean isMachineFormed() {
+        return mMachine;
+    }
+
+    public int getWidth() {
+        return mWidth;
+    }
+
+    public void setWidth(int width) {
+        this.mWidth = width;
+    }
+
+    public int getLength() {
+        return mLength;
+    }
+
+    public void setLength(int length) {
+        this.mLength = length;
+    }
+
+    public void setLoopStatus(String loopStatus) {
+        this.mLoopStatus = loopStatus;
+    }
+
+    public CoolantPumpReservoir getReservoir() {
+        return mReservoir;
+    }
 
     public boolean isDischargeHatchDisabled() {
         if (mDischargeHatch == null) return false;
@@ -127,15 +157,19 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public long getSimulatedTankCapacityLiters() {
-        return mSimulatedTankCapacityLiters;
+        return mReservoir.getSimulatedTankCapacityLiters();
     }
 
     public void setSimulatedTankCapacityLiters(long capacity) {
-        this.mSimulatedTankCapacityLiters = capacity;
+        mReservoir.setSimulatedTankCapacityLiters(capacity);
     }
 
     public long getSimulatedCoolantLiters() {
-        return mSimulatedCoolantLiters;
+        return mReservoir.getSimulatedCoolantLiters();
+    }
+
+    public void setSimulatedCoolantLiters(long liters) {
+        mReservoir.setSimulatedCoolantLiters(liters);
     }
 
     public MTECoolantPump(int aID, String aName, String aNameRegional) {
@@ -381,281 +415,39 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
      * fully formed with matching footprint and containing coolant fluid.
      */
     public boolean verifyRailcraftTankAbove(IGregTechTileEntity aBaseMetaTileEntity) {
-        if (aBaseMetaTileEntity == null) return false;
-        World world = aBaseMetaTileEntity.getWorld();
-        if (world == null) {
-            // Standalone test/mock environment fallback
-            return mSimulatedCoolantLiters > 0;
-        }
-
-        ForgeDirection front = aBaseMetaTileEntity.getFrontFacing();
-        ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-            : ForgeDirection.SOUTH;
-        ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN ? front.getRotation(ForgeDirection.UP)
-            : ForgeDirection.WEST;
-
-        int x0 = aBaseMetaTileEntity.getXCoord();
-        int y0 = aBaseMetaTileEntity.getYCoord();
-        int z0 = aBaseMetaTileEntity.getZCoord();
-        int y = y0 + 2; // Immediately above top pump layer (height 2)
-
-        TileMultiBlock masterBlock = null;
-
-        // Attempt instant pattern check on block behind controller
-        int probeX = x0 + back.offsetX;
-        int probeZ = z0 + back.offsetZ;
-        TileEntity centerTe = world.getTileEntity(probeX, y, probeZ);
-        if (centerTe instanceof TileMultiBlock) {
-            TileMultiBlock tmbCenter = (TileMultiBlock) centerTe;
-            if (!tmbCenter.isStructureValid()) {
-                try {
-                    java.lang.reflect.Method mTest = TileMultiBlock.class.getDeclaredMethod("testIfMasterBlock");
-                    mTest.setAccessible(true);
-                    mTest.invoke(tmbCenter);
-                } catch (Throwable ignored) {}
-            }
-            masterBlock = tmbCenter.getMasterBlock();
-        }
-
-        // If not found directly behind, search the first row behind controller
-        if (masterBlock == null) {
-            for (int dx = -4; dx <= 4; dx++) {
-                TileEntity te = world
-                    .getTileEntity(x0 + right.offsetX * dx + back.offsetX, y, z0 + right.offsetZ * dx + back.offsetZ);
-                if (te instanceof TileMultiBlock) {
-                    TileMultiBlock tmb = (TileMultiBlock) te;
-                    if (!tmb.isStructureValid()) {
-                        try {
-                            java.lang.reflect.Method mTest = TileMultiBlock.class
-                                .getDeclaredMethod("testIfMasterBlock");
-                            mTest.setAccessible(true);
-                            mTest.invoke(tmb);
-                        } catch (Throwable ignored) {}
-                    }
-                    masterBlock = tmb.getMasterBlock();
-                    if (masterBlock != null) break;
-                }
-            }
-        }
-
-        if (masterBlock == null) {
-            mLoopStatus = "Missing Railcraft tank above pump!";
-            return false;
-        }
-
-        // Determine Railcraft tank material and verify it has matching GregTech fluid pipes
-        Materials tankMat = getRailcraftTankMaterial(masterBlock);
-        if (tankMat == null) {
-            mLoopStatus = "Unrecognized Railcraft tank material above pump!";
-            return false;
-        }
-        if (!LoopGraphCrawler.isAllowedCoolantPipeMaterial(tankMat)) {
-            mLoopStatus = String.format(
-                "Railcraft tank material %s has no matching GregTech fluid pipe! Allowed materials: Iron, Steel, Stainless Steel, Titanium, Tungstensteel, Neutronium.",
-                tankMat.mDefaultLocalName);
-            return false;
-        }
-        mTankMaterial = tankMat;
-
-        // Determine dimensions from pattern
-        MultiBlockPattern pattern = masterBlock.getPattern();
-        if (pattern == null) {
-            mLoopStatus = "Railcraft tank has invalid pattern!";
-            return false;
-        }
-        int tankWidthX = pattern.getPatternWidthX();
-        int tankWidthZ = pattern.getPatternWidthZ();
-        // Railcraft pattern arrays include a 1-block outer border of 'O' (other/air),
-        // so a 3x3 tank has pattern width 5 (5x5). Account for either raw or bordered dimension.
-        int effX = (tankWidthX > 2) ? (tankWidthX - 2) : tankWidthX;
-        int effZ = (tankWidthZ > 2) ? (tankWidthZ - 2) : tankWidthZ;
-
-        int detectedWidth = effX;
-        if (detectedWidth != 3 && detectedWidth != 5 && detectedWidth != 7 && detectedWidth != 9) {
-            mLoopStatus = String.format("Unsupported Railcraft tank width %d (must be 3, 5, 7, or 9)!", detectedWidth);
-            return false;
-        }
-        if (effX != effZ) {
-            mLoopStatus = String.format("Railcraft tank footprint must be square (%dx%d detected)!", effX, effZ);
-            return false;
-        }
-
-        mWidth = detectedWidth;
-        mLength = detectedWidth;
-        int R = mWidth / 2;
-
-        // 1. Inspect every block across the footprint
-        for (int localX = -R; localX <= R; localX++) {
-            for (int localZ = 0; localZ < mWidth; localZ++) {
-                int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                TileEntity te = world.getTileEntity(bx, y, bz);
-                if (te == null) {
-                    mLoopStatus = String.format("Missing Railcraft tank block at (%d, %d, %d)", bx, y, bz);
-                    return false;
-                }
-                if (!(te instanceof TileMultiBlock)) {
-                    mLoopStatus = String.format(
-                        "Block at (%d, %d, %d) is %s, not a Railcraft tank block",
-                        bx,
-                        y,
-                        bz,
-                        te.getClass()
-                            .getSimpleName());
-                    return false;
-                }
-                TileMultiBlock tmb = (TileMultiBlock) te;
-                if (!tmb.isStructureValid()) {
-                    mLoopStatus = "Railcraft tank above pump is not fully formed/structurally valid!";
-                    return false;
-                }
-                if (tmb.getMasterBlock() != masterBlock) {
-                    mLoopStatus = "Mismatched Railcraft tank: multiple distinct tank multiblocks detected above pump!";
-                    return false;
-                }
-            }
-        }
-
-        // 2. Validate tank contains coolant fluid initially
-        FluidStack availableFluid = getReservoirFluid();
-        if (availableFluid == null || availableFluid.amount <= 0 || availableFluid.getFluid() == null) {
-            mLoopStatus = "Railcraft tank is empty! Coolant fluid required before pump can operate.";
-            return false;
-        }
-
-        if (isPlainRegularWater(availableFluid)) {
-            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
-            return false;
-        }
-
-        if (isGaseousFluid(availableFluid)) {
-            mLoopStatus = "Pump refused to start: Gaseous fluid (" + availableFluid.getFluid().getName() + ") cannot be used as a coolant!";
-            return false;
-        }
-
-        CoolantFluidProperty prop = CoolantFluidProperty.get(
-            availableFluid.getFluid()
-                .getName());
-        if (prop == null || prop.isPlainWater()) {
-            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
-            return false;
-        }
-
-        if (isMoltenFluid(availableFluid.getFluid(), availableFluid, prop)) {
-            double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
-            double biomeTemp = getBiomeTemperatureCelsius();
-            if (biomeTemp < declaredMelting) {
-                mLoopStatus = String.format(
-                    "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
-                    biomeTemp,
-                    declaredMelting,
-                    prop.getFluidName());
-                return false;
-            }
-        }
-        mEngine.setFluid(prop);
-        return true;
+        return mReservoir.verifyRailcraftTankAbove(aBaseMetaTileEntity);
     }
 
     public static boolean isPlainRegularWater(net.minecraftforge.fluids.Fluid fluid) {
-        if (fluid == null) return false;
-        String name = fluid.getName().trim().toLowerCase();
-        if (name.contains("distill") || name.contains("heavy")) {
-            return false;
-        }
-        if (fluid == FluidRegistry.WATER) {
-            return true;
-        }
-        return name.equals("water") || name.equals("minecraft:water") || name.equals("fluid.water");
+        return CoolantFluidHelper.isPlainRegularWater(fluid);
     }
 
     public static boolean isPlainRegularWater(FluidStack stack) {
-        if (stack == null || stack.getFluid() == null) return false;
-        return isPlainRegularWater(stack.getFluid());
+        return CoolantFluidHelper.isPlainRegularWater(stack);
     }
 
     public static boolean isGaseousFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack) {
-        if (fluid == null) return false;
-        if (fluid.isGaseous() || (stack != null && fluid.isGaseous(stack))) {
-            return true;
-        }
-        String name = fluid.getName().trim().toLowerCase();
-        if (name.startsWith("gas_") || name.endsWith("_gas") || name.endsWith(".gas")) {
-            return true;
-        }
-        try {
-            Materials mat = Materials.FLUID_MAP.get(fluid);
-            if (mat != null && mat.mGas != null && mat.mGas == fluid) {
-                return true;
-            }
-        } catch (Throwable ignored) {}
-        return false;
+        return CoolantFluidHelper.isGaseousFluid(fluid, stack);
     }
 
     public static boolean isGaseousFluid(FluidStack stack) {
-        if (stack == null || stack.getFluid() == null) return false;
-        return isGaseousFluid(stack.getFluid(), stack);
+        return CoolantFluidHelper.isGaseousFluid(stack);
     }
 
     public static boolean isMoltenFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
-        if (prop != null && prop.isMolten()) {
-            return true;
-        }
-        if (stack != null && stack.getFluid() != null && stack.getFluid().getName() != null
-            && stack.getFluid().getName().toLowerCase().contains("molten")) {
-            return true;
-        }
-        if (fluid != null && fluid.getName() != null
-            && fluid.getName().toLowerCase().contains("molten")) {
-            return true;
-        }
-        return false;
+        return CoolantFluidHelper.isMoltenFluid(fluid, stack, prop);
     }
 
     public static boolean isMoltenFluid(FluidStack stack) {
-        if (stack == null || stack.getFluid() == null) return false;
-        return isMoltenFluid(stack.getFluid(), stack, CoolantFluidProperty.get(stack.getFluid().getName()));
+        return CoolantFluidHelper.isMoltenFluid(stack);
     }
 
     public static double getDeclaredGregTechFluidTemperatureCelsius(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
-        if (fluid == null && stack != null) {
-            fluid = stack.getFluid();
-        }
-        if (fluid == null && prop != null) {
-            try {
-                fluid = FluidRegistry.getFluid(prop.getFluidName());
-            } catch (Throwable ignored) {}
-        }
-        if (fluid != null) {
-            int tempK = (stack != null) ? fluid.getTemperature(stack) : fluid.getTemperature();
-            if (tempK > 0) {
-                return tempK - 273.15;
-            }
-        }
-        if (prop != null) {
-            return prop.getDeclaredTemperatureCelsius();
-        }
-        return 20.0;
+        return CoolantFluidHelper.getDeclaredGregTechFluidTemperatureCelsius(fluid, stack, prop);
     }
 
     public static double getFluidStackTemperatureCelsius(FluidStack stack) {
-        if (stack == null || stack.getFluid() == null) return 20.0;
-        if (stack.tag != null) {
-            if (stack.tag.hasKey("temperature")) {
-                int t = stack.tag.getInteger("temperature");
-                return t > 200 ? (t - 273.15) : (double) t;
-            }
-            if (stack.tag.hasKey("Temperature")) {
-                int t = stack.tag.getInteger("Temperature");
-                return t > 200 ? (t - 273.15) : (double) t;
-            }
-            if (stack.tag.hasKey("temp")) {
-                double t = stack.tag.getDouble("temp");
-                return t > 200.0 ? (t - 273.15) : t;
-            }
-        }
-        int tempK = stack.getFluid().getTemperature(stack);
-        return tempK - 273.15;
+        return CoolantFluidHelper.getFluidStackTemperatureCelsius(stack);
     }
 
     protected double mSimulatedBiomeTempCelsius = 20.0;
@@ -665,13 +457,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public static double calculateAmbientTemperature(World world, int x, int y, int z) {
-        if (world != null) {
-            try {
-                float bTemp = world.getBiomeGenForCoords(x, z).getFloatTemperature(x, y, z);
-                return (bTemp * 100.0 - 32.0) / 1.8;
-            } catch (Exception ignored) {}
-        }
-        return 20.0;
+        return CoolantFluidHelper.calculateAmbientTemperature(world, x, y, z);
     }
 
     public double getBiomeTemperatureCelsius() {
@@ -696,41 +482,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public FluidStack getReservoirFluid() {
-        IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && te.getWorld() != null) {
-            World world = te.getWorld();
-            ForgeDirection front = te.getFrontFacing();
-            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-                : ForgeDirection.SOUTH;
-            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
-                ? front.getRotation(ForgeDirection.UP)
-                : ForgeDirection.WEST;
-            int x0 = te.getXCoord();
-            int y0 = te.getYCoord();
-            int z0 = te.getZCoord();
-            int y = y0 + 2;
-            int R = mWidth / 2;
-
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    TileEntity tile = world.getTileEntity(bx, y, bz);
-                    if (tile instanceof TileTankBase) {
-                        TileTankBase master = (TileTankBase) ((TileTankBase) tile).getMasterBlock();
-                        if (master != null && master.getTank() != null && master.getTank().getFluid() != null) {
-                            return master.getTank().getFluid();
-                        }
-                    } else if (tile instanceof IFluidHandler) {
-                        FluidStack drained = ((IFluidHandler) tile).drain(ForgeDirection.DOWN, 1, false);
-                        if (drained != null && drained.amount > 0 && drained.getFluid() != null) {
-                            return drained;
-                        }
-                    }
-                }
-            }
-        }
-        return null;
+        return mReservoir.getReservoirFluid();
     }
 
     /**
@@ -1362,10 +1114,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         this.mRequiredFillLiters = liters;
     }
 
-    public void setSimulatedCoolantLiters(long liters) {
-        this.mSimulatedCoolantLiters = liters;
-    }
-
     public void setFillRateLitersPerTick(long litersPerTick) {
         this.mFillRateLitersPerTick = litersPerTick;
     }
@@ -1379,181 +1127,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
      * Drains fluid from the Railcraft tank multiblock reservoir directly above the pump.
      */
     public int drainFromReservoir(int liters) {
-        if (liters <= 0) return 0;
-        IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && te.getWorld() != null) {
-            World world = te.getWorld();
-            ForgeDirection front = te.getFrontFacing();
-            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-                : ForgeDirection.SOUTH;
-            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
-                ? front.getRotation(ForgeDirection.UP)
-                : ForgeDirection.WEST;
-            int x0 = te.getXCoord();
-            int y0 = te.getYCoord();
-            int z0 = te.getZCoord();
-            int R = mWidth / 2;
-
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
-                        int y = y0 + yOffset;
-                        TileEntity tile = world.getTileEntity(bx, y, bz);
-                        if (tile instanceof TileTankBase) {
-                            TileTankBase tankTile = (TileTankBase) tile;
-                            TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
-                            if (master != null && master.getTank() != null) {
-                                FluidStack drained = master.getTank()
-                                    .drain(liters, true);
-                                if (drained != null && drained.amount > 0) {
-                                    return drained.amount;
-                                }
-                            }
-                        }
-                        if (tile instanceof IFluidHandler) {
-                            FluidStack drained = ((IFluidHandler) tile).drain(ForgeDirection.DOWN, liters, true);
-                            if (drained != null && drained.amount > 0) {
-                                return drained.amount;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (mSimulatedCoolantLiters > 0) {
-            int drained = (int) Math.min(liters, mSimulatedCoolantLiters);
-            mSimulatedCoolantLiters -= drained;
-            return drained;
-        }
-        return 0;
+        return mReservoir.drainFromReservoir(liters);
     }
 
     /**
      * Returns fluid from the coolant loop back into the Railcraft tank reservoir directly above the pump.
      */
     public int fillIntoReservoir(int liters) {
-        if (liters <= 0) return 0;
-        IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && te.getWorld() != null) {
-            World world = te.getWorld();
-            ForgeDirection front = te.getFrontFacing();
-            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-                : ForgeDirection.SOUTH;
-            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
-                ? front.getRotation(ForgeDirection.UP)
-                : ForgeDirection.WEST;
-            int x0 = te.getXCoord();
-            int y0 = te.getYCoord();
-            int z0 = te.getZCoord();
-            int R = mWidth / 2;
-
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
-                        int y = y0 + yOffset;
-                        TileEntity tile = world.getTileEntity(bx, y, bz);
-                        if (tile instanceof TileTankBase) {
-                            TileTankBase tankTile = (TileTankBase) tile;
-                            TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
-                            if (master != null && master.getTank() != null) {
-                                StandardTank stdTank = master.getTank();
-                                int space = stdTank.getCapacity() - stdTank.getFluidAmount();
-                                if (space <= 0) {
-                                    return 0; // Tank is full
-                                }
-                                int toFill = Math.min(liters, space);
-                                String fluidName = mEngine.getFluid() != null ? mEngine.getFluid()
-                                    .getFluidName() : "ic2distilledwater";
-                                net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
-                                if (f != null) {
-                                    FluidStack stack = new FluidStack(f, toFill);
-                                    int filled = stdTank.fill(stack, true);
-                                    if (filled > 0) return filled;
-                                }
-                            }
-                        }
-                        if (tile instanceof IFluidHandler) {
-                            String fluidName = mEngine.getFluid() != null ? mEngine.getFluid()
-                                .getFluidName() : "ic2distilledwater";
-                            net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
-                            if (f != null) {
-                                FluidStack stack = new FluidStack(f, liters);
-                                int filled = ((IFluidHandler) tile).fill(ForgeDirection.DOWN, stack, true);
-                                if (filled > 0) return filled;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (mSimulatedTankCapacityLiters > 0) {
-            long space = Math.max(0, mSimulatedTankCapacityLiters - mSimulatedCoolantLiters);
-            int filled = (int) Math.min(liters, space);
-            mSimulatedCoolantLiters += filled;
-            return filled;
-        } else {
-            mSimulatedCoolantLiters += liters;
-            return liters;
-        }
+        return mReservoir.fillIntoReservoir(liters);
     }
 
     /**
      * Checks if the Railcraft tank reservoir directly above the pump is full.
      */
     public boolean isReservoirFull() {
-        IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && te.getWorld() != null) {
-            World world = te.getWorld();
-            ForgeDirection front = te.getFrontFacing();
-            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-                : ForgeDirection.SOUTH;
-            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
-                ? front.getRotation(ForgeDirection.UP)
-                : ForgeDirection.WEST;
-            int x0 = te.getXCoord();
-            int y0 = te.getYCoord();
-            int z0 = te.getZCoord();
-            int R = mWidth / 2;
-
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
-                        int y = y0 + yOffset;
-                        TileEntity tile = world.getTileEntity(bx, y, bz);
-                        if (tile instanceof TileTankBase) {
-                            TileTankBase tankTile = (TileTankBase) tile;
-                            TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
-                            if (master != null && master.getTank() != null) {
-                                return master.getTank()
-                                    .getFluidAmount()
-                                    >= master.getTank()
-                                        .getCapacity();
-                            }
-                        }
-                        if (tile instanceof IFluidHandler) {
-                            FluidTankInfo[] infos = ((IFluidHandler) tile).getTankInfo(ForgeDirection.DOWN);
-                            if (infos != null && infos.length > 0 && infos[0] != null) {
-                                int amt = infos[0].fluid != null ? infos[0].fluid.amount : 0;
-                                return amt >= infos[0].capacity;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (mSimulatedTankCapacityLiters > 0) {
-            return mSimulatedCoolantLiters >= mSimulatedTankCapacityLiters;
-        }
-        return false;
+        return mReservoir.isReservoirFull();
     }
 
     @Override
@@ -1564,104 +1152,32 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     @Override
     public void addDissolvedGas(String gasName, long liters) {
-        if (gasName == null || liters <= 0) return;
-        mDissolvedGases.merge(gasName, liters, Long::sum);
+        mReservoir.addDissolvedGas(gasName, liters);
     }
 
     @Override
     public double getDissolvedGasFraction() {
-        long totalGas = 0;
-        for (long val : mDissolvedGases.values()) {
-            totalGas += val;
-        }
-        long totalLiters = getTotalCoolantLiters();
-        if (totalLiters <= 0) return 0.0;
-        double frac = (double) totalGas / (double) totalLiters;
-        return Math.min(1.0, Math.max(0.0, frac));
+        return mReservoir.getDissolvedGasFraction();
     }
 
     @Override
     public long getDissolvedGasAmount(String gasName) {
-        if (gasName == null) return 0L;
-        return mDissolvedGases.getOrDefault(gasName, 0L);
+        return mReservoir.getDissolvedGasAmount(gasName);
     }
 
     @Override
     public Map<String, Long> getDissolvedGases() {
-        return Collections.unmodifiableMap(mDissolvedGases);
+        return mReservoir.getDissolvedGases();
     }
 
     @Override
     public synchronized long extractDissolvedGas(String gasName, long maxLiters) {
-        if (gasName == null || maxLiters <= 0) return 0L;
-        String matchedKey = null;
-        for (String k : mDissolvedGases.keySet()) {
-            if (k.equalsIgnoreCase(gasName)) {
-                matchedKey = k;
-                break;
-            }
-        }
-        if (matchedKey == null) return 0L;
-        long current = mDissolvedGases.getOrDefault(matchedKey, 0L);
-        long toExtract = Math.min(current, maxLiters);
-        if (toExtract > 0) {
-            long remaining = current - toExtract;
-            if (remaining > 0) {
-                mDissolvedGases.put(matchedKey, remaining);
-            } else {
-                mDissolvedGases.remove(matchedKey);
-            }
-        }
-        return toExtract;
+        return mReservoir.extractDissolvedGas(gasName, maxLiters);
     }
 
     @Override
     public long getTotalCoolantLiters() {
-        IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && te.getWorld() != null) {
-            World world = te.getWorld();
-            ForgeDirection front = te.getFrontFacing();
-            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
-                : ForgeDirection.SOUTH;
-            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
-                ? front.getRotation(ForgeDirection.UP)
-                : ForgeDirection.WEST;
-            int x0 = te.getXCoord();
-            int y0 = te.getYCoord();
-            int z0 = te.getZCoord();
-            int R = mWidth / 2;
-
-            for (int localX = -R; localX <= R; localX++) {
-                for (int localZ = 0; localZ < mWidth; localZ++) {
-                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
-                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
-                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
-                        int y = y0 + yOffset;
-                        TileEntity tile = world.getTileEntity(bx, y, bz);
-                        if (tile instanceof TileTankBase) {
-                            TileTankBase master = (TileTankBase) ((TileTankBase) tile).getMasterBlock();
-                            if (master != null && master.getTank() != null) {
-                                return master.getTank()
-                                    .getFluidAmount();
-                            }
-                        }
-                        if (tile instanceof IFluidHandler) {
-                            FluidTankInfo[] infos = ((IFluidHandler) tile).getTankInfo(ForgeDirection.DOWN);
-                            if (infos != null) {
-                                long sum = 0;
-                                for (FluidTankInfo info : infos) {
-                                    if (info != null && info.fluid != null) {
-                                        sum += info.fluid.amount;
-                                    }
-                                }
-                                if (sum > 0) return sum;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return mSimulatedCoolantLiters;
+        return mReservoir.getTotalCoolantLiters();
     }
 
     @Override
@@ -1679,84 +1195,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public static Materials getRailcraftTankMaterial(TileEntity te) {
-        if (te == null) return null;
-        if (te instanceof TileTankBase) {
-            TileTankBase tankBase = (TileTankBase) te;
-            try {
-                mods.railcraft.common.blocks.machine.beta.MetalTank tankType = tankBase.getTankType();
-                if (tankType instanceof mods.railcraft.common.blocks.machine.beta.SteelTank) {
-                    return Materials.Steel;
-                }
-                if (tankType instanceof mods.railcraft.common.blocks.machine.beta.IronTank) {
-                    return Materials.CastIron;
-                }
-                if (tankType instanceof mods.railcraft.common.blocks.machine.tank.GenericMultiTankBase) {
-                    String mat = ((mods.railcraft.common.blocks.machine.tank.GenericMultiTankBase) tankType).tankMaterial;
-                    if (mat != null) {
-                        mat = mat.toLowerCase();
-                        switch (mat) {
-                            case "steel":
-                                return Materials.Steel;
-                            case "iron":
-                                return Materials.CastIron;
-                            case "stainless":
-                                return Materials.StainlessSteel;
-                            case "titanium":
-                                return Materials.Titanium;
-                            case "tungstensteel":
-                                return Materials.TungstenSteel;
-                            case "neutronium":
-                                return Materials.Neutronium;
-                            case "aluminium":
-                            case "aluminum":
-                                return Materials.Aluminium;
-                            case "palladium":
-                                return Materials.Palladium;
-                            case "iridium":
-                                return Materials.Iridium;
-                            case "osmium":
-                                return Materials.Osmium;
-                            default:
-                                return null;
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {}
-        }
-        String name = te.getClass()
-            .getSimpleName()
-            .toLowerCase();
-        if (name.contains("steel") && !name.contains("stainless") && !name.contains("tungsten")) {
-            return Materials.Steel;
-        }
-        if (name.contains("iron")) {
-            return Materials.CastIron;
-        }
-        if (name.contains("stainless")) {
-            return Materials.StainlessSteel;
-        }
-        if (name.contains("titanium")) {
-            return Materials.Titanium;
-        }
-        if (name.contains("tungstensteel")) {
-            return Materials.TungstenSteel;
-        }
-        if (name.contains("neutronium")) {
-            return Materials.Neutronium;
-        }
-        if (name.contains("alumin")) {
-            return Materials.Aluminium;
-        }
-        if (name.contains("palladium")) {
-            return Materials.Palladium;
-        }
-        if (name.contains("iridium")) {
-            return Materials.Iridium;
-        }
-        if (name.contains("osmium")) {
-            return Materials.Osmium;
-        }
-        return null;
+        return CoolantPumpReservoir.getRailcraftTankMaterial(te);
     }
 
     @Override
@@ -1779,13 +1218,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        NBTTagCompound gasesTag = new NBTTagCompound();
-        for (Map.Entry<String, Long> entry : mDissolvedGases.entrySet()) {
-            gasesTag.setLong(entry.getKey(), entry.getValue());
-        }
-        aNBT.setTag("mDissolvedGases", gasesTag);
-        aNBT.setLong("mSimulatedCoolantLiters", mSimulatedCoolantLiters);
-        aNBT.setLong("mSimulatedTankCapacityLiters", mSimulatedTankCapacityLiters);
+        mReservoir.saveNBTData(aNBT);
         aNBT.setString("mLoopState", mLoopState.name());
         aNBT.setLong("mCurrentFillLiters", mCurrentFillLiters);
         aNBT.setLong("mRequiredFillLiters", mRequiredFillLiters);
@@ -1797,20 +1230,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        mDissolvedGases.clear();
-        if (aNBT.hasKey("mDissolvedGases")) {
-            NBTTagCompound gasesTag = aNBT.getCompoundTag("mDissolvedGases");
-            for (Object keyObj : gasesTag.func_150296_c()) {
-                String key = (String) keyObj;
-                mDissolvedGases.put(key, gasesTag.getLong(key));
-            }
-        }
-        if (aNBT.hasKey("mSimulatedCoolantLiters")) {
-            mSimulatedCoolantLiters = aNBT.getLong("mSimulatedCoolantLiters");
-        }
-        if (aNBT.hasKey("mSimulatedTankCapacityLiters")) {
-            mSimulatedTankCapacityLiters = aNBT.getLong("mSimulatedTankCapacityLiters");
-        }
+        mReservoir.loadNBTData(aNBT);
         if (aNBT.hasKey("mLoopState")) {
             try {
                 mLoopState = LoopState.valueOf(aNBT.getString("mLoopState"));
@@ -1872,415 +1292,64 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public static Materials getMaterialForTier(int tier) {
-        switch (tier) {
-            case 0:
-                return Materials.CastIron;
-            case 1:
-                return Materials.Steel;
-            case 2:
-                return Materials.StainlessSteel;
-            case 3:
-                return Materials.Titanium;
-            case 4:
-                return Materials.TungstenSteel;
-            case 5:
-                return Materials.Neutronium;
-            default:
-                if (tier < 0) return Materials.CastIron;
-                return Materials.Neutronium;
-        }
+        return CoolantPumpStructure.getMaterialForTier(tier);
     }
 
     public static Materials getMaterialFromTrigger(ItemStack trigger) {
-        if (trigger == null) return Materials.Steel;
-        int tier;
-        try {
-            if (ChannelDataAccessor.hasSubChannel(trigger, "tier")) {
-                tier = ChannelDataAccessor.getChannelData(trigger, "tier");
-            } else {
-                tier = trigger.stackSize - 1;
-            }
-        } catch (Throwable t) {
-            tier = trigger.stackSize - 1;
-        }
-        return getMaterialForTier(tier);
+        return CoolantPumpStructure.getMaterialFromTrigger(trigger);
     }
 
     public static int getWidthFromTrigger(ItemStack trigger) {
-        if (trigger == null) return 3;
-        int val = CoolantStructureChannels.STRUCTURE_WIDTH.getValueClamped(trigger, 0, 9);
-        switch (val) {
-            case 0:
-            case 1:
-            case 3:
-                return 3;
-            case 2:
-            case 5:
-                return 5;
-            case 7:
-                return 7;
-            case 4:
-            case 9:
-                return 9;
-            default:
-                if (val <= 0) return 3;
-                if (val == 6) return 7;
-                if (val >= 8) return 9;
-                return 3;
-        }
+        return CoolantPumpStructure.getWidthFromTrigger(trigger);
     }
 
     public static int getHeightFromTrigger(ItemStack trigger) {
-        if (trigger == null) return 4;
-        int val = CoolantStructureChannels.STRUCTURE_HEIGHT.getValueClamped(trigger, 0, 8);
-        switch (val) {
-            case 0:
-            case 1:
-            case 4:
-                return 4;
-            case 2:
-            case 5:
-                return 5;
-            case 3:
-            case 6:
-                return 6;
-            case 7:
-                return 7;
-            case 8:
-                return 8;
-            default:
-                if (val < 4) return 4;
-                if (val > 8) return 8;
-                return val;
-        }
+        return CoolantPumpStructure.getHeightFromTrigger(trigger);
     }
 
     public static ItemStack getTankWallItem(Materials mat) {
-        try {
-            if (mat == Materials.CastIron && EnumMachineBeta.TANK_IRON_WALL != null) {
-                return EnumMachineBeta.TANK_IRON_WALL.getItem();
-            }
-            if (mat == Materials.Steel && EnumMachineBeta.TANK_STEEL_WALL != null) {
-                return EnumMachineBeta.TANK_STEEL_WALL.getItem();
-            }
-            if (mat == Materials.StainlessSteel && ModuleAdvancedTanks.STAINLESS != null
-                && ModuleAdvancedTanks.STAINLESS.TANK_WALL != null) {
-                return ModuleAdvancedTanks.STAINLESS.TANK_WALL.getItem();
-            }
-            if (mat == Materials.Titanium && ModuleAdvancedTanks.TITANIUM != null
-                && ModuleAdvancedTanks.TITANIUM.TANK_WALL != null) {
-                return ModuleAdvancedTanks.TITANIUM.TANK_WALL.getItem();
-            }
-            if (mat == Materials.TungstenSteel && ModuleAdvancedTanks.TUNGSTENSTEEL != null
-                && ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_WALL != null) {
-                return ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_WALL.getItem();
-            }
-            if (mat == Materials.Neutronium && ModuleAdvancedTanks.NEUTRONIUM != null
-                && ModuleAdvancedTanks.NEUTRONIUM.TANK_WALL != null) {
-                return ModuleAdvancedTanks.NEUTRONIUM.TANK_WALL.getItem();
-            }
-            if (mat == Materials.Aluminium && ModuleAdvancedTanks.ALUMINIUM != null
-                && ModuleAdvancedTanks.ALUMINIUM.TANK_WALL != null) {
-                return ModuleAdvancedTanks.ALUMINIUM.TANK_WALL.getItem();
-            }
-            if (EnumMachineBeta.TANK_STEEL_WALL != null) {
-                return EnumMachineBeta.TANK_STEEL_WALL.getItem();
-            }
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        } catch (Throwable t) {
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        }
+        return CoolantPumpStructure.getTankWallItem(mat);
     }
 
     public static ItemStack getTankValveItem(Materials mat) {
-        try {
-            if (mat == Materials.CastIron && EnumMachineBeta.TANK_IRON_VALVE != null) {
-                return EnumMachineBeta.TANK_IRON_VALVE.getItem();
-            }
-            if (mat == Materials.Steel && EnumMachineBeta.TANK_STEEL_VALVE != null) {
-                return EnumMachineBeta.TANK_STEEL_VALVE.getItem();
-            }
-            if (mat == Materials.StainlessSteel && ModuleAdvancedTanks.STAINLESS != null
-                && ModuleAdvancedTanks.STAINLESS.TANK_VALVE != null) {
-                return ModuleAdvancedTanks.STAINLESS.TANK_VALVE.getItem();
-            }
-            if (mat == Materials.Titanium && ModuleAdvancedTanks.TITANIUM != null
-                && ModuleAdvancedTanks.TITANIUM.TANK_VALVE != null) {
-                return ModuleAdvancedTanks.TITANIUM.TANK_VALVE.getItem();
-            }
-            if (mat == Materials.TungstenSteel && ModuleAdvancedTanks.TUNGSTENSTEEL != null
-                && ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_VALVE != null) {
-                return ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_VALVE.getItem();
-            }
-            if (mat == Materials.Neutronium && ModuleAdvancedTanks.NEUTRONIUM != null
-                && ModuleAdvancedTanks.NEUTRONIUM.TANK_VALVE != null) {
-                return ModuleAdvancedTanks.NEUTRONIUM.TANK_VALVE.getItem();
-            }
-            if (mat == Materials.Aluminium && ModuleAdvancedTanks.ALUMINIUM != null
-                && ModuleAdvancedTanks.ALUMINIUM.TANK_VALVE != null) {
-                return ModuleAdvancedTanks.ALUMINIUM.TANK_VALVE.getItem();
-            }
-            if (EnumMachineBeta.TANK_STEEL_VALVE != null) {
-                return EnumMachineBeta.TANK_STEEL_VALVE.getItem();
-            }
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        } catch (Throwable t) {
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        }
+        return CoolantPumpStructure.getTankValveItem(mat);
     }
 
     public static ItemStack getTankGaugeItem(Materials mat) {
-        try {
-            if (mat == Materials.CastIron && EnumMachineBeta.TANK_IRON_GAUGE != null) {
-                return EnumMachineBeta.TANK_IRON_GAUGE.getItem();
-            }
-            if (mat == Materials.Steel && EnumMachineBeta.TANK_STEEL_GAUGE != null) {
-                return EnumMachineBeta.TANK_STEEL_GAUGE.getItem();
-            }
-            if (mat == Materials.StainlessSteel && ModuleAdvancedTanks.STAINLESS != null
-                && ModuleAdvancedTanks.STAINLESS.TANK_GAUGE != null) {
-                return ModuleAdvancedTanks.STAINLESS.TANK_GAUGE.getItem();
-            }
-            if (mat == Materials.Titanium && ModuleAdvancedTanks.TITANIUM != null
-                && ModuleAdvancedTanks.TITANIUM.TANK_GAUGE != null) {
-                return ModuleAdvancedTanks.TITANIUM.TANK_GAUGE.getItem();
-            }
-            if (mat == Materials.TungstenSteel && ModuleAdvancedTanks.TUNGSTENSTEEL != null
-                && ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_GAUGE != null) {
-                return ModuleAdvancedTanks.TUNGSTENSTEEL.TANK_GAUGE.getItem();
-            }
-            if (mat == Materials.Neutronium && ModuleAdvancedTanks.NEUTRONIUM != null
-                && ModuleAdvancedTanks.NEUTRONIUM.TANK_GAUGE != null) {
-                return ModuleAdvancedTanks.NEUTRONIUM.TANK_GAUGE.getItem();
-            }
-            if (mat == Materials.Aluminium && ModuleAdvancedTanks.ALUMINIUM != null
-                && ModuleAdvancedTanks.ALUMINIUM.TANK_GAUGE != null) {
-                return ModuleAdvancedTanks.ALUMINIUM.TANK_GAUGE.getItem();
-            }
-            if (EnumMachineBeta.TANK_STEEL_GAUGE != null) {
-                return EnumMachineBeta.TANK_STEEL_GAUGE.getItem();
-            }
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        } catch (Throwable t) {
-            return new ItemStack(net.minecraft.init.Items.stick, 1);
-        }
+        return CoolantPumpStructure.getTankGaugeItem(mat);
     }
 
     public static IStructureElement<MTECoolantPump> ofCornerFrame() {
-        return new IStructureElement<MTECoolantPump>() {
-
-            @Override
-            public boolean check(MTECoolantPump t, World world, int x, int y, int z) {
-                Block block = world.getBlock(x, y, z);
-                if (block instanceof BlockFrameBox) {
-                    Materials mat = BlockFrameBox.getMaterial(world.getBlockMetadata(x, y, z));
-                    if (t.mTankMaterial != null) {
-                        return CoolantPipingRegistry.areMaterialsEqual(mat, t.mTankMaterial);
-                    }
-                    return LoopGraphCrawler.isAllowedCoolantPipeMaterial(mat);
-                }
-                return false;
-            }
-
-            @Override
-            public boolean spawnHint(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(getMaterialFromTrigger(trigger))
-                    .spawnHint(t, world, x, y, z, trigger);
-            }
-
-            @Override
-            public boolean placeBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(getMaterialFromTrigger(trigger))
-                    .placeBlock(t, world, x, y, z, trigger);
-            }
-
-            @Override
-            public PlaceResult survivalPlaceBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                IItemSource s, EntityPlayerMP actor, Consumer<IChatComponent> chatter) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(getMaterialFromTrigger(trigger))
-                    .survivalPlaceBlock(t, world, x, y, z, trigger, s, actor, chatter);
-            }
-
-            @Override
-            public PlaceResult survivalPlaceBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                AutoPlaceEnvironment env) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(getMaterialFromTrigger(trigger))
-                    .survivalPlaceBlock(t, world, x, y, z, trigger, env);
-            }
-
-            @Override
-            public BlocksToPlace getBlocksToPlace(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                AutoPlaceEnvironment env) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(getMaterialFromTrigger(trigger))
-                    .getBlocksToPlace(t, world, x, y, z, trigger, env);
-            }
-        };
+        return CoolantPumpStructure.ofCornerFrame();
     }
 
     public static IStructureElement<MTECoolantPump> ofTankWall() {
-        return new IStructureElement<MTECoolantPump>() {
-
-            private IStructureElement<MTECoolantPump> getElement(ItemStack trigger) {
-                Materials mat = getMaterialFromTrigger(trigger);
-                ItemStack stack = getTankWallItem(mat);
-                if (stack == null || stack.getItem() == null) {
-                    stack = EnumMachineBeta.TANK_STEEL_WALL != null ? EnumMachineBeta.TANK_STEEL_WALL.getItem() : null;
-                }
-                Block block = (stack != null && stack.getItem() != null) ? Block.getBlockFromItem(stack.getItem())
-                    : null;
-                if (block == null) {
-                    block = Block.getBlockFromName("stone");
-                }
-                int meta = stack != null ? stack.getItemDamage() : 0;
-                return StructureUtility.ofBlock(block, meta);
-            }
-
-            @Override
-            public boolean check(MTECoolantPump t, World world, int x, int y, int z) {
-                TileEntity te = world.getTileEntity(x, y, z);
-                if (te instanceof TileMultiBlock) {
-                    TileMultiBlock tmb = (TileMultiBlock) te;
-                    Materials mat = getRailcraftTankMaterial(tmb);
-                    if (t.mTankMaterial != null) {
-                        return CoolantPipingRegistry.areMaterialsEqual(mat, t.mTankMaterial);
-                    }
-                    return LoopGraphCrawler.isAllowedCoolantPipeMaterial(mat);
-                }
-                return false;
-            }
-
-            @Override
-            public boolean spawnHint(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger) {
-                return getElement(trigger).spawnHint(t, world, x, y, z, trigger);
-            }
-
-            @Override
-            public boolean placeBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger) {
-                return getElement(trigger).placeBlock(t, world, x, y, z, trigger);
-            }
-
-            @Override
-            public PlaceResult survivalPlaceBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                IItemSource s, EntityPlayerMP actor, Consumer<IChatComponent> chatter) {
-                return getElement(trigger).survivalPlaceBlock(t, world, x, y, z, trigger, s, actor, chatter);
-            }
-
-            @Override
-            public PlaceResult survivalPlaceBlock(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                AutoPlaceEnvironment env) {
-                return getElement(trigger).survivalPlaceBlock(t, world, x, y, z, trigger, env);
-            }
-
-            @Override
-            public BlocksToPlace getBlocksToPlace(MTECoolantPump t, World world, int x, int y, int z, ItemStack trigger,
-                AutoPlaceEnvironment env) {
-                return getElement(trigger).getBlocksToPlace(t, world, x, y, z, trigger, env);
-            }
-        };
+        return CoolantPumpStructure.ofTankWall();
     }
 
-    private static String[] makePumpBaseShape0(int width) {
-        String[] rows = new String[width];
-        for (int r = 0; r < width; r++) {
-            char[] row = new char[width];
-            for (int c = 0; c < width; c++) {
-                if ((r == 0 || r == width - 1) && (c == 0 || c == width - 1)) {
-                    row[c] = 'F';
-                } else if (r == 0 && c == width / 2) {
-                    row[c] = '~';
-                } else {
-                    row[c] = 'C';
-                }
-            }
-            rows[r] = new String(row);
-        }
-        return rows;
+    public static String[] makePumpBaseShape0(int width) {
+        return CoolantPumpStructure.makePumpBaseShape0(width);
     }
 
-    private static String[] makePumpBaseShape1(int width) {
-        String[] rows = new String[width];
-        for (int r = 0; r < width; r++) {
-            char[] row = new char[width];
-            for (int c = 0; c < width; c++) {
-                if ((r == 0 || r == width - 1) && (c == 0 || c == width - 1)) {
-                    row[c] = 'F';
-                } else {
-                    row[c] = 'C';
-                }
-            }
-            rows[r] = new String(row);
-        }
-        return rows;
+    public static String[] makePumpBaseShape1(int width) {
+        return CoolantPumpStructure.makePumpBaseShape1(width);
     }
 
-    private static String[] makeTankBottomShape(int width) {
-        String[] rows = new String[width];
-        for (int r = 0; r < width; r++) {
-            char[] row = new char[width];
-            for (int c = 0; c < width; c++) {
-                row[c] = 'w';
-            }
-            rows[r] = new String(row);
-        }
-        return rows;
+    public static String[] makeTankBottomShape(int width) {
+        return CoolantPumpStructure.makeTankBottomShape(width);
     }
 
-    private static String[] makeTankMidShape(int width) {
-        String[] rows = new String[width];
-        for (int r = 0; r < width; r++) {
-            char[] row = new char[width];
-            for (int c = 0; c < width; c++) {
-                if (r == 0 || r == width - 1 || c == 0 || c == width - 1) {
-                    row[c] = 'w';
-                } else {
-                    row[c] = ' ';
-                }
-            }
-            rows[r] = new String(row);
-        }
-        return rows;
+    public static String[] makeTankMidShape(int width) {
+        return CoolantPumpStructure.makeTankMidShape(width);
     }
 
-    private static String[] makeTankTopShape(int width) {
-        return makeTankBottomShape(width);
+    public static String[] makeTankTopShape(int width) {
+        return CoolantPumpStructure.makeTankTopShape(width);
     }
-
-    private static IStructureDefinition<MTECoolantPump> STRUCTURE_DEFINITION = null;
 
     @Override
     public IStructureDefinition<MTECoolantPump> getStructureDefinition() {
-        if (STRUCTURE_DEFINITION == null) {
-            StructureDefinition.Builder<MTECoolantPump> b = StructureDefinition.<MTECoolantPump>builder();
-            for (int w : new int[] { 3, 5, 7, 9 }) {
-                b.addShape(
-                    "pump_" + w + "_base_0",
-                    StructureUtility.transpose(new String[][] { makePumpBaseShape0(w) }))
-                    .addShape(
-                        "pump_" + w + "_base_1",
-                        StructureUtility.transpose(new String[][] { makePumpBaseShape1(w) }))
-                    .addShape(
-                        "tank_" + w + "_bottom",
-                        StructureUtility.transpose(new String[][] { makeTankBottomShape(w) }))
-                    .addShape("tank_" + w + "_mid", StructureUtility.transpose(new String[][] { makeTankMidShape(w) }))
-                    .addShape("tank_" + w + "_top", StructureUtility.transpose(new String[][] { makeTankTopShape(w) }));
-            }
-            Block casing = GregTechAPI.sBlockCasings4 != null ? GregTechAPI.sBlockCasings4
-                : Block.getBlockFromName("stone");
-            Block hintBlock = StructureLibAPI.getBlockHint() != null ? StructureLibAPI.getBlockHint()
-                : Block.getBlockFromName("stone");
-            b.addShape(
-                "pump_3x3",
-                StructureUtility.transpose(new String[][] { makePumpBaseShape0(3), makePumpBaseShape1(3) }))
-                .addElement('F', ofCornerFrame())
-                .addElement('w', ofTankWall())
-                .addElement(
-                    'C',
-                    StructureUtility.ofChain(
-                        GTStructureUtility.ofHatchAdder(MTECoolantPump::addBottomHatch, 48 + 2, hintBlock, 0),
-                        StructureUtility.ofBlock(casing, 2)));
-            STRUCTURE_DEFINITION = b.build();
-        }
-        return STRUCTURE_DEFINITION;
+        return CoolantPumpStructure.getStructureDefinition();
     }
 
     @Override
