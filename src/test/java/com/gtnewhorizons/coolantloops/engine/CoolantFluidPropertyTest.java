@@ -44,7 +44,7 @@ class CoolantFluidPropertyTest {
         assertEquals(0.557, cheese.getDynamicViscosity(), 1e-5);
         assertEquals(3000.0, cheese.getSpecificHeat(), 0.1);
         assertEquals(0.481, cheese.getThermalConductivity(), 1e-5);
-        assertEquals(65.0, cheese.getFreezingPointCelsius(), 0.1);
+        assertEquals(46.85, cheese.getFreezingPointCelsius(), 0.01);
         assertTrue(Double.isInfinite(cheese.getBoilingPointCelsius()));
         assertFalse(cheese.canBoil());
         assertSame(cheese, CoolantFluidProperty.get("molten.cheese"));

@@ -540,6 +540,19 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
             return false;
         }
+
+        if (isMoltenFluid(availableFluid.getFluid(), availableFluid, prop)) {
+            double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
+            double fluidTemp = getFluidStackTemperatureCelsius(availableFluid);
+            if (fluidTemp < declaredMelting) {
+                mLoopStatus = String.format(
+                    "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
+                    fluidTemp,
+                    declaredMelting,
+                    prop.getFluidName());
+                return false;
+            }
+        }
         mEngine.setFluid(prop);
         return true;
     }
@@ -582,6 +595,88 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public static boolean isGaseousFluid(FluidStack stack) {
         if (stack == null || stack.getFluid() == null) return false;
         return isGaseousFluid(stack.getFluid(), stack);
+    }
+
+    public static boolean isMoltenFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+        if (prop != null && prop.isMolten()) {
+            return true;
+        }
+        if (stack != null && stack.getFluid() != null && stack.getFluid().getName() != null
+            && stack.getFluid().getName().toLowerCase().contains("molten")) {
+            return true;
+        }
+        if (fluid != null && fluid.getName() != null
+            && fluid.getName().toLowerCase().contains("molten")) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isMoltenFluid(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return false;
+        return isMoltenFluid(stack.getFluid(), stack, CoolantFluidProperty.get(stack.getFluid().getName()));
+    }
+
+    public static double getDeclaredGregTechFluidTemperatureCelsius(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+        if (fluid == null && stack != null) {
+            fluid = stack.getFluid();
+        }
+        if (fluid == null && prop != null) {
+            try {
+                fluid = FluidRegistry.getFluid(prop.getFluidName());
+            } catch (Throwable ignored) {}
+        }
+        if (fluid != null) {
+            int tempK = (stack != null) ? fluid.getTemperature(stack) : fluid.getTemperature();
+            if (tempK > 0) {
+                return tempK - 273.15;
+            }
+        }
+        if (prop != null) {
+            return prop.getDeclaredTemperatureCelsius();
+        }
+        return 20.0;
+    }
+
+    public static double getFluidStackTemperatureCelsius(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return 20.0;
+        if (stack.tag != null) {
+            if (stack.tag.hasKey("temperature")) {
+                int t = stack.tag.getInteger("temperature");
+                return t > 200 ? (t - 273.15) : (double) t;
+            }
+            if (stack.tag.hasKey("Temperature")) {
+                int t = stack.tag.getInteger("Temperature");
+                return t > 200 ? (t - 273.15) : (double) t;
+            }
+            if (stack.tag.hasKey("temp")) {
+                double t = stack.tag.getDouble("temp");
+                return t > 200.0 ? (t - 273.15) : t;
+            }
+        }
+        int tempK = stack.getFluid().getTemperature(stack);
+        return tempK - 273.15;
+    }
+
+    public double getCoolantTemperatureCelsius() {
+        double minTemp = Double.MAX_VALUE;
+        boolean hasData = false;
+        if (mEngine != null && mEngine.getSegments() != null && !mEngine.getSegments().isEmpty()) {
+            minTemp = Math.min(minTemp, mEngine.getMinLoopTempCelsius());
+            hasData = true;
+        }
+        FluidStack res = getReservoirFluid();
+        if (res != null && res.getFluid() != null) {
+            minTemp = Math.min(minTemp, getFluidStackTemperatureCelsius(res));
+            hasData = true;
+        }
+        if (hasData) {
+            return minTemp;
+        }
+        if (mEngine != null && mEngine.getFluid() != null) {
+            return mEngine.getFluid().getDeclaredTemperatureCelsius();
+        }
+        return 20.0;
     }
 
     public FluidStack getReservoirFluid() {
@@ -805,6 +900,51 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true;
         }
 
+        // Validate molten fluid temperature
+        CoolantFluidProperty currentProp = mEngine.getFluid();
+        if (currentProp == null && reservoirFluid != null) {
+            currentProp = CoolantFluidProperty.get(reservoirFluid.getFluid().getName());
+        }
+        boolean isMolten = isMoltenFluid(reservoirFluid != null ? reservoirFluid.getFluid() : null, reservoirFluid, currentProp);
+
+        if (isMolten) {
+            double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
+                reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                reservoirFluid,
+                currentProp);
+
+            // Active circulation check: if circulating, dropping below melting point causes catastrophic solidification explosion!
+            if (mLoopState == LoopState.CIRCULATING || mEngine.getVolumetricFlowRate() > 1e-5) {
+                double minLoopTemp = mEngine.getMinLoopTempCelsius();
+                if (minLoopTemp < declaredMelting) {
+                    mEngine.setRuptured(true);
+                    mEngine.setFailureReason(String.format(
+                        "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                        minLoopTemp,
+                        declaredMelting,
+                        currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                    triggerCatastrophicExplosion(mEngine.getFailureReason());
+                    return false;
+                }
+            } else {
+                // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or accelerate!
+                double coolantTemp = getCoolantTemperatureCelsius();
+                if (coolantTemp < declaredMelting) {
+                    mLoopState = LoopState.STOPPED;
+                    mEngine.setPumpPowered(false);
+                    mEngine.setPumpMechanicalPowerWatts(0.0);
+                    mEngine.setBraking(false);
+                    mLoopStatus = String.format(
+                        "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
+                        coolantTemp,
+                        declaredMelting,
+                        currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                    mEngine.step(0.05);
+                    return true;
+                }
+            }
+        }
+
         // Require valid turbine rotor impeller in controller slot
         if (!updateRotorEfficiency()) {
             mLoopState = LoopState.STOPPED;
@@ -930,6 +1070,14 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
             if (drained > 0) {
                 mCurrentFillLiters += drained;
+                if (isMolten && reservoirFluid != null) {
+                    double resTemp = getFluidStackTemperatureCelsius(reservoirFluid);
+                    for (LoopSegment seg : mEngine.getSegments()) {
+                        if (seg.getCurrentTemperatureCelsius() < resTemp) {
+                            seg.setCurrentTemperatureCelsius(resTemp);
+                        }
+                    }
+                }
                 if (mCurrentFillLiters >= mRequiredFillLiters) {
                     mCurrentFillLiters = mRequiredFillLiters;
                     mLoopState = LoopState.CIRCULATING;
@@ -965,6 +1113,37 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (availableEU == 0) availableEU = 512;
         boolean hasPower = drainEnergy(availableEU);
         if (hasPower) {
+            // Refuse to accelerate flow if molten fluid is below declared GregTech melting point
+            if (isMolten) {
+                double minLoopTemp = mEngine.getMinLoopTempCelsius();
+                double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
+                    reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                    reservoirFluid,
+                    currentProp);
+                if (minLoopTemp < declaredMelting) {
+                    if (mEngine.getVolumetricFlowRate() > 1e-5) {
+                        mEngine.setRuptured(true);
+                        mEngine.setFailureReason(String.format(
+                            "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                        triggerCatastrophicExplosion(mEngine.getFailureReason());
+                        return false;
+                    } else {
+                        mLoopState = LoopState.STOPPED;
+                        mEngine.setPumpPowered(false);
+                        mEngine.setPumpMechanicalPowerWatts(0.0);
+                        mLoopStatus = String.format(
+                            "Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                        return true;
+                    }
+                }
+            }
+
             mLoopState = LoopState.CIRCULATING;
             mEngine.setPumpPowered(true);
             double mechanicalWatts = availableEU * 80.0 * mRotorEfficiency * effFactor;

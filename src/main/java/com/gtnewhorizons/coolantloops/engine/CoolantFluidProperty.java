@@ -118,7 +118,7 @@ public class CoolantFluidProperty {
         3000.0, // 3 kJ/(kg*K)
         0.481, // 0.481 W/(m*K)
         Double.POSITIVE_INFINITY, // Non-boiling
-        65.0); // 65°C melting point easter egg threshold
+        46.85); // GregTech melting point: 320 K - 273.15 = 46.85°C
 
     static {
         register(WATER);
@@ -139,6 +139,23 @@ public class CoolantFluidProperty {
 
     public boolean isPlainWater() {
         return this == WATER || "water".equalsIgnoreCase(this.fluidName);
+    }
+
+    public boolean isMolten() {
+        return fluidName != null && fluidName.toLowerCase().contains("molten");
+    }
+
+    public double getDeclaredTemperatureCelsius() {
+        try {
+            net.minecraftforge.fluids.Fluid f = net.minecraftforge.fluids.FluidRegistry.getFluid(fluidName);
+            if (f != null) {
+                int tempK = f.getTemperature();
+                if (tempK > 0) {
+                    return tempK - 273.15;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return freezingPointCelsius;
     }
 
     public String getFluidName() {

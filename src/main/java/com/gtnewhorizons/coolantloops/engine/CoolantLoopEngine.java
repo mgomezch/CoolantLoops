@@ -146,8 +146,16 @@ public class CoolantLoopEngine {
         return isRuptured;
     }
 
+    public void setRuptured(boolean ruptured) {
+        this.isRuptured = ruptured;
+    }
+
     public String getFailureReason() {
         return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
     }
 
     public double getPeakLoopPressureBar() {
@@ -155,7 +163,29 @@ public class CoolantLoopEngine {
     }
 
     public double getPeakLoopTempCelsius() {
-        return peakLoopTempCelsius;
+        if (segments == null || segments.isEmpty()) {
+            return peakLoopTempCelsius;
+        }
+        double max = -Double.MAX_VALUE;
+        for (LoopSegment s : segments) {
+            if (s.getCurrentTemperatureCelsius() > max) {
+                max = s.getCurrentTemperatureCelsius();
+            }
+        }
+        return max == -Double.MAX_VALUE ? peakLoopTempCelsius : max;
+    }
+
+    public double getMinLoopTempCelsius() {
+        if (segments == null || segments.isEmpty()) {
+            return 20.0;
+        }
+        double min = Double.MAX_VALUE;
+        for (LoopSegment s : segments) {
+            if (s.getCurrentTemperatureCelsius() < min) {
+                min = s.getCurrentTemperatureCelsius();
+            }
+        }
+        return min == Double.MAX_VALUE ? 20.0 : min;
     }
 
     /**
@@ -277,6 +307,21 @@ public class CoolantLoopEngine {
                     segment.getCurrentTemperatureCelsius(),
                     segment.getMaxTemperatureCelsius());
                 return;
+            }
+
+            // Solidification check for molten fluids (clogged circulating loop explodes)
+            if (fluid != null && fluid.isMolten() && volumetricFlowRate > 1e-5) {
+                double declaredMeltingTemp = fluid.getDeclaredTemperatureCelsius();
+                if (segment.getCurrentTemperatureCelsius() < declaredMeltingTemp) {
+                    isRuptured = true;
+                    failureReason = String.format(
+                        "Catastrophic coolant solidification: Coolant temperature (%.1f °C) in segment %s dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                        segment.getCurrentTemperatureCelsius(),
+                        segment.getId(),
+                        declaredMeltingTemp,
+                        fluid.getFluidName());
+                    return;
+                }
             }
         }
     }

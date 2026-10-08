@@ -253,4 +253,43 @@ public class CoolantPumpStructureTest {
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
         assertTrue(pump.getLoopStatus().contains("Plain regular water cannot be used in a coolant loop"));
     }
+
+    @Test
+    public void testMoltenFluidTemperatureChecksAndCatastrophicFailure() {
+        net.minecraftforge.fluids.Fluid moltenCheese = new net.minecraftforge.fluids.Fluid("molten.cheese");
+        moltenCheese.setTemperature(320); // 320 K (46.85 °C)
+
+        assertTrue(MTECoolantPump.isMoltenFluid(moltenCheese, null, null));
+        assertEquals(320 - 273.15, MTECoolantPump.getDeclaredGregTechFluidTemperatureCelsius(moltenCheese, null, null), 0.01);
+
+        // 1. Pump refuses to start / accelerate if cold (< 46.85 °C)
+        MTECoolantPump pump = new MTECoolantPump("test_pump_molten");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito.mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork()).thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide()).thenReturn(true);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+        com.gtnewhorizons.coolantloops.engine.LoopSegment coldSeg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+            "cold_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 20.0); // 20 °C < 46.85 °C
+        pump.getEngine().addSegment(coldSeg);
+        pump.getEngine().setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
+
+        assertTrue(pump.stepCoolantLoop());
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+        assertTrue(pump.getLoopStatus().contains("below declared GregTech melting point"));
+
+        // 2. Circulating molten coolant below melting point causes catastrophic explosion / rupture!
+        com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine engine = new com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine(
+            com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
+        com.gtnewhorizons.coolantloops.engine.LoopSegment frozenSeg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+            "frozen_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 30.0); // 30 °C < 46.85 °C
+        engine.addSegment(frozenSeg);
+        engine.setVolumetricFlowRate(0.05); // moving/circulating
+        engine.setPumpPowered(true);
+        engine.setPumpMechanicalPowerWatts(10000.0);
+        engine.step(0.05);
+
+        assertTrue(engine.isRuptured());
+        assertTrue(engine.getFailureReason().contains("Catastrophic coolant solidification"));
+    }
 }
