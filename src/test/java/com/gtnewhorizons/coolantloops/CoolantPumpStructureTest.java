@@ -300,4 +300,26 @@ public class CoolantPumpStructureTest {
         assertTrue(engine.isRuptured());
         assertTrue(engine.getFailureReason().contains("Catastrophic coolant solidification"));
     }
+
+    @Test
+    public void testBiomeAmbientTemperatureCalculation() {
+        // Fallback with null world -> 20.0 °C
+        assertEquals(20.0, MTECoolantPump.calculateAmbientTemperature(null, 0, 0, 0), 1e-6);
+
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        net.minecraft.world.biome.BiomeGenBase mockBiome = Mockito.mock(net.minecraft.world.biome.BiomeGenBase.class);
+        Mockito.when(mockWorld.getBiomeGenForCoords(0, 0)).thenReturn(mockBiome);
+
+        // Plains (0.80) -> (80.0 - 32.0) / 1.8 = ~26.67 °C
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(0.80f);
+        assertEquals(26.67, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
+
+        // Freezing snow biome (0.00) -> (0.0 - 32.0) / 1.8 = ~-17.78 °C
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(0.0f);
+        assertEquals(-17.78, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
+
+        // Nether / Hell biome (2.00) -> (200.0 - 32.0) / 1.8 = ~93.33 °C
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(2.0f);
+        assertEquals(93.33, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
+    }
 }

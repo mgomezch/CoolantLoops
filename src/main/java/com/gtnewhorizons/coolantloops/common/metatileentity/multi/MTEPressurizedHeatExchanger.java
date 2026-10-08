@@ -218,7 +218,13 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         }
 
         // Secondary boiling calculation if primary coolant >= 100 C
-        double ambientTemp = 20.0;
+        double ambientTemp = (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getWorld() != null)
+            ? MTECoolantPump.calculateAmbientTemperature(
+                getBaseMetaTileEntity().getWorld(),
+                getBaseMetaTileEntity().getXCoord(),
+                getBaseMetaTileEntity().getYCoord(),
+                getBaseMetaTileEntity().getZCoord())
+            : 20.0;
         if (mCurrentCoolantTemp > 100.0) {
             // Delta T available above boiling point
             double deltaT = mCurrentCoolantTemp - 100.0;

@@ -664,19 +664,24 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         this.mSimulatedBiomeTempCelsius = temp;
     }
 
+    public static double calculateAmbientTemperature(World world, int x, int y, int z) {
+        if (world != null) {
+            try {
+                float bTemp = world.getBiomeGenForCoords(x, z).getFloatTemperature(x, y, z);
+                return (bTemp * 100.0 - 32.0) / 1.8;
+            } catch (Exception ignored) {}
+        }
+        return 20.0;
+    }
+
     public double getBiomeTemperatureCelsius() {
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null && te.getWorld() != null) {
-            int x = te.getXCoord();
-            int y = te.getYCoord();
-            int z = te.getZCoord();
-            net.minecraft.world.biome.BiomeGenBase biome = te.getBiome(x, z);
-            if (biome != null) {
-                float fTemp = biome.getFloatTemperature(x, y, z);
-                // Standard Minecraft biome float temperature to Celsius:
-                // 0.15F is freezing (0°C), 0.8F is temperate/plains (20°C), 2.0F is desert/nether (56.9°C)
-                return (fTemp - 0.15) * (20.0 / 0.65);
-            }
+            return calculateAmbientTemperature(
+                te.getWorld(),
+                te.getXCoord(),
+                te.getYCoord(),
+                te.getZCoord());
         }
         return mSimulatedBiomeTempCelsius;
     }
