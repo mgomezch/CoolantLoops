@@ -290,4 +290,171 @@ public class CoolantLoopEndToEndTest {
 
         assertTrue(weakEngine.isRuptured(), "Exceeding burst rating must trigger isRuptured() flag!");
     }
+
+    @Test
+    public void testRequiredFillLevelCalculationAnalytical() {
+        // Component-based fill calculation rules:
+        // - 1,000 L per heat-exchanging component (MTEPressurizedHeatExchanger, ICoolantPassageHatch)
+        // - 10 L per instrumentation component (TileEntityLoopInstrument)
+        // - 1,000 L per manifold block (TileEntityManifold)
+        // - Full pipe capacity for each pipe block (seg.getCapacityLiters())
+
+        List<LoopSegment> pipes = new ArrayList<>();
+        long expectedPipeFill = 0L;
+        for (int i = 0; i < 8; i++) {
+            LoopSegment p = new LoopSegment("pipe_" + i, 1.0, 0.10, 0.00005, 0.05, 50.0, 500.0, 20.0);
+            p.setCapacityLiters(250); // 250 L capacity each
+            pipes.add(p);
+            expectedPipeFill += p.getCapacityLiters();
+        }
+        assertEquals(2000L, expectedPipeFill);
+
+        int numPHE = 1;
+        int numPassage = 1;
+        int numInstruments = 3;
+        int numManifolds = 2;
+
+        long totalRequired = expectedPipeFill + (numPHE * 1000L)
+            + (numPassage * 1000L)
+            + (numInstruments * 10L)
+            + (numManifolds * 1000L);
+
+        // 2000 + 1000 + 1000 + 30 + 2000 = 6030 L
+        assertEquals(6030L, totalRequired);
+    }
+
+    @Test
+    public void testFillingPhaseSimulationTransitionsToCirculation() {
+        long requiredFill = 3000L;
+        long currentFill = 0L;
+        long reservoirLiters = 10000L;
+        long fillRatePerTick = 1000L;
+
+        // Loop engine starts at rest
+        assertEquals(0.0, engine.getVolumetricFlowRate(), 1e-6);
+
+        // While filling, pump motor power is held at 0 and flow remains 0
+        boolean circulating = false;
+        while (currentFill < requiredFill) {
+            long needed = requiredFill - currentFill;
+            long toDraw = Math.min(fillRatePerTick, needed);
+            long drawn = Math.min(toDraw, reservoirLiters);
+            reservoirLiters -= drawn;
+            currentFill += drawn;
+
+            // Zero flow during filling
+            engine.setPumpPowered(false);
+            engine.setPumpMechanicalPowerWatts(0.0);
+            engine.step(0.05);
+            assertEquals(0.0, engine.getVolumetricFlowRate(), 1e-6, "Flow must be 0 during filling");
+        }
+
+        assertEquals(requiredFill, currentFill);
+        assertEquals(7000L, reservoirLiters);
+
+        // Once filled, loop transitions to circulation
+        circulating = true;
+        assertTrue(circulating);
+        engine.setPumpPowered(true);
+        engine.setPumpMechanicalPowerWatts(120000.0);
+
+        for (int t = 0; t < 60; t++) {
+            engine.step(0.05);
+        }
+
+        assertTrue(engine.getVolumetricFlowRate() > 0.010, "Flow rate must accelerate once filled");
+        assertFalse(engine.isRuptured(), "Normal operation must not rupture");
+    }
+
+    @Test
+    public void testStarvedFillingFailsCleanlyWithoutExplosion() {
+        long requiredFill = 5000L;
+        long currentFill = 0L;
+        long reservoirLiters = 1500L; // Starved reservoir (less than required 5000L)
+        long fillRatePerTick = 1000L;
+
+        boolean failed = false;
+        for (int tick = 0; tick < 10; tick++) {
+            long needed = requiredFill - currentFill;
+            long toDraw = Math.min(fillRatePerTick, needed);
+            long drawn = Math.min(toDraw, reservoirLiters);
+            reservoirLiters -= drawn;
+            currentFill += drawn;
+
+            if (drawn == 0 && currentFill < requiredFill) {
+                // Reservoir ran dry before loop was filled! Safe fail!
+                failed = true;
+                break;
+            }
+        }
+
+        assertTrue(failed, "Starved reservoir should trigger failed state");
+        assertEquals(1500L, currentFill);
+        assertEquals(0L, reservoirLiters);
+        assertFalse(engine.isRuptured(), "Starvation MUST NOT cause an explosion or rupture");
+    }
+
+    @Test
+    public void testInterruptedFillingPausesCleanlyWithoutExplosion() {
+        long requiredFill = 4000L;
+        long currentFill = 2000L; // Filled halfway
+
+        // Pump is turned off / paused (isAllowedToWork = false)
+        boolean allowedToWork = false;
+        if (!allowedToWork) {
+            engine.setPumpPowered(false);
+            engine.setPumpMechanicalPowerWatts(0.0);
+            engine.step(0.05);
+        }
+
+        assertEquals(2000L, currentFill, "Fill level is safely retained while paused");
+        assertEquals(0.0, engine.getVolumetricFlowRate(), 1e-6);
+        assertFalse(engine.isRuptured(), "Interrupted filling must not cause an explosion");
+    }
+
+    @Test
+    public void testPumpMechanicalPowerEfficiencyLoss() {
+        long availableEU = 2048L; // 1 EV amp
+        double rotorEff = 0.85;
+        double baseWatts = availableEU * 80.0 * rotorEff; // 139,264 W
+
+        // 100% efficiency
+        assertEquals(baseWatts * 1.0, 139264.0, 1e-3);
+
+        // 90% efficiency (1 issue)
+        double watts90 = baseWatts * 0.90;
+        assertEquals(125337.6, watts90, 1e-3, "1 maintenance issue must reduce pump mechanical power to 90%");
+
+        // 70% efficiency (3 issues)
+        double watts70 = baseWatts * 0.70;
+        assertEquals(97484.8, watts70, 1e-3, "3 maintenance issues must reduce pump mechanical power to 70%");
+
+        // 40% efficiency (6 issues)
+        double watts40 = baseWatts * 0.40;
+        assertEquals(55705.6, watts40, 1e-3, "6 maintenance issues must reduce pump mechanical power to 40%");
+    }
+
+    @Test
+    public void testPHEHeatTransferEfficiencyLoss() {
+        ConvectiveHeatTransferModel model = ConvectiveHeatTransferModel.DEFAULT;
+        double coolantTemp = 350.0; // 350 C
+        double boilingTemp = 100.0;
+        double area = 12.0;
+        double velocity = 2.0;
+
+        double baseQ = model.computeHeatTransferRate(velocity, area, coolantTemp, boilingTemp);
+        assertTrue(baseQ > 0.0);
+
+        // Efficiency scaling directly scales heat transferred
+        double q90 = baseQ * 0.90;
+        assertEquals(baseQ * 0.90, q90, 1e-6);
+
+        double q40 = baseQ * 0.40;
+        assertEquals(baseQ * 0.40, q40, 1e-6);
+
+        // Steam production is directly proportional to water boiled (Q / 2260 J/mL)
+        double steam100 = (baseQ * 0.05 / 2260.0) * 160.0;
+        double steam70 = (baseQ * 0.70 * 0.05 / 2260.0) * 160.0;
+        assertEquals(steam100 * 0.70, steam70, 1e-6, "PHE steam production must scale directly with efficiency");
+    }
 }

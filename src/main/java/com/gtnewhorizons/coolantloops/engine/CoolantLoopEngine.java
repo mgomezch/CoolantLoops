@@ -22,6 +22,7 @@ public class CoolantLoopEngine {
 
     // State variables
     private double volumetricFlowRate = 0.0; // m^3/s
+    private double maxVolumetricFlowRate = Double.MAX_VALUE; // m^3/s (capped by pump connected pipe capacity)
     private double pumpMechanicalPowerWatts = 0.0; // Mechanical power output from motor/rotor (Watts)
     private boolean isPumpPowered = false;
     private double unpoweredImpellerK = 8.0; // High minor loss coefficient when motor is disengaged
@@ -32,6 +33,24 @@ public class CoolantLoopEngine {
     private String failureReason = null;
     private double peakLoopPressureBar = 0.0;
     private double peakLoopTempCelsius = 20.0;
+    private double dissolvedGasFraction = 0.0;
+    private boolean isBraking = false;
+
+    public boolean isBraking() {
+        return isBraking;
+    }
+
+    public void setBraking(boolean braking) {
+        this.isBraking = braking;
+    }
+
+    public double getDissolvedGasFraction() {
+        return dissolvedGasFraction;
+    }
+
+    public void setDissolvedGasFraction(double dissolvedGasFraction) {
+        this.dissolvedGasFraction = Math.max(0.0, Math.min(1.0, dissolvedGasFraction));
+    }
 
     public CoolantLoopEngine(CoolantFluidProperty fluid) {
         this.fluid = fluid != null ? fluid : CoolantFluidProperty.WATER;
@@ -47,6 +66,7 @@ public class CoolantLoopEngine {
     public void clearSegments() {
         segments.clear();
         volumetricFlowRate = 0.0;
+        maxVolumetricFlowRate = Double.MAX_VALUE;
         isRuptured = false;
         failureReason = null;
     }
@@ -83,8 +103,27 @@ public class CoolantLoopEngine {
         return getFlowRateLitersPerSecond() / 20.0;
     }
 
+    public double getMaxVolumetricFlowRate() {
+        return maxVolumetricFlowRate;
+    }
+
+    public void setMaxVolumetricFlowRate(double maxFlowRate) {
+        this.maxVolumetricFlowRate = Math.max(0.0, maxFlowRate);
+        if (this.volumetricFlowRate > this.maxVolumetricFlowRate) {
+            this.volumetricFlowRate = this.maxVolumetricFlowRate;
+        }
+    }
+
+    public double getMaxFlowRateLitersPerSecond() {
+        return maxVolumetricFlowRate == Double.MAX_VALUE ? Double.MAX_VALUE : maxVolumetricFlowRate * 1000.0;
+    }
+
+    public double getMaxFlowRateLitersPerTick() {
+        return getMaxFlowRateLitersPerSecond() / 20.0;
+    }
+
     public void setVolumetricFlowRate(double q) {
-        this.volumetricFlowRate = Math.max(0.0, q);
+        this.volumetricFlowRate = Math.min(maxVolumetricFlowRate, Math.max(0.0, q));
     }
 
     public double getPumpMechanicalPowerWatts() {
@@ -158,7 +197,13 @@ public class CoolantLoopEngine {
             // Characteristic pump curve: Delta P = P_mech / (Q + Q_rated)
             // Models electric motor stall torque limits and impeller slip at zero/low flow
             double qRated = Math.max(0.005, 0.02 * Math.sqrt(pumpMechanicalPowerWatts / 5000.0));
-            deltaPPump = Math.min(pumpMechanicalPowerWatts / (volumetricFlowRate + qRated), maxPumpHeadPressurePa);
+            double pHead = Math.min(pumpMechanicalPowerWatts / (volumetricFlowRate + qRated), maxPumpHeadPressurePa);
+            if (isBraking) {
+                // Active motor braking: pump applies mechanical power against fluid momentum
+                deltaPPump = -pHead;
+            } else {
+                deltaPPump = pHead;
+            }
         }
 
         // 2. Compute total circuit friction pressure drop: Delta P_friction(Q)
@@ -186,7 +231,7 @@ public class CoolantLoopEngine {
         double denominator = inertia + frictionDerivative * dt;
         double deltaQ = (netDeltaP * dt) / denominator;
 
-        volumetricFlowRate = Math.max(0.0, volumetricFlowRate + deltaQ);
+        volumetricFlowRate = Math.min(maxVolumetricFlowRate, Math.max(0.0, volumetricFlowRate + deltaQ));
 
         // 4. Pressure distribution and safety verification
         evaluatePressureFieldAndSafety(deltaPPump);
@@ -200,7 +245,7 @@ public class CoolantLoopEngine {
      */
     private void evaluatePressureFieldAndSafety(double pumpDischargeHeadPa) {
         // Base suction pressure (atmospheric / tank head) ~ 1.0 bar (1e5 Pa)
-        double currentPressurePa = 1.0e5 + pumpDischargeHeadPa;
+        double currentPressurePa = 1.0e5 + Math.max(0.0, pumpDischargeHeadPa);
         peakLoopPressureBar = currentPressurePa / 1e5;
 
         for (LoopSegment segment : segments) {

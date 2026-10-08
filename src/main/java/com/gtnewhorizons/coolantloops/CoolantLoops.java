@@ -12,7 +12,7 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
     modid = CoolantLoops.MODID,
     name = CoolantLoops.MODNAME,
     version = Tags.VERSION,
-    dependencies = "required-after:gregtech;after:Railcraft")
+    dependencies = "required-after:gregtech;after:Railcraft;after:OpenComputers;after:ProjRed|Transmission")
 public class CoolantLoops {
 
     public static final String MODID = "coolantloops";
@@ -31,11 +31,19 @@ public class CoolantLoops {
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         LOG.info("Initializing Coolant Loops...");
+        com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels.register();
         com.gtnewhorizons.coolantloops.common.metatileentity.ModMetaTileEntities.init();
+        com.gtnewhorizons.coolantloops.common.opencomputers.OpenComputersIntegration.register();
+        com.gtnewhorizons.coolantloops.common.projectred.ProjectRedIntegration.register();
+
+        if (cpw.mods.fml.common.FMLCommonHandler.instance().getSide().isClient()) {
+            com.gtnewhorizons.coolantloops.client.renderer.RenderBlockManifold.init();
+        }
     }
 
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         LOG.info("Post-initializing Coolant Loops...");
+        com.gtnewhorizons.coolantloops.common.recipe.ModRecipes.init();
     }
 }

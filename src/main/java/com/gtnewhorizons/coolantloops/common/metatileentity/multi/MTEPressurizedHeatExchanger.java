@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -17,24 +18,32 @@ import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
+import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
+import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
+import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
+import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 
 /**
  * Pressurized Heat Exchanger Multiblock.
- * 3x3 Base, Height 4.
+ * 3x3x5 Dimensions (Width 3, Height 3, Length 5).
  *
  * Transfers thermal energy from primary coolant loop to secondary fluid
  * (e.g. Distilled Water -> Steam at standard 1:160 expansion ratio).
  */
 public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPressurizedHeatExchanger>
     implements ICoolantLoopDevice {
+
+    public static final int CASING_INDEX_HEAT_PROOF = 11;
 
     protected MTEHatchPressurizedFluid mPrimaryInlet = null;
     protected MTEHatchPressurizedFluid mPrimaryOutlet = null;
@@ -54,6 +63,28 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     @Override
+    public boolean shouldCheckMaintenance() {
+        return true;
+    }
+
+    public double getEfficiencyFactor() {
+        int eff = getCurrentEfficiency(null);
+        if (eff < 0) eff = 0;
+        if (eff > 10000) eff = 10000;
+        return eff / 10000.0;
+    }
+
+    @Override
+    protected void onStructureCheckFinished(IGregTechTileEntity aBaseMetaTileEntity) {
+        super.onStructureCheckFinished(aBaseMetaTileEntity);
+        if (mMachine) {
+            if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
+                aBaseMetaTileEntity.enableWorking();
+            }
+        }
+    }
+
+    @Override
     public MetaTileEntity newMetaEntity(IGregTechTileEntity aTileEntity) {
         return new MTEPressurizedHeatExchanger(mName);
     }
@@ -62,12 +93,20 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     public ITexture[] getTexture(IGregTechTileEntity aBaseMetaTileEntity, ForgeDirection side, ForgeDirection facing,
         int aColorIndex, boolean aActive, boolean aRedstone) {
         if (side == facing) {
-            return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings4, 2),
+            return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings1, 11),
                 TextureFactory.of(
                     aActive ? Textures.BlockIcons.OVERLAY_FRONT_HEAT_EXCHANGER_ACTIVE
                         : Textures.BlockIcons.OVERLAY_FRONT_HEAT_EXCHANGER) };
         }
-        return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings4, 2) };
+        return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings1, 11) };
+    }
+
+    public MTEHatchPressurizedFluid getPrimaryInlet() {
+        return mPrimaryInlet;
+    }
+
+    public MTEHatchPressurizedFluid getPrimaryOutlet() {
+        return mPrimaryOutlet;
     }
 
     @Override
@@ -77,12 +116,91 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         mInputHatches.clear();
         mOutputHatches.clear();
         mMaintenanceHatches.clear();
-        return checkPiece("exchanger_3x3x4", 1, 0, 1);
+        mEnergyHatches.clear();
+
+        java.util.List<gregtech.api.structure.error.StructureError> errors = new java.util.ArrayList<>();
+        if (!checkPiece("exchanger_3x5x3", 1, 1, 0, errors)) {
+            for (gregtech.api.structure.error.StructureError err : errors) {
+                System.out.println("[PHE DEBUG] Error: " + err.getDisplayString());
+            }
+            return false;
+        }
+
+        if (mMaintenanceHatches.size() != 1) {
+            System.out.println("[PHE DEBUG] Maintenance hatches != 1: " + mMaintenanceHatches.size());
+            return false;
+        }
+        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2) {
+            System.out.println("[PHE DEBUG] Energy hatches not 1-2: " + mEnergyHatches.size());
+            return false;
+        }
+        if (mPrimaryInlet == null || mPrimaryOutlet == null) {
+            System.out.println(
+                "[PHE DEBUG] Primary inlet/outlet null: inlet=" + mPrimaryInlet + ", outlet=" + mPrimaryOutlet);
+            return false;
+        }
+        if (mInputHatches.size() != 1 || mOutputHatches.size() != 1) {
+            System.out.println(
+                "[PHE DEBUG] Input/Output hatches != 1: in=" + mInputHatches.size() + ", out=" + mOutputHatches.size());
+            return false;
+        }
+
+        if (mPrimaryInlet != null) {
+            mPrimaryInlet.updateTexture(CASING_INDEX_HEAT_PROOF);
+            mPrimaryInlet.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
+        }
+        if (mPrimaryOutlet != null) {
+            mPrimaryOutlet.updateTexture(CASING_INDEX_HEAT_PROOF);
+            mPrimaryOutlet.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
+        }
+        for (MTEHatchInput ih : mInputHatches) {
+            ih.updateTexture(CASING_INDEX_HEAT_PROOF);
+        }
+        for (MTEHatchOutput oh : mOutputHatches) {
+            oh.updateTexture(CASING_INDEX_HEAT_PROOF);
+        }
+        for (MTEHatchMaintenance mh : mMaintenanceHatches) {
+            mh.updateTexture(CASING_INDEX_HEAT_PROOF);
+        }
+        for (MTEHatchEnergy eh : mEnergyHatches) {
+            eh.updateTexture(CASING_INDEX_HEAT_PROOF);
+        }
+
+        if (getBaseMetaTileEntity() != null) {
+            ItemStack icon = getMachineCraftingIcon();
+            if (mPrimaryInlet != null) mPrimaryInlet.updateCraftingIcon(icon);
+            if (mPrimaryOutlet != null) mPrimaryOutlet.updateCraftingIcon(icon);
+            for (MTEHatchInput ih : mInputHatches) ih.updateCraftingIcon(icon);
+            for (MTEHatchOutput oh : mOutputHatches) oh.updateCraftingIcon(icon);
+            for (MTEHatchMaintenance mh : mMaintenanceHatches) mh.updateCraftingIcon(icon);
+            for (MTEHatchEnergy eh : mEnergyHatches) eh.updateCraftingIcon(icon);
+        }
+
+        checkMaintenance();
+        if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
+            aBaseMetaTileEntity.enableWorking();
+        }
+
+        return true;
     }
 
     @Override
-    public boolean onRunningTick(ItemStack aStack) {
+    public void onPostTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
+        super.onPostTick(aBaseMetaTileEntity, aTick);
+        if (aBaseMetaTileEntity != null && aBaseMetaTileEntity.isServerSide()) {
+            stepHeatExchange();
+        }
+    }
+
+    public boolean stepHeatExchange() {
+        checkMaintenance();
         if (!isAllowedToWork() || mPrimaryInlet == null || mPrimaryOutlet == null) {
+            mLastHeatTransferredWatts = 0.0;
+            return true;
+        }
+
+        double effFactor = getEfficiencyFactor();
+        if (effFactor <= 0.0) {
             mLastHeatTransferredWatts = 0.0;
             return true;
         }
@@ -110,8 +228,9 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         if (mCurrentCoolantTemp > 100.0) {
             // Delta T available above boiling point
             double deltaT = mCurrentCoolantTemp - 100.0;
-            // Q_dot = h(v) * A * deltaT
-            double qWatts = mConvectiveModel.computeHeatTransferRate(2.0, mExchangeArea, mCurrentCoolantTemp, 100.0);
+            // Q_dot = h(v) * A * deltaT * effFactor
+            double qWatts = mConvectiveModel.computeHeatTransferRate(2.0, mExchangeArea, mCurrentCoolantTemp, 100.0)
+                * effFactor;
             mLastHeatTransferredWatts = qWatts;
 
             // 1 Liter of water requires ~2.26 MJ of latent heat to vaporize
@@ -130,11 +249,27 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                     }
                 }
 
-                // 1 L Water -> 160 L Steam
+                // 1 L Water -> 160 L Steam (Regular, Superheated, or Supercritical depending on coolant temperature)
+                String steamName = "steam";
+                if (mCurrentCoolantTemp >= 700.0) {
+                    steamName = "supercriticalsteam";
+                } else if (mCurrentCoolantTemp >= 300.0) {
+                    steamName = "ic2superheatedsteam";
+                }
                 int steamProduced = waterToBoil * 160;
-                FluidStack steamStack = FluidRegistry.getFluidStack("steam", steamProduced);
-                if (steamStack != null) {
+                Fluid steamFluid = FluidRegistry.getFluid(steamName);
+                if (steamFluid == null && steamName.equals("supercriticalsteam")) {
+                    steamFluid = FluidRegistry.getFluid("supercriticalSteam");
+                }
+                if (steamFluid == null) {
+                    steamFluid = FluidRegistry.getFluid("steam");
+                }
+                if (steamFluid != null) {
+                    FluidStack steamStack = new FluidStack(steamFluid, steamProduced);
                     addOutput(steamStack);
+                    for (MTEHatchOutput outHatch : mOutputHatches) {
+                        outHatch.fill(steamStack, true);
+                    }
                 }
 
                 // Cool primary coolant
@@ -145,6 +280,11 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         }
 
         return true;
+    }
+
+    @Override
+    public boolean onRunningTick(ItemStack aStack) {
+        return stepHeatExchange();
     }
 
     // --- ICoolantLoopDevice Implementation ---
@@ -181,20 +321,78 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         return true;
     }
 
-    public boolean addBottomHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
+    public boolean addMaintenanceOrEnergyHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
         if (aTileEntity == null) return false;
-        gregtech.api.interfaces.metatileentity.IMetaTileEntity aMetaTileEntity = aTileEntity.getMetaTileEntity();
+        IMetaTileEntity aMetaTileEntity = aTileEntity.getMetaTileEntity();
+        if (aMetaTileEntity == null) return false;
+        if (aMetaTileEntity instanceof MTEHatchMaintenance) {
+            MTEHatchMaintenance mh = (MTEHatchMaintenance) aMetaTileEntity;
+            mh.updateTexture(aBaseCasingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+            return mMaintenanceHatches.add(mh);
+        }
+        if (aMetaTileEntity instanceof MTEHatchEnergy) {
+            MTEHatchEnergy eh = (MTEHatchEnergy) aMetaTileEntity;
+            eh.updateTexture(aBaseCasingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                eh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+            return mEnergyHatches.add(eh);
+        }
+        return false;
+    }
+
+    public boolean addPressurizedHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
+        if (aTileEntity == null) return false;
+        IMetaTileEntity aMetaTileEntity = aTileEntity.getMetaTileEntity();
         if (aMetaTileEntity == null) return false;
         if (aMetaTileEntity instanceof MTEHatchPressurizedFluid) {
+            MTEHatchPressurizedFluid ph = (MTEHatchPressurizedFluid) aMetaTileEntity;
+            ph.updateTexture(aBaseCasingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                ph.updateCraftingIcon(getMachineCraftingIcon());
+            }
             if (mPrimaryInlet == null) {
-                mPrimaryInlet = (MTEHatchPressurizedFluid) aMetaTileEntity;
+                mPrimaryInlet = ph;
+                ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
                 return true;
             } else if (mPrimaryOutlet == null) {
-                mPrimaryOutlet = (MTEHatchPressurizedFluid) aMetaTileEntity;
+                mPrimaryOutlet = ph;
+                ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
                 return true;
             }
+            return true;
         }
-        return addToMachineList(aTileEntity, aBaseCasingIndex);
+        return false;
+    }
+
+    public boolean addSecondaryHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
+        if (aTileEntity == null) return false;
+        IMetaTileEntity aMetaTileEntity = aTileEntity.getMetaTileEntity();
+        if (aMetaTileEntity == null) return false;
+        if (aMetaTileEntity instanceof MTEHatchInput) {
+            MTEHatchInput ih = (MTEHatchInput) aMetaTileEntity;
+            ih.updateTexture(aBaseCasingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                ih.updateCraftingIcon(getMachineCraftingIcon());
+            }
+            return mInputHatches.add(ih);
+        }
+        if (aMetaTileEntity instanceof MTEHatchOutput) {
+            MTEHatchOutput oh = (MTEHatchOutput) aMetaTileEntity;
+            oh.updateTexture(aBaseCasingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                oh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+            return mOutputHatches.add(oh);
+        }
+        return false;
+    }
+
+    public boolean addBottomHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
+        return addPressurizedHatch(aTileEntity, aBaseCasingIndex);
     }
 
     private static IStructureDefinition<MTEPressurizedHeatExchanger> STRUCTURE_DEFINITION = null;
@@ -204,16 +402,29 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         if (STRUCTURE_DEFINITION == null) {
             STRUCTURE_DEFINITION = StructureDefinition.<MTEPressurizedHeatExchanger>builder()
                 .addShape(
-                    "exchanger_3x3x4",
+                    "exchanger_3x5x3",
                     StructureUtility.transpose(
-                        new String[][] { { "CCC", "C~C", "CCC" }, { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" },
-                            { "CCC", "CCC", "CCC" } }))
+                        new String[][] { { "xxx", "lxh", "lxh", "lxh", "xxx" }, { "L~H", "lch", "lch", "lch", "LxH" },
+                            { "xxx", "lxh", "lxh", "lxh", "xxx" } }))
                 .addElement(
-                    'C',
+                    'x',
                     StructureUtility.ofChain(
-                        gregtech.api.util.GTStructureUtility
-                            .ofHatchAdder(MTEPressurizedHeatExchanger::addBottomHatch, 48 + 2, 1),
-                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2)))
+                        GTStructureUtility.ofHatchAdder(
+                            MTEPressurizedHeatExchanger::addMaintenanceOrEnergyHatch,
+                            CASING_INDEX_HEAT_PROOF,
+                            1),
+                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings1, 11)))
+                .addElement('h', StructureUtility.ofBlock(GregTechAPI.sBlockCasings10, 10))
+                .addElement('l', StructureUtility.ofBlock(GregTechAPI.sBlockCasings10, 9))
+                .addElement('c', GTStructureUtility.ofSheetMetal(Materials.Copper))
+                .addElement(
+                    'H',
+                    GTStructureUtility
+                        .ofHatchAdder(MTEPressurizedHeatExchanger::addPressurizedHatch, CASING_INDEX_HEAT_PROOF, 2))
+                .addElement(
+                    'L',
+                    GTStructureUtility
+                        .ofHatchAdder(MTEPressurizedHeatExchanger::addSecondaryHatch, CASING_INDEX_HEAT_PROOF, 3))
                 .build();
         }
         return STRUCTURE_DEFINITION;
@@ -221,7 +432,7 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
-        buildPiece("exchanger_3x3x4", stackSize, hintsOnly, 1, 0, 1);
+        buildPiece("exchanger_3x5x3", stackSize, hintsOnly, 1, 1, 0);
     }
 
     @Override
@@ -229,16 +440,20 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Pressurized Heat Exchanger")
             .addInfo("Extracts thermal energy from closed coolant loops")
-            .addInfo("Converts secondary Distilled Water -> Steam at 1:160 expansion")
+            .addInfo("Converts secondary Distilled Water -> Steam / Superheated / Supercritical Steam at 1:160 expansion")
             .addSeparator()
-            .beginStructureBlock(3, 4, 3, false)
-            .addController("Center of bottom front layer")
-            .addCasingInfoMin("Reinforced Machine Casings", 24, false)
-            .addOtherStructurePart("Pressurized Fluid Hatch (Inlet)", "1x")
-            .addOtherStructurePart("Pressurized Fluid Hatch (Outlet)", "1x")
+            .beginStructureBlock(3, 3, 5, false)
+            .addController("Center of middle front layer")
+            .addCasingInfoMin("Heat Proof Machine Casings", 15, false)
+            .addOtherStructurePart("Cooling Duct", "9x (secondary cold side)")
+            .addOtherStructurePart("Heating Duct", "9x (primary hot side)")
+            .addOtherStructurePart("Copper Sheetmetal", "3x (middle center)")
+            .addOtherStructurePart("Pressurized Fluid Hatch (Inlet)", "1x (middle layer)")
+            .addOtherStructurePart("Pressurized Fluid Hatch (Outlet)", "1x (middle layer)")
             .addInputHatch("1x Secondary Fluid Input (Distilled Water)", 1)
-            .addOutputHatch("1x Secondary Fluid Output (Steam)", 1)
+            .addOutputHatch("1x Secondary Fluid Output (Steam / Superheated / Supercritical)", 1)
             .addMaintenanceHatch("1x Maintenance Hatch", 1)
+            .addEnergyHatch("1-2x Energy Hatch", 1)
             .toolTipFinisher("Coolant Loops");
         return tt;
     }

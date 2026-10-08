@@ -84,7 +84,7 @@ public class HorizonsQAStructureTest {
     @Test
     public void testCoolantPumpStructure() {
         JsonObject json = loadStructure("/assets/coolantloops/horizonqastructures/multiblock/coolant_pump/valid.json");
-        validateStructure(json, 3, 3, 3);
+        validateStructure(json, 3, 2, 3);
 
         JsonObject annotations = json.getAsJsonObject("annotations");
         assertNotNull(annotations);
@@ -99,7 +99,7 @@ public class HorizonsQAStructureTest {
     public void testPressurizedHeatExchangerStructure() {
         JsonObject json = loadStructure(
             "/assets/coolantloops/horizonqastructures/multiblock/pressurized_heat_exchanger/valid.json");
-        validateStructure(json, 3, 4, 3);
+        validateStructure(json, 3, 3, 5);
 
         JsonObject annotations = json.getAsJsonObject("annotations");
         assertNotNull(annotations);
@@ -110,5 +110,7 @@ public class HorizonsQAStructureTest {
         assertTrue(labels.has("primary_outlet"));
         assertTrue(labels.has("secondary_input"));
         assertTrue(labels.has("secondary_output"));
+        assertTrue(labels.has("maintenance_hatch"));
+        assertTrue(labels.has("energy_hatch"));
     }
 }

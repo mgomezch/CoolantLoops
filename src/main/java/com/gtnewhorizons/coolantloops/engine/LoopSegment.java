@@ -63,6 +63,19 @@ public class LoopSegment {
         return getVolume() * 1000.0;
     }
 
+    private long capacityLiters = 0L;
+
+    public long getCapacityLiters() {
+        if (capacityLiters > 0) {
+            return capacityLiters;
+        }
+        return Math.max(1L, (long) Math.ceil(getVolumeLiters()));
+    }
+
+    public void setCapacityLiters(long capacityLiters) {
+        this.capacityLiters = capacityLiters;
+    }
+
     public double getRoughness() {
         return roughness;
     }
@@ -85,6 +98,16 @@ public class LoopSegment {
 
     public void setCurrentTemperatureCelsius(double temp) {
         this.currentTemperatureCelsius = temp;
+    }
+
+    private double dissolvedGasFraction = 0.0;
+
+    public double getDissolvedGasFraction() {
+        return dissolvedGasFraction;
+    }
+
+    public void setDissolvedGasFraction(double dissolvedGasFraction) {
+        this.dissolvedGasFraction = dissolvedGasFraction;
     }
 
     /**

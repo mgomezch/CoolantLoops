@@ -1,44 +1,50 @@
 {
   "format_version": 2,
-  "size": [3, 4, 3],
+  "size": [3, 3, 5],
   "palette": {
-    "A": {"name": "gregtech:gt.blockcasings4", "meta": 2, "label": "Robust Tungstensteel Machine Casing"},
+    "x": {"name": "gregtech:gt.blockcasings", "meta": 11, "label": "Heat Proof Machine Casing"},
+    "h": {"name": "gregtech:gt.blockcasings10", "meta": 10, "label": "Heating Duct"},
+    "l": {"name": "gregtech:gt.blockcasings10", "meta": 9, "label": "Cooling Duct"},
+    "c": {"name": "gregtech:gt.sheetmetal", "meta": 35, "label": "Copper Sheetmetal"},
     "B": {"name": "gregtech:gt.blockmachines", "meta": 15102, "label": "Pressurized Heat Exchanger"},
-    "C": {"name": "gregtech:gt.blockmachines", "meta": 15101, "label": "Pressurized Fluid Hatch"},
+    "H": {"name": "gregtech:gt.blockmachines", "meta": 15101, "label": "Pressurized Fluid Hatch"},
     "D": {"name": "gregtech:gt.blockmachines", "meta": 111, "label": "Maintenance Hatch"},
-    "E": {"name": "gregtech:gt.blockmachines", "meta": 31, "label": "Secondary Input Hatch (Distilled Water)"},
-    "F": {"name": "gregtech:gt.blockmachines", "meta": 41, "label": "Secondary Output Hatch (Steam)"}
+    "E": {"name": "gregtech:gt.blockmachines", "meta": 43, "label": "EV Energy Hatch"},
+    "I": {"name": "gregtech:gt.blockmachines", "meta": 31, "label": "Secondary Input Hatch (Distilled Water)"},
+    "O": {"name": "gregtech:gt.blockmachines", "meta": 41, "label": "Secondary Output Hatch (Steam)"}
   },
   "layers": [
     [
-      "EBF",
-      "CDC",
-      "ADA"
+      "xxx",
+      "hxl",
+      "hxl",
+      "hxl",
+      "xDE"
     ],
     [
-      "AAA",
-      "A.A",
-      "AAA"
+      "HBI",
+      "hcl",
+      "hcl",
+      "hcl",
+      "HxO"
     ],
     [
-      "AAA",
-      "A.A",
-      "AAA"
-    ],
-    [
-      "AAA",
-      "AAA",
-      "AAA"
+      "xxx",
+      "hxl",
+      "hxl",
+      "hxl",
+      "xxx"
     ]
   ],
   "annotations": {
     "labels": {
-      "controller": [1, 0, 0],
-      "secondary_input": [0, 0, 0],
-      "secondary_output": [2, 0, 0],
-      "primary_inlet": [0, 0, 1],
-      "primary_outlet": [2, 0, 1],
-      "maintenance_hatch": [1, 0, 1]
+      "controller": [1, 1, 0],
+      "primary_inlet": [0, 1, 0],
+      "primary_outlet": [0, 1, 4],
+      "secondary_input": [2, 1, 0],
+      "secondary_output": [2, 1, 4],
+      "maintenance_hatch": [1, 0, 4],
+      "energy_hatch": [2, 0, 4]
     }
   }
 }

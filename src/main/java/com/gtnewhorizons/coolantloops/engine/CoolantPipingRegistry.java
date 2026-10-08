@@ -41,6 +41,7 @@ public class CoolantPipingRegistry {
         MATERIAL_PRESSURE_RATINGS_BAR.put("stainlesssteel", 70.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("titanium", 140.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("tungstensteel", 280.0);
+        MATERIAL_PRESSURE_RATINGS_BAR.put("osmium", 600.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("hsse", 450.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("hssg", 400.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("hsss", 550.0);
@@ -130,5 +131,70 @@ public class CoolantPipingRegistry {
         double maxTemp = getMaxTemperatureCelsius(pipe);
         double roughness = 0.000045; // Commercial metal pipe standard roughness
         return new PipeProperties(diameter, roughness, maxPressure, maxTemp);
+    }
+
+    /**
+     * Checks if a material is allowed for coolant loop piping and tanks.
+     * Only materials that have BOTH GregTech fluid pipes and Railcraft tanks are allowed:
+     * Steel, Iron/Cast Iron/Wrought Iron, Stainless Steel, Titanium, TungstenSteel, Neutronium.
+     */
+    public static boolean isAllowedCoolantPipeMaterial(String materialName) {
+        if (materialName == null) return false;
+        String name = materialName.toLowerCase()
+            .replace(" ", "")
+            .replace("_", "")
+            .replace("-", "");
+        return name.equals("steel") || name.equals("iron")
+            || name.equals("castiron")
+            || name.equals("wroughtiron")
+            || name.equals("stainlesssteel")
+            || name.equals("titanium")
+            || name.equals("tungstensteel")
+            || name.equals("osmium")
+            || name.equals("neutronium");
+    }
+
+    public static boolean isAllowedCoolantPipeMaterial(Materials mat) {
+        if (mat == null) return false;
+        return isAllowedCoolantPipeMaterial(mat.mName);
+    }
+
+    /**
+     * Checks if two materials are functionally identical for coolant loop material matching.
+     * Iron, Cast Iron, and Wrought Iron are treated as equivalent (Iron family).
+     */
+    public static boolean areMaterialsEqual(String m1, String m2) {
+        if (m1 == null || m2 == null) return false;
+        String n1 = m1.toLowerCase()
+            .replace(" ", "")
+            .replace("_", "")
+            .replace("-", "");
+        String n2 = m2.toLowerCase()
+            .replace(" ", "")
+            .replace("_", "")
+            .replace("-", "");
+        if (n1.equals(n2)) return true;
+        if (isIron(n1) && isIron(n2)) return true;
+        return false;
+    }
+
+    public static boolean areMaterialsEqual(Materials m1, Materials m2) {
+        if (m1 == null || m2 == null) return false;
+        if (m1 == m2) return true;
+        return areMaterialsEqual(m1.mName, m2.mName);
+    }
+
+    public static boolean isIron(String name) {
+        if (name == null) return false;
+        String n = name.toLowerCase()
+            .replace(" ", "")
+            .replace("_", "")
+            .replace("-", "");
+        return n.equals("iron") || n.equals("castiron") || n.equals("wroughtiron");
+    }
+
+    public static boolean isIron(Materials m) {
+        if (m == null) return false;
+        return isIron(m.mName);
     }
 }

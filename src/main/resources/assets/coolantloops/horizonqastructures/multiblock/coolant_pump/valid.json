@@ -1,35 +1,31 @@
 {
   "format_version": 2,
-  "size": [3, 3, 3],
+  "size": [3, 2, 3],
   "palette": {
     "A": {"name": "gregtech:gt.blockcasings4", "meta": 2, "label": "Robust Tungstensteel Machine Casing"},
     "B": {"name": "gregtech:gt.blockmachines", "meta": 15100, "label": "Coolant Loop Pump"},
     "C": {"name": "gregtech:gt.blockmachines", "meta": 15101, "label": "Pressurized Fluid Hatch"},
     "D": {"name": "gregtech:gt.blockmachines", "meta": 111, "label": "Maintenance Hatch"},
-    "E": {"name": "gregtech:gt.blockmachines", "meta": 43, "label": "EV Energy Hatch"}
+    "E": {"name": "gregtech:gt.blockmachines", "meta": 43, "label": "EV Energy Hatch"},
+    "F": {"name": "gregtech:gt.blockframes", "meta": 305, "label": "Steel Frame Box"}
   },
   "layers": [
     [
-      "CBC",
-      "ADA",
-      "AEA"
+      "FBF",
+      "CDA",
+      "FEC"
     ],
     [
+      "FAF",
       "AAA",
-      "AAA",
-      "AAA"
-    ],
-    [
-      "AAA",
-      "AAA",
-      "AAA"
+      "FAF"
     ]
   ],
   "annotations": {
     "labels": {
       "controller": [1, 0, 0],
-      "suction_hatch": [0, 0, 0],
-      "discharge_hatch": [2, 0, 0],
+      "suction_hatch": [0, 0, 1],
+      "discharge_hatch": [2, 0, 2],
       "maintenance_hatch": [1, 0, 1],
       "energy_hatch": [1, 0, 2]
     }

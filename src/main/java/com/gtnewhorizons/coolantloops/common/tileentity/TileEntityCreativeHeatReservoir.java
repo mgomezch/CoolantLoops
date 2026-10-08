@@ -3,6 +3,12 @@ package com.gtnewhorizons.coolantloops.common.tileentity;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidTankInfo;
+import net.minecraftforge.fluids.IFluidHandler;
+
 import com.gtnewhorizons.coolantloops.engine.ConvectiveHeatTransferModel;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
@@ -13,7 +19,7 @@ import com.gtnewhorizons.coolantloops.engine.LoopSegment;
  * Provides a constant-temperature thermal boundary condition in a coolant loop,
  * exchanging heat according to Newton's law of cooling.
  */
-public class TileEntityCreativeHeatReservoir extends TileEntity implements ICoolantLoopDevice {
+public class TileEntityCreativeHeatReservoir extends TileEntity implements ICoolantLoopDevice, IFluidHandler {
 
     private double targetTemperatureCelsius = 300.0; // Default 300 deg C
     private double heatTransferArea = 2.0; // 2.0 m^2 effective exchange area
@@ -98,5 +104,37 @@ public class TileEntityCreativeHeatReservoir extends TileEntity implements ICool
         nbt.setDouble("targetTemp", targetTemperatureCelsius);
         nbt.setDouble("area", heatTransferArea);
         nbt.setDouble("minorLossK", minorLossK);
+    }
+
+    // --- IFluidHandler Implementation for GT Fluid Pipe Connectivity ---
+
+    @Override
+    public int fill(ForgeDirection from, FluidStack resource, boolean doFill) {
+        return resource != null ? resource.amount : 0;
+    }
+
+    @Override
+    public FluidStack drain(ForgeDirection from, FluidStack resource, boolean doDrain) {
+        return null;
+    }
+
+    @Override
+    public FluidStack drain(ForgeDirection from, int maxDrain, boolean doDrain) {
+        return null;
+    }
+
+    @Override
+    public boolean canFill(ForgeDirection from, Fluid fluid) {
+        return true;
+    }
+
+    @Override
+    public boolean canDrain(ForgeDirection from, Fluid fluid) {
+        return true;
+    }
+
+    @Override
+    public FluidTankInfo[] getTankInfo(ForgeDirection from) {
+        return new FluidTankInfo[] { new FluidTankInfo(null, 1000) };
     }
 }

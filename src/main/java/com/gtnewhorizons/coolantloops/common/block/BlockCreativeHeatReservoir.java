@@ -16,6 +16,9 @@ import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityCreativeHeatRe
  */
 public class BlockCreativeHeatReservoir extends BlockContainer {
 
+    @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    private net.minecraft.util.IIcon mIcon;
+
     public BlockCreativeHeatReservoir() {
         super(Material.iron);
         setBlockName("coolantloops.creative_heat_reservoir");
@@ -23,6 +26,19 @@ public class BlockCreativeHeatReservoir extends BlockContainer {
         setResistance(10.0f);
         setStepSound(soundTypeMetal);
         setCreativeTab(CreativeTabs.tabRedstone);
+    }
+
+    @Override
+    @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public void registerBlockIcons(net.minecraft.client.renderer.texture.IIconRegister reg) {
+        this.blockIcon = reg.registerIcon("coolantloops:creative_heat_reservoir");
+        this.mIcon = this.blockIcon;
+    }
+
+    @Override
+    @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public net.minecraft.util.IIcon getIcon(int side, int meta) {
+        return this.mIcon != null ? this.mIcon : this.blockIcon;
     }
 
     @Override
