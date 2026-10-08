@@ -42,7 +42,11 @@ public class CoolantFluidProperty {
         if (name == null) {
             return WATER;
         }
-        return REGISTRY.getOrDefault(name.toLowerCase(), WATER);
+        String clean = name.trim().toLowerCase();
+        if (clean.contains("cheese")) {
+            return MOLTEN_CHEESE;
+        }
+        return REGISTRY.getOrDefault(clean, WATER);
     }
 
     public static Map<String, CoolantFluidProperty> getRegistry() {
@@ -83,7 +87,7 @@ public class CoolantFluidProperty {
         0.0025,
         3800.0,
         0.520,
-        140.0,
+        Double.POSITIVE_INFINITY, // Non-boiling closed coolant
         -25.0);
 
     public static final CoolantFluidProperty SODIUM = new CoolantFluidProperty(
@@ -92,8 +96,17 @@ public class CoolantFluidProperty {
         0.0007,
         1260.0,
         86.0, // High liquid metal conductivity
-        883.0,
+        Double.POSITIVE_INFINITY, // Handled as non-boiling liquid metal
         97.8);
+
+    public static final CoolantFluidProperty MOLTEN_CHEESE = new CoolantFluidProperty(
+        "molten.cheese",
+        1120.0, // 1.12 g/cm^3
+        0.557, // 557 cP = 0.557 Pa*s
+        3000.0, // 3 kJ/(kg*K)
+        0.481, // 0.481 W/(m*K)
+        Double.POSITIVE_INFINITY, // Non-boiling
+        65.0); // 65°C melting point easter egg threshold
 
     static {
         register(WATER);
@@ -101,6 +114,9 @@ public class CoolantFluidProperty {
         register(HEAVY_WATER);
         register(IC2_COOLANT);
         register(SODIUM);
+        register(MOLTEN_CHEESE);
+        REGISTRY.put("cheese", MOLTEN_CHEESE);
+        REGISTRY.put("moltencheese", MOLTEN_CHEESE);
     }
 
     public String getFluidName() {
@@ -125,6 +141,10 @@ public class CoolantFluidProperty {
 
     public double getBoilingPointCelsius() {
         return boilingPointCelsius;
+    }
+
+    public boolean canBoil() {
+        return !Double.isInfinite(boilingPointCelsius);
     }
 
     public double getFreezingPointCelsius() {

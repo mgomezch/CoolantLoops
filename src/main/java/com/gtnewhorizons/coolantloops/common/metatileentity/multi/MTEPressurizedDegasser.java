@@ -468,6 +468,9 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         } else if ("hydrogen".equals(clean)) {
             FluidStack fs = Materials.Hydrogen.getGas(1);
             if (fs != null) return fs.getFluid();
+        } else if ("methane".equals(clean)) {
+            FluidStack fs = Materials.Methane.getGas(1);
+            if (fs != null) return fs.getFluid();
         }
 
         return FluidRegistry.getFluid("gas_" + clean);
