@@ -334,6 +334,14 @@ public class CoolantPumpReservoir {
             return false;
         }
 
+        if (CoolantFluidHelper.isLava(availableFluid)) {
+            if (!CoolantFluidHelper.isNetherWorld(world)) {
+                pump.setLoopStatus(
+                    "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!");
+                return false;
+            }
+        }
+
         CoolantFluidProperty prop = CoolantFluidProperty.get(
             availableFluid.getFluid()
                 .getName());
@@ -344,17 +352,19 @@ public class CoolantPumpReservoir {
         }
 
         if (CoolantFluidHelper.isMoltenFluid(availableFluid.getFluid(), availableFluid, prop)) {
-            double declaredMelting = CoolantFluidHelper
-                .getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
-            double biomeTemp = pump.getBiomeTemperatureCelsius();
-            if (biomeTemp < declaredMelting) {
-                pump.setLoopStatus(
-                    String.format(
-                        "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
-                        biomeTemp,
-                        declaredMelting,
-                        prop.getFluidName()));
-                return false;
+            if (!(CoolantFluidHelper.isLava(availableFluid) && CoolantFluidHelper.isNetherWorld(world))) {
+                double declaredMelting = CoolantFluidHelper
+                    .getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
+                double biomeTemp = pump.getBiomeTemperatureCelsius();
+                if (biomeTemp < declaredMelting) {
+                    pump.setLoopStatus(
+                        String.format(
+                            "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                            biomeTemp,
+                            declaredMelting,
+                            prop.getFluidName()));
+                    return false;
+                }
             }
         }
         pump.getEngine()

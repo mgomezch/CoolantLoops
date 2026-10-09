@@ -419,6 +419,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return CoolantFluidHelper.isGaseousFluid(stack);
     }
 
+    public static boolean isLava(String name) {
+        return CoolantFluidHelper.isLava(name);
+    }
+
+    public static boolean isLava(net.minecraftforge.fluids.Fluid fluid, FluidStack stack) {
+        return CoolantFluidHelper.isLava(fluid, stack);
+    }
+
+    public static boolean isLava(FluidStack stack) {
+        return CoolantFluidHelper.isLava(stack);
+    }
+
+    public static boolean isNetherWorld(World world) {
+        return CoolantFluidHelper.isNetherWorld(world);
+    }
+
     public static boolean isMoltenFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack,
         CoolantFluidProperty prop) {
         return CoolantFluidHelper.isMoltenFluid(fluid, stack, prop);
@@ -655,6 +671,18 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.step(0.05);
                 return true;
             }
+            if (isLava(reservoirFluid)) {
+                World world = getBaseMetaTileEntity() != null ? getBaseMetaTileEntity().getWorld() : null;
+                if (!isNetherWorld(world)) {
+                    mLoopState = LoopState.STOPPED;
+                    mEngine.setPumpPowered(false);
+                    mEngine.setPumpMechanicalPowerWatts(0.0);
+                    mEngine.setBraking(false);
+                    mLoopStatus = "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!";
+                    mEngine.step(0.05);
+                    return true;
+                }
+            }
         } else if (mEngine.getFluid() != null) {
             if (isLiquidNuclearFuel(
                 mEngine.getFluid()
@@ -674,6 +702,19 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.step(0.05);
                 return true;
             }
+            if (mEngine.getFluid()
+                .isLava()) {
+                World world = getBaseMetaTileEntity() != null ? getBaseMetaTileEntity().getWorld() : null;
+                if (!isNetherWorld(world)) {
+                    mLoopState = LoopState.STOPPED;
+                    mEngine.setPumpPowered(false);
+                    mEngine.setPumpMechanicalPowerWatts(0.0);
+                    mEngine.setBraking(false);
+                    mLoopStatus = "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!";
+                    mEngine.step(0.05);
+                    return true;
+                }
+            }
         }
 
         // Validate molten fluid temperature
@@ -688,7 +729,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             reservoirFluid,
             currentProp);
 
-        if (isMolten) {
+        World loopWorld = getBaseMetaTileEntity() != null ? getBaseMetaTileEntity().getWorld() : null;
+        boolean isLavaNether = ((reservoirFluid != null && isLava(reservoirFluid))
+            || (currentProp != null && currentProp.isLava())) && isNetherWorld(loopWorld);
+
+        if (isMolten && !isLavaNether) {
             double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
                 reservoirFluid != null ? reservoirFluid.getFluid() : null,
                 reservoirFluid,

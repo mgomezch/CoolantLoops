@@ -445,6 +445,7 @@ public class MaterialRotorDatabaseExporter {
         displayNames.put("ic2coolant", "IC2 coolant");
         displayNames.put("sodium", "Sodium");
         displayNames.put("molten.cheese", "Molten cheese");
+        displayNames.put("lava", "Lava (nether)");
 
         Map<String, String> byproductGases = new HashMap<>();
         byproductGases.put("water", "Deuterium");
@@ -453,6 +454,7 @@ public class MaterialRotorDatabaseExporter {
         byproductGases.put("ic2coolant", "None");
         byproductGases.put("sodium", "None");
         byproductGases.put("molten.cheese", "None");
+        byproductGases.put("lava", "None");
 
         Map<String, String> correspondingMats = new HashMap<>();
         correspondingMats.put("water", "Water");
@@ -461,6 +463,7 @@ public class MaterialRotorDatabaseExporter {
         correspondingMats.put("ic2coolant", null);
         correspondingMats.put("sodium", "Sodium");
         correspondingMats.put("molten.cheese", "Cheese");
+        correspondingMats.put("lava", "Lava");
 
         List<CoolantFluidProperty> fluidList = new ArrayList<>();
         fluidList.add(CoolantFluidProperty.WATER);
@@ -469,6 +472,7 @@ public class MaterialRotorDatabaseExporter {
         fluidList.add(CoolantFluidProperty.IC2_COOLANT);
         fluidList.add(CoolantFluidProperty.SODIUM);
         fluidList.add(CoolantFluidProperty.MOLTEN_CHEESE);
+        fluidList.add(CoolantFluidProperty.LAVA);
 
         int count = 0;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

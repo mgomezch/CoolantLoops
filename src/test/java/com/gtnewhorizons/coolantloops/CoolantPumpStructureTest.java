@@ -502,4 +502,127 @@ public class CoolantPumpStructureTest {
         assertTrue(info[7].startsWith("Loop fluid: "));
         assertTrue(info[8].startsWith("Dissolved gas: "));
     }
+
+    @Test
+    public void testLavaCoolantLoopEasterEgg() {
+        // 1. Classification
+        assertTrue(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava("lava"));
+        assertTrue(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava("fluid.lava"));
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava("water"));
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava("sodium"));
+
+        net.minecraftforge.fluids.Fluid lavaFluid = net.minecraftforge.fluids.FluidRegistry.getFluid("lava");
+        if (lavaFluid == null) {
+            lavaFluid = new net.minecraftforge.fluids.Fluid("lava");
+            net.minecraftforge.fluids.FluidRegistry.registerFluid(lavaFluid);
+        }
+        net.minecraftforge.fluids.FluidStack lavaStack = new net.minecraftforge.fluids.FluidStack(lavaFluid, 1000);
+        assertTrue(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava(lavaStack));
+        assertTrue(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLava(lavaFluid, lavaStack));
+
+        // 2. Nether dimension detection
+        net.minecraft.world.World overworld = Mockito.mock(net.minecraft.world.World.class);
+        net.minecraft.world.WorldProvider overworldProvider = Mockito.mock(net.minecraft.world.WorldProvider.class);
+        overworldProvider.dimensionId = 0;
+        overworldProvider.isHellWorld = false;
+        try {
+            java.lang.reflect.Field fProv = net.minecraft.world.World.class.getField("provider");
+            fProv.setAccessible(true);
+            fProv.set(overworld, overworldProvider);
+        } catch (Throwable t) {
+            fail("Failed to set World.provider: " + t);
+        }
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isNetherWorld(overworld));
+
+        net.minecraft.world.World nether = Mockito.mock(net.minecraft.world.World.class);
+        net.minecraft.world.WorldProvider netherProvider = Mockito.mock(net.minecraft.world.WorldProvider.class);
+        netherProvider.dimensionId = -1;
+        netherProvider.isHellWorld = true;
+        try {
+            java.lang.reflect.Field fProv = net.minecraft.world.World.class.getField("provider");
+            fProv.setAccessible(true);
+            fProv.set(nether, netherProvider);
+        } catch (Throwable t) {
+            fail("Failed to set World.provider: " + t);
+        }
+        assertTrue(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isNetherWorld(nether));
+
+        // 3. Pump in Overworld rejects lava
+        MTECoolantPump pumpOverworld = new MTECoolantPump("test_pump_lava_overworld");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBaseOw = Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBaseOw.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBaseOw.isServerSide())
+            .thenReturn(true);
+        Mockito.when(mockPumpBaseOw.getWorld())
+            .thenReturn(overworld);
+        pumpOverworld.setBaseMetaTileEntity(mockPumpBaseOw);
+        pumpOverworld.setLoopFormed(true);
+
+        com.gtnewhorizons.coolantloops.engine.LoopSegment segOw = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+            "ow_seg",
+            10.0,
+            0.2,
+            0.0001,
+            1.0,
+            100.0,
+            1000.0,
+            20.0);
+        pumpOverworld.getEngine()
+            .addSegment(segOw);
+        pumpOverworld.getEngine()
+            .setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.LAVA);
+
+        assertTrue(pumpOverworld.stepCoolantLoop());
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pumpOverworld.getLoopState());
+        assertEquals(
+            "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!",
+            pumpOverworld.getLoopStatus());
+
+        // 4. Pump in Nether accepts lava and bypasses melting temperature check
+        MTECoolantPump pumpNether = new MTECoolantPump("test_pump_lava_nether");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBaseNether = Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBaseNether.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBaseNether.isServerSide())
+            .thenReturn(true);
+        Mockito.when(mockPumpBaseNether.getWorld())
+            .thenReturn(nether);
+        pumpNether.setBaseMetaTileEntity(mockPumpBaseNether);
+        pumpNether.setLoopFormed(true);
+
+        net.minecraft.item.Item mockTool = Mockito.mock(net.minecraft.item.Item.class);
+        ItemStack mockRotor = Mockito.mock(ItemStack.class);
+        Mockito.when(mockRotor.getItem())
+            .thenReturn(mockTool);
+        Mockito.when(mockRotor.getItemDamage())
+            .thenReturn(0);
+        Mockito.when(mockRotor.getMaxDamage())
+            .thenReturn(1000);
+        pumpNether.setRotorStack(mockRotor);
+
+        com.gtnewhorizons.coolantloops.engine.LoopSegment segNether = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+            "nether_seg",
+            10.0,
+            0.2,
+            0.0001,
+            1.0,
+            100.0,
+            1000.0,
+            93.3);
+        pumpNether.getEngine()
+            .addSegment(segNether);
+        pumpNether.getEngine()
+            .setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.LAVA);
+
+        assertTrue(pumpNether.stepCoolantLoop());
+        assertFalse(
+            pumpNether.getLoopStatus()
+                .contains("Lava cannot be used as a coolant"));
+        assertFalse(
+            pumpNether.getLoopStatus()
+                .contains("below declared GregTech melting point"));
+    }
 }

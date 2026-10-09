@@ -29,6 +29,31 @@ public final class CoolantFluidHelper {
         return isPlainRegularWater(stack.getFluid());
     }
 
+    public static boolean isLava(String name) {
+        if (name == null) return false;
+        String clean = name.trim()
+            .toLowerCase();
+        return clean.equals("lava") || clean.endsWith(".lava") || clean.equals("fluid.lava");
+    }
+
+    public static boolean isLava(Fluid fluid, FluidStack stack) {
+        if (fluid == null && stack != null) {
+            fluid = stack.getFluid();
+        }
+        if (fluid == null) return false;
+        return isLava(fluid.getName());
+    }
+
+    public static boolean isLava(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return false;
+        return isLava(stack.getFluid(), stack);
+    }
+
+    public static boolean isNetherWorld(World world) {
+        if (world == null || world.provider == null) return false;
+        return world.provider.dimensionId == -1 || world.provider.isHellWorld;
+    }
+
     public static boolean isLiquidNuclearFuel(String name) {
         if (name == null) return false;
         String clean = name.trim()
@@ -112,6 +137,9 @@ public final class CoolantFluidHelper {
     }
 
     public static boolean isMoltenFluid(Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+        if (isLava(fluid, stack)) {
+            return true;
+        }
         if (prop != null && prop.isMolten()) {
             return true;
         }

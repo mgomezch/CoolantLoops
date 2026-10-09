@@ -74,5 +74,23 @@ class CoolantFluidPropertyTest {
         assertFalse(CoolantFluidProperty.MOLTEN_CHEESE.isPlainWater());
         assertFalse(CoolantFluidProperty.IC2_COOLANT.isPlainWater());
         assertFalse(CoolantFluidProperty.SODIUM.isPlainWater());
+        assertFalse(CoolantFluidProperty.LAVA.isPlainWater());
+    }
+
+    @Test
+    void testLavaProperties() {
+        CoolantFluidProperty lava = CoolantFluidProperty.LAVA;
+        assertEquals(3000.0, lava.getDensity(), 0.01);
+        assertEquals(0.001, lava.getDynamicViscosity(), 1e-5);
+        assertEquals(1250.0, lava.getSpecificHeat(), 0.1);
+        assertEquals(1.5, lava.getThermalConductivity(), 1e-5);
+        assertEquals(726.85, lava.getFreezingPointCelsius(), 0.01);
+        assertTrue(Double.isInfinite(lava.getBoilingPointCelsius()));
+        assertFalse(lava.canBoil());
+        assertTrue(lava.isLava());
+        assertTrue(lava.isMolten());
+        assertFalse(lava.isPlainWater());
+        assertSame(lava, CoolantFluidProperty.get("lava"));
+        assertSame(lava, CoolantFluidProperty.get("fluid.lava"));
     }
 }

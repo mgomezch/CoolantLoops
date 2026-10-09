@@ -59,6 +59,9 @@ public class CoolantFluidProperty {
         if (clean.contains("ic2coolant") || clean.contains("coolant")) {
             return IC2_COOLANT;
         }
+        if (clean.equals("lava") || clean.endsWith(".lava") || clean.equals("fluid.lava")) {
+            return LAVA;
+        }
         return REGISTRY.get(clean);
     }
 
@@ -121,6 +124,23 @@ public class CoolantFluidProperty {
         Double.POSITIVE_INFINITY, // Non-boiling
         46.85); // GregTech melting point: 320 K - 273.15 = 46.85°C
 
+    /**
+     * Nether lava easter egg.
+     * Flow rate in the nether matches water, giving it water-like viscosity.
+     * Density is 3000 kg/m^3 based on:
+     * "Hot stuff (2021), A. Yeo, H. Routledge, J. Lewis, D. Meggi, Journal of Physics Special Topics, University of
+     * Leicester"
+     * https://journals.le.ac.uk/index.php/pst/article/view/3956/3425
+     */
+    public static final CoolantFluidProperty LAVA = new CoolantFluidProperty(
+        "lava",
+        3000.0, // 3000 kg/m^3 (Yeo et al., 2021)
+        0.001, // 1.0 mPa*s, same dynamic viscosity as water in the nether
+        1250.0, // 1250 J/(kg*K) silicate melt specific heat
+        1.5, // 1.5 W/(m*K) thermal conductivity
+        Double.POSITIVE_INFINITY, // Non-boiling closed liquid
+        726.85); // GregTech lava temperature: 1000 K - 273.15 = 726.85°C
+
     static {
         register(WATER);
         register(DISTILLED_WATER);
@@ -128,6 +148,7 @@ public class CoolantFluidProperty {
         register(IC2_COOLANT);
         register(SODIUM);
         register(MOLTEN_CHEESE);
+        register(LAVA);
         REGISTRY.put("cheese", MOLTEN_CHEESE);
         REGISTRY.put("moltencheese", MOLTEN_CHEESE);
         REGISTRY.put("distilledwater", DISTILLED_WATER);
@@ -136,15 +157,21 @@ public class CoolantFluidProperty {
         REGISTRY.put("heavywater", HEAVY_WATER);
         REGISTRY.put("heavy_water", HEAVY_WATER);
         REGISTRY.put("water.heavy", HEAVY_WATER);
+        REGISTRY.put("lava", LAVA);
+        REGISTRY.put("fluid.lava", LAVA);
     }
 
     public boolean isPlainWater() {
         return this == WATER || "water".equalsIgnoreCase(this.fluidName);
     }
 
+    public boolean isLava() {
+        return this == LAVA || "lava".equalsIgnoreCase(this.fluidName);
+    }
+
     public boolean isMolten() {
-        return fluidName != null && fluidName.toLowerCase()
-            .contains("molten");
+        return this == LAVA || (fluidName != null && fluidName.toLowerCase()
+            .contains("molten"));
     }
 
     public double getDeclaredTemperatureCelsius() {
