@@ -678,7 +678,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setPumpPowered(false);
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
-                    mLoopStatus = "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!";
+                    mLoopStatus = "Pump refused to start: Lava is too viscous here!";
                     mEngine.step(0.05);
                     return true;
                 }
@@ -710,7 +710,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setPumpPowered(false);
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
-                    mLoopStatus = "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!";
+                    mLoopStatus = "Pump refused to start: Lava is too viscous here!";
                     mEngine.step(0.05);
                     return true;
                 }

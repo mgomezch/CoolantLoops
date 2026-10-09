@@ -84,7 +84,7 @@ class CoolantFluidPropertyTest {
         assertEquals(0.001, lava.getDynamicViscosity(), 1e-5);
         assertEquals(1250.0, lava.getSpecificHeat(), 0.1);
         assertEquals(1.5, lava.getThermalConductivity(), 1e-5);
-        assertEquals(726.85, lava.getFreezingPointCelsius(), 0.01);
+        assertEquals(1000.0, lava.getFreezingPointCelsius(), 0.01);
         assertTrue(Double.isInfinite(lava.getBoilingPointCelsius()));
         assertFalse(lava.canBoil());
         assertTrue(lava.isLava());

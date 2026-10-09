@@ -336,8 +336,7 @@ public class CoolantPumpReservoir {
 
         if (CoolantFluidHelper.isLava(availableFluid)) {
             if (!CoolantFluidHelper.isNetherWorld(world)) {
-                pump.setLoopStatus(
-                    "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!");
+                pump.setLoopStatus("Pump refused to start: Lava is too viscous here!");
                 return false;
             }
         }

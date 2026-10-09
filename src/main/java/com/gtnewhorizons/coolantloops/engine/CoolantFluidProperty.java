@@ -139,7 +139,7 @@ public class CoolantFluidProperty {
         1250.0, // 1250 J/(kg*K) silicate melt specific heat
         1.5, // 1.5 W/(m*K) thermal conductivity
         Double.POSITIVE_INFINITY, // Non-boiling closed liquid
-        726.85); // GregTech lava temperature: 1000 K - 273.15 = 726.85°C
+        1000.0); // Lava melting point: ~1000°C
 
     static {
         register(WATER);

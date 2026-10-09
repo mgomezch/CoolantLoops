@@ -576,9 +576,7 @@ public class CoolantPumpStructureTest {
 
         assertTrue(pumpOverworld.stepCoolantLoop());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pumpOverworld.getLoopState());
-        assertEquals(
-            "Pump refused to start: Lava cannot be used as a coolant (unless operating in the nether)!",
-            pumpOverworld.getLoopStatus());
+        assertEquals("Pump refused to start: Lava is too viscous here!", pumpOverworld.getLoopStatus());
 
         // 4. Pump in Nether accepts lava and bypasses melting temperature check
         MTECoolantPump pumpNether = new MTECoolantPump("test_pump_lava_nether");
