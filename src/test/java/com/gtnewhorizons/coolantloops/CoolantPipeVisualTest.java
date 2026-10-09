@@ -113,7 +113,9 @@ public class CoolantPipeVisualTest {
         assertEquals("Medium Steel Coolant Pipe", pipe.getLocalizedName());
         String[] desc = pipe.getDescription();
         assertTrue(desc.length >= 4, "Must contain insulated description and specs");
-        assertTrue(desc[0].contains("Thermally Insulated Coolant Loop Pipe"));
+        assertTrue(
+            desc[0]
+                .contains(com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("gt.pipe.coolant.desc")));
     }
 
     @Test

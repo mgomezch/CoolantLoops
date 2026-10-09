@@ -14,6 +14,7 @@ import net.minecraftforge.fluids.IFluidHandler;
 
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
+import com.gtnewhorizons.coolantloops.common.util.CoolantLocalization;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 
@@ -232,27 +233,25 @@ public class CoolantPumpReservoir {
         }
 
         if (masterBlock == null) {
-            pump.setLoopStatus("Missing Railcraft tank above pump!");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.missing_tank"));
             return false;
         }
 
         Materials tankMat = getRailcraftTankMaterial(masterBlock);
         if (tankMat == null) {
-            pump.setLoopStatus("Unrecognized Railcraft tank material above pump!");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.unrecognized_tank"));
             return false;
         }
         if (!LoopGraphCrawler.isAllowedCoolantPipeMaterial(tankMat)) {
             pump.setLoopStatus(
-                String.format(
-                    "Railcraft tank material %s has no matching GregTech fluid pipe! Allowed materials: Iron, Steel, Stainless Steel, Titanium, Tungstensteel, Neutronium.",
-                    tankMat.mDefaultLocalName));
+                CoolantLocalization.format("coolantloops.pump.status.tank_no_pipe", tankMat.mDefaultLocalName));
             return false;
         }
         pump.setTankMaterial(tankMat);
 
         MultiBlockPattern pattern = masterBlock.getPattern();
         if (pattern == null) {
-            pump.setLoopStatus("Railcraft tank has invalid pattern!");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.invalid_pattern"));
             return false;
         }
         int tankWidthX = pattern.getPatternWidthX();
@@ -262,12 +261,11 @@ public class CoolantPumpReservoir {
 
         int detectedWidth = effX;
         if (detectedWidth != 3 && detectedWidth != 5 && detectedWidth != 7 && detectedWidth != 9) {
-            pump.setLoopStatus(
-                String.format("Unsupported Railcraft tank width %d (must be 3, 5, 7, or 9)!", detectedWidth));
+            pump.setLoopStatus(CoolantLocalization.format("coolantloops.pump.status.unsupported_width", detectedWidth));
             return false;
         }
         if (effX != effZ) {
-            pump.setLoopStatus(String.format("Railcraft tank footprint must be square (%dx%d detected)!", effX, effZ));
+            pump.setLoopStatus(CoolantLocalization.format("coolantloops.pump.status.tank_square", effX, effZ));
             return false;
         }
 
@@ -281,13 +279,14 @@ public class CoolantPumpReservoir {
                 int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
                 TileEntity te = world.getTileEntity(bx, y, bz);
                 if (te == null) {
-                    pump.setLoopStatus(String.format("Missing Railcraft tank block at (%d, %d, %d)", bx, y, bz));
+                    pump.setLoopStatus(
+                        CoolantLocalization.format("coolantloops.pump.status.missing_tank_block", bx, y, bz));
                     return false;
                 }
                 if (!(te instanceof TileMultiBlock)) {
                     pump.setLoopStatus(
-                        String.format(
-                            "Block at (%d, %d, %d) is %s, not a Railcraft tank block",
+                        CoolantLocalization.format(
+                            "coolantloops.pump.status.not_tank_block",
                             bx,
                             y,
                             bz,
@@ -297,12 +296,11 @@ public class CoolantPumpReservoir {
                 }
                 TileMultiBlock tmb = (TileMultiBlock) te;
                 if (!tmb.isStructureValid()) {
-                    pump.setLoopStatus("Railcraft tank above pump is not fully formed/structurally valid!");
+                    pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.tank_not_valid"));
                     return false;
                 }
                 if (tmb.getMasterBlock() != masterBlock) {
-                    pump.setLoopStatus(
-                        "Mismatched Railcraft tank: multiple distinct tank multiblocks detected above pump!");
+                    pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.multiple_tanks"));
                     return false;
                 }
             }
@@ -310,7 +308,7 @@ public class CoolantPumpReservoir {
 
         FluidStack availableFluid = getReservoirFluid();
         if (availableFluid == null || availableFluid.amount <= 0 || availableFluid.getFluid() == null) {
-            pump.setLoopStatus("Railcraft tank is empty! Coolant fluid required before pump can operate.");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.tank_empty"));
             return false;
         }
 
@@ -322,21 +320,22 @@ public class CoolantPumpReservoir {
         }
 
         if (CoolantFluidHelper.isPlainRegularWater(availableFluid)) {
-            pump.setLoopStatus(
-                "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.refuse_water"));
             return false;
         }
 
         if (CoolantFluidHelper.isGaseousFluid(availableFluid)) {
             pump.setLoopStatus(
-                "Pump refused to start: Gaseous fluid (" + availableFluid.getFluid()
-                    .getName() + ") cannot be used as a coolant!");
+                CoolantLocalization.format(
+                    "coolantloops.pump.status.refuse_gas",
+                    availableFluid.getFluid()
+                        .getName()));
             return false;
         }
 
         if (CoolantFluidHelper.isLava(availableFluid)) {
             if (!CoolantFluidHelper.isNetherWorld(world)) {
-                pump.setLoopStatus("Pump refused to start: Lava is too viscous here!");
+                pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.refuse_lava"));
                 return false;
             }
         }
@@ -345,8 +344,7 @@ public class CoolantPumpReservoir {
             availableFluid.getFluid()
                 .getName());
         if (prop == null || prop.isPlainWater()) {
-            pump.setLoopStatus(
-                "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
+            pump.setLoopStatus(CoolantLocalization.get("coolantloops.pump.status.refuse_water"));
             return false;
         }
 
@@ -357,8 +355,8 @@ public class CoolantPumpReservoir {
                 double biomeTemp = pump.getBiomeTemperatureCelsius();
                 if (biomeTemp < declaredMelting) {
                     pump.setLoopStatus(
-                        String.format(
-                            "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                        CoolantLocalization.format(
+                            "coolantloops.pump.status.refuse_solidify",
                             biomeTemp,
                             declaredMelting,
                             prop.getFluidName()));

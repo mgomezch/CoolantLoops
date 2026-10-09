@@ -168,8 +168,8 @@ public class BlockManifold extends BlockContainer {
                     world.notifyBlocksOfNeighborChange(x, y, z, this);
                     player.addChatMessage(
                         new ChatComponentText(
-                            String.format(
-                                "Manifold: Plane oriented to %s (Normal: %s)",
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                                "coolantloops.chat.manifold.orient",
                                 manifold.getPlaneName(),
                                 manifold.getFacing()
                                     .name())));
@@ -181,8 +181,8 @@ public class BlockManifold extends BlockContainer {
                     world.notifyBlocksOfNeighborChange(x, y, z, this);
                     player.addChatMessage(
                         new ChatComponentText(
-                            String.format(
-                                "Manifold: %s connection %s",
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                                "coolantloops.chat.manifold.connection",
                                 wrenchingSide.name(),
                                 connected ? "CONNECTED" : "DISCONNECTED")));
                 }
@@ -197,8 +197,8 @@ public class BlockManifold extends BlockContainer {
                 .size();
             player.addChatMessage(
                 new ChatComponentText(
-                    String.format(
-                        "Manifold: Plane = %s, Normal = %s, Inline Group Size = %d/8 blocks, Flow = %.2f L/s, Temp = %.1f \u00B0C",
+                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                        "coolantloops.chat.manifold.info",
                         manifold.getPlaneName(),
                         manifold.getFacing()
                             .name(),

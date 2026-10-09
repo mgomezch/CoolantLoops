@@ -40,8 +40,10 @@ public class MTEHatchPressurizedFluid extends MTEHatch implements ICoolantLoopDe
             aNameRegional,
             aTier,
             0,
-            new String[] { "Hermetic port for pressurized coolant loops",
-                "Discharge hatch accepts Machine Controller covers to remotely stop flow and return fluid to reservoir" });
+            new String[] {
+                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("gt.hatch.pressurized_fluid.desc1"),
+                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                    .get("gt.hatch.pressurized_fluid.desc2") });
     }
 
     public MTEHatchPressurizedFluid(String aName, int aTier, String[] aDescription, ITexture[][][] aTextures) {

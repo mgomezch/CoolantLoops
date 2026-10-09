@@ -214,7 +214,9 @@ public class BlockLoopInstrument extends BlockContainer {
                     world.markBlockForUpdate(x, y, z);
                     world.notifyBlocksOfNeighborChange(x, y, z, this);
                     player.addChatMessage(
-                        new ChatComponentText(String.format("Instrumentation Computer facing: %s", nextFacing.name())));
+                        new ChatComponentText(
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                                .format("coolantloops.chat.instrument.facing", nextFacing.name())));
                 }
                 return true;
             }
@@ -223,9 +225,10 @@ public class BlockLoopInstrument extends BlockContainer {
                     inst.cycleMetric(player.isSneaking() ? -1 : 1);
                     player.addChatMessage(
                         new ChatComponentText(
-                            String.format(
-                                "Instrumentation Computer tracked metric: %s",
-                                inst.getTrackedMetric().displayName)));
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                                "coolantloops.chat.instrument.tracked_metric",
+                                inst.getTrackedMetric()
+                                    .getDisplayName())));
                 }
                 return true;
             }

@@ -57,6 +57,11 @@ public class TileEntityLoopInstrument extends TileEntity
             this.displayName = displayName;
             this.unit = unit;
         }
+
+        public String getDisplayName() {
+            return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("coolantloops.metric." + name().toLowerCase(), displayName);
+        }
     }
 
     public static final String[] DYE_NAMES = new String[] { "White", "Orange", "Magenta", "Light Blue", "Yellow",
@@ -141,13 +146,16 @@ public class TileEntityLoopInstrument extends TileEntity
     }
 
     public static String getBundledModeName(int mode) {
-        if (mode == BUNDLED_MODE_BROADCAST) return "Broadcast (all channels)";
+        if (mode == BUNDLED_MODE_BROADCAST) {
+            return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.bundled.broadcast");
+        }
         if (mode == BUNDLED_MODE_MULTI) {
-            return "Multi (Ch0: flow, Ch1: temp, Ch2: pres, Ch3: gas, Ch4: wear, Ch5: fill, Ch6: res, Ch7: state)";
+            return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.bundled.multi");
         }
         int dyeIdx = mode - 2;
         if (dyeIdx >= 0 && dyeIdx < DYE_NAMES.length) {
-            return "Channel " + dyeIdx + " (" + DYE_NAMES[dyeIdx] + ")";
+            return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("coolantloops.bundled.channel", dyeIdx, DYE_NAMES[dyeIdx]);
         }
         return "Unknown";
     }
@@ -437,14 +445,18 @@ public class TileEntityLoopInstrument extends TileEntity
 
         // Title
         builder.widget(
-            new TextWidget("Pressurized Instrumentation Computer").setDefaultColor(Color.rgb(0, 255, 128))
-                .setPos(12, 14));
+            new TextWidget(
+                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.gui.instrument.title"))
+                    .setDefaultColor(Color.rgb(0, 255, 128))
+                    .setPos(12, 14));
 
         // Row 1: Tracked Metric Selector
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleMetric(-1))
                 .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD })
-                .addTooltip("Previous metric")
+                .addTooltip(
+                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .get("coolantloops.gui.instrument.btn.prev_metric"))
                 .setPos(12, 26)
                 .setSize(12, 12));
         builder.widget(
@@ -452,13 +464,18 @@ public class TileEntityLoopInstrument extends TileEntity
                 .setPos(12, 28)
                 .setSize(12, 10));
         builder.widget(
-            new TextWidget().setStringSupplier(() -> "Metric: " + trackedMetric.displayName)
+            new TextWidget()
+                .setStringSupplier(
+                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .format("coolantloops.gui.instrument.metric", trackedMetric.getDisplayName()))
                 .setDefaultColor(Color.rgb(100, 200, 255))
                 .setPos(28, 28));
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleMetric(1))
                 .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD })
-                .addTooltip("Next metric")
+                .addTooltip(
+                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .get("coolantloops.gui.instrument.btn.next_metric"))
                 .setPos(153, 26)
                 .setSize(12, 12));
         builder.widget(
@@ -469,7 +486,9 @@ public class TileEntityLoopInstrument extends TileEntity
         // Row 2: Value Display
         builder.widget(
             new TextWidget()
-                .setStringSupplier(() -> String.format("Measured: %.2f %s", getCurrentValue(), trackedMetric.unit))
+                .setStringSupplier(
+                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .format("coolantloops.gui.instrument.measured", getCurrentValue(), trackedMetric.unit))
                 .setDefaultColor(Color.rgb(255, 220, 100))
                 .setPos(12, 42));
 
@@ -477,7 +496,8 @@ public class TileEntityLoopInstrument extends TileEntity
         builder.widget(
             new TextWidget()
                 .setStringSupplier(
-                    () -> String.format("Output: %d / 15  (Fine: %d / 255)", redstoneOutput, fineOutputStrength))
+                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .format("coolantloops.gui.instrument.output", redstoneOutput, fineOutputStrength))
                 .setDefaultColor(Color.rgb(255, 80, 80))
                 .setPos(12, 56));
 
@@ -485,7 +505,9 @@ public class TileEntityLoopInstrument extends TileEntity
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleBundledMode(-1))
                 .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD })
-                .addTooltip("Previous bundled mode")
+                .addTooltip(
+                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .get("coolantloops.gui.instrument.btn.prev_bundled"))
                 .setPos(12, 70)
                 .setSize(12, 12));
         builder.widget(
@@ -493,13 +515,18 @@ public class TileEntityLoopInstrument extends TileEntity
                 .setPos(12, 72)
                 .setSize(12, 10));
         builder.widget(
-            new TextWidget().setStringSupplier(() -> "PR: " + getBundledModeName(bundledMode))
+            new TextWidget()
+                .setStringSupplier(
+                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .format("coolantloops.gui.instrument.pr", getBundledModeName(bundledMode)))
                 .setDefaultColor(Color.rgb(200, 160, 255))
                 .setPos(28, 72));
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleBundledMode(1))
                 .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD })
-                .addTooltip("Next bundled mode")
+                .addTooltip(
+                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                        .get("coolantloops.gui.instrument.btn.next_bundled"))
                 .setPos(153, 70)
                 .setSize(12, 12));
         builder.widget(

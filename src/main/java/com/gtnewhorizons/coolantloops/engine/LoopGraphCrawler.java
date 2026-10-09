@@ -22,6 +22,7 @@ import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurized
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger;
 import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
+import com.gtnewhorizons.coolantloops.common.util.CoolantLocalization;
 
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
@@ -455,7 +456,7 @@ public class LoopGraphCrawler {
 
         while (!frontier.isEmpty()) {
             if (stepCount >= maxDepth) {
-                return CrawlResult.fail(String.format("Loop exceeds maximum supported length (%d steps)", maxDepth));
+                return CrawlResult.fail(CoolantLocalization.format("coolantloops.crawler.max_length", maxDepth));
             }
 
             FrontierStep step = frontier.poll();
@@ -474,7 +475,7 @@ public class LoopGraphCrawler {
             TileEntity te = world.getTileEntity(step.x, step.y, step.z);
             if (te == null) {
                 return CrawlResult
-                    .fail(String.format("Loop broken: no tile entity at (%d, %d, %d)", step.x, step.y, step.z));
+                    .fail(CoolantLocalization.format("coolantloops.crawler.no_tile", step.x, step.y, step.z));
             }
 
             // 1. Manifold Group Structure Handling
@@ -484,8 +485,8 @@ public class LoopGraphCrawler {
                 // Entry side check: must enter perpendicularly to the manifold plane (along normal axis)
                 if (!mf.isNormalDirection(step.entrySide)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Invalid manifold connection: branch entered manifold at (%d, %d, %d) from side %s which is parallel to its plane (normal axis %s). Manifolds can only be entered and exited perpendicularly to their plane.",
+                        CoolantLocalization.format(
+                            "coolantloops.crawler.manifold_parallel",
                             step.x,
                             step.y,
                             step.z,
@@ -494,12 +495,8 @@ public class LoopGraphCrawler {
                 }
                 if (!mf.isConnected(step.entrySide)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
-                            step.x,
-                            step.y,
-                            step.z,
-                            step.entrySide));
+                        CoolantLocalization
+                            .format("coolantloops.crawler.manifold_disabled", step.x, step.y, step.z, step.entrySide));
                 }
 
                 BlockPosCoord mfCoord = new BlockPosCoord(step.x, step.y, step.z);
@@ -549,8 +546,8 @@ public class LoopGraphCrawler {
                         String otherPump = tile.getActivePumpId();
                         if (otherPump != null && !otherPump.equals(pumpId) && isPumpActive(world, otherPump)) {
                             return CrawlResult.fail(
-                                String.format(
-                                    "Manifold at (%d, %d, %d) is already part of another active coolant loop (%s)!",
+                                CoolantLocalization.format(
+                                    "coolantloops.crawler.manifold_other_loop",
                                     tile.xCoord,
                                     tile.yCoord,
                                     tile.zCoord,
@@ -609,8 +606,8 @@ public class LoopGraphCrawler {
                             // Disallow connections in any direction other than input or output axis
                             if (dir != groupInputSide && dir != groupOutputSide) {
                                 return CrawlResult.fail(
-                                    String.format(
-                                        "Invalid manifold connection: manifold at (%d, %d, %d) has connection in unauthorized direction %s! All inputs must be from %s and all outputs to %s.",
+                                    CoolantLocalization.format(
+                                        "coolantloops.crawler.manifold_unauthorized_dir",
                                         mPos.x,
                                         mPos.y,
                                         mPos.z,
@@ -633,8 +630,8 @@ public class LoopGraphCrawler {
 
                     if (mg.outputPorts.isEmpty()) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Manifold group at (%d, %d, %d) has no output connections in direction %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.manifold_group_no_output",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -642,8 +639,8 @@ public class LoopGraphCrawler {
                     }
                     if (mg.inputPorts.isEmpty()) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Manifold group at (%d, %d, %d) has no input connections in direction %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.manifold_group_no_input",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -692,8 +689,8 @@ public class LoopGraphCrawler {
                     // Manifold group already discovered by another incoming branch
                     if (step.entrySide != mg.inputSide) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Invalid manifold connection: branch entered manifold group at (%d, %d, %d) from side %s, but group input side is %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.manifold_group_wrong_side",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -702,8 +699,8 @@ public class LoopGraphCrawler {
                     }
                     if (!mf.isConnected(step.entrySide)) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Invalid manifold connection: manifold at (%d, %d, %d) has connection disabled on entry side %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.manifold_disabled",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -720,11 +717,7 @@ public class LoopGraphCrawler {
                 BaseMetaPipeEntity bmpe = (BaseMetaPipeEntity) te;
                 if (!(bmpe.getMetaTileEntity() instanceof MTECoolantPipe)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Loop broken: pipe at (%d, %d, %d) is not an insulated coolant pipe! Coolant loops require specialized Coolant Pipes.",
-                            step.x,
-                            step.y,
-                            step.z));
+                        CoolantLocalization.format("coolantloops.crawler.not_coolant_pipe", step.x, step.y, step.z));
                 }
                 MTECoolantPipe pipe = (MTECoolantPipe) bmpe.getMetaTileEntity();
                 lastPipe = pipe;
@@ -732,11 +725,8 @@ public class LoopGraphCrawler {
                 BlockPosCoord pCoord = new BlockPosCoord(step.x, step.y, step.z);
                 if (visitedPipeAndDevicePositions.contains(pCoord)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Invalid pipe junction at (%d, %d, %d): flow merging requires a Manifold!",
-                            step.x,
-                            step.y,
-                            step.z));
+                        CoolantLocalization
+                            .format("coolantloops.crawler.pipe_merge_needs_manifold", step.x, step.y, step.z));
                 }
                 visitedPipeAndDevicePositions.add(pCoord);
 
@@ -744,8 +734,8 @@ public class LoopGraphCrawler {
                 Materials pipeMat = pipe.mMaterial;
                 if (!isAllowedCoolantPipeMaterial(pipeMat)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Pipe material %s at (%d, %d, %d) is not allowed for coolant loops: only materials with both GT fluid pipes and Railcraft tanks are permitted (Iron/Cast Iron, Steel, Stainless Steel, Titanium, TungstenSteel, Osmium, Neutronium).",
+                        CoolantLocalization.format(
+                            "coolantloops.crawler.pipe_mat_not_allowed",
                             pipeMat != null ? pipeMat.mDefaultLocalName : "unknown",
                             step.x,
                             step.y,
@@ -757,8 +747,8 @@ public class LoopGraphCrawler {
                 } else if (!areMaterialsEqual(pipeMat, detectedLoopMaterial)) {
                     if (expectedTankMaterial != null && areMaterialsEqual(detectedLoopMaterial, expectedTankMaterial)) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Pipe material mismatch at (%d, %d, %d): Pipe is %s but Railcraft tank requires %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.pipe_mat_tank_mismatch",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -766,8 +756,8 @@ public class LoopGraphCrawler {
                                 expectedTankMaterial.mDefaultLocalName));
                     } else {
                         return CrawlResult.fail(
-                            String.format(
-                                "Pipe material mismatch at (%d, %d, %d): Pipe is %s but loop requires %s!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.pipe_mat_loop_mismatch",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -785,8 +775,8 @@ public class LoopGraphCrawler {
                 } else {
                     if (Math.abs(pipe.mThickNess - currThickness) > 1e-4 || pipe.mPipeAmount != currAmount) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Pipe size mismatch at (%d, %d, %d): Expected pipe thickness %.3f (amount %d) but found %.3f (amount %d) in segment between devices. Pipe size transitions require a device or manifold!",
+                            CoolantLocalization.format(
+                                "coolantloops.crawler.pipe_size_mismatch",
                                 step.x,
                                 step.y,
                                 step.z,
@@ -806,8 +796,8 @@ public class LoopGraphCrawler {
                     for (FluidStack fs : pipe.mFluids) {
                         if (fs != null && fs.amount > 0) {
                             return CrawlResult.fail(
-                                String.format(
-                                    "Catastrophic loop disconnect: Pipe at (%d, %d, %d) contains Forge fluid (%s, %d L)! Coolant pipes must remain empty.",
+                                CoolantLocalization.format(
+                                    "coolantloops.crawler.pipe_forge_fluid",
                                     step.x,
                                     step.y,
                                     step.z,
@@ -831,8 +821,8 @@ public class LoopGraphCrawler {
                     targetY,
                     targetZ)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Pipe at (%d, %d, %d) is not connected backwards to incoming side %s",
+                        CoolantLocalization.format(
+                            "coolantloops.crawler.pipe_not_connected_back",
                             step.x,
                             step.y,
                             step.z,
@@ -884,20 +874,13 @@ public class LoopGraphCrawler {
 
                 if (forwardDirs.isEmpty()) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Dead-end or missing forward connection at pipe (%d, %d, %d) [incoming=%s]",
-                            step.x,
-                            step.y,
-                            step.z,
-                            step.entrySide));
+                        CoolantLocalization
+                            .format("coolantloops.crawler.pipe_dead_end", step.x, step.y, step.z, step.entrySide));
                 }
                 if (forwardDirs.size() > 1) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Ambiguous pipe branching at (%d, %d, %d): flow splitting requires a Manifold!",
-                            step.x,
-                            step.y,
-                            step.z));
+                        CoolantLocalization
+                            .format("coolantloops.crawler.pipe_split_needs_manifold", step.x, step.y, step.z));
                 }
 
                 ForgeDirection nextDir = forwardDirs.get(0);
@@ -967,12 +950,8 @@ public class LoopGraphCrawler {
                             continue;
                         } else {
                             return CrawlResult.fail(
-                                "PHE at (" + step.x
-                                    + ", "
-                                    + step.y
-                                    + ", "
-                                    + step.z
-                                    + ") is unformed or missing a valid outlet hatch");
+                                CoolantLocalization
+                                    .format("coolantloops.crawler.phe_unformed", step.x, step.y, step.z));
                         }
                     } else if (degasser != null) {
                         if (degasser.getPrimaryOutlet() == null && degasser.getBaseMetaTileEntity() != null) {
@@ -1018,29 +997,20 @@ public class LoopGraphCrawler {
                             continue;
                         } else {
                             return CrawlResult.fail(
-                                "Pressurized Degasser at (" + step.x
-                                    + ", "
-                                    + step.y
-                                    + ", "
-                                    + step.z
-                                    + ") is unformed or missing a valid outlet hatch");
+                                CoolantLocalization
+                                    .format("coolantloops.crawler.degasser_unformed", step.x, step.y, step.z));
                         }
                     }
                 } else if (mte instanceof ICoolantPassageHatch) {
                     ICoolantPassageHatch passage = (ICoolantPassageHatch) mte;
                     if (!passage.isPassageInlet()) {
                         return CrawlResult.fail(
-                            String
-                                .format("Loop enters passage through outlet at (%d, %d, %d)", step.x, step.y, step.z));
+                            CoolantLocalization.format("coolantloops.crawler.passage_outlet", step.x, step.y, step.z));
                     }
                     IGregTechTileEntity outTE = passage.getOppositeHatchTile();
                     if (outTE == null) {
                         return CrawlResult.fail(
-                            String.format(
-                                "Passage hatch at (%d, %d, %d) has no paired opposite hatch",
-                                step.x,
-                                step.y,
-                                step.z));
+                            CoolantLocalization.format("coolantloops.crawler.passage_no_pair", step.x, step.y, step.z));
                     }
                     if (pump != null) {
                         passage.setConnectedPump(pump);
@@ -1095,11 +1065,8 @@ public class LoopGraphCrawler {
                 BlockPosCoord devCoord = new BlockPosCoord(step.x, step.y, step.z);
                 if (visitedPipeAndDevicePositions.contains(devCoord)) {
                     return CrawlResult.fail(
-                        String.format(
-                            "Invalid device junction at (%d, %d, %d): flow merging requires a Manifold!",
-                            step.x,
-                            step.y,
-                            step.z));
+                        CoolantLocalization
+                            .format("coolantloops.crawler.device_merge_needs_manifold", step.x, step.y, step.z));
                 }
                 visitedPipeAndDevicePositions.add(devCoord);
 
@@ -1152,8 +1119,8 @@ public class LoopGraphCrawler {
             }
 
             return CrawlResult.fail(
-                String.format(
-                    "Loop broken: unknown non-coolant block at (%d, %d, %d): %s",
+                CoolantLocalization.format(
+                    "coolantloops.crawler.unknown_block",
                     step.x,
                     step.y,
                     step.z,
@@ -1165,7 +1132,7 @@ public class LoopGraphCrawler {
 
         // 1. Verify that the Sink was reached
         if (!graphNodes.containsKey(sinkNodeId)) {
-            return CrawlResult.fail("Loop broken: no path reached the pump suction port!");
+            return CrawlResult.fail(CoolantLocalization.get("coolantloops.crawler.no_suction_path"));
         }
 
         // 2. Reverse reachability from Sink (Every node in the graph must have a path to the suction port)
@@ -1189,7 +1156,7 @@ public class LoopGraphCrawler {
         for (String nodeId : graphNodes.keySet()) {
             if (!canReachSink.contains(nodeId)) {
                 return CrawlResult
-                    .fail("Invalid loop topology: branch at " + nodeId + " does not lead to pump suction port!");
+                    .fail(CoolantLocalization.format("coolantloops.crawler.branch_not_reaching_suction", nodeId));
             }
         }
 
@@ -1209,10 +1176,10 @@ public class LoopGraphCrawler {
             }
             if (involvesManifold) {
                 return CrawlResult.fail(
-                    "Invalid cyclic loop topology: path from manifold output loops back to its input without passing through the pump: "
-                        + String.join(" -> ", cycle));
+                    CoolantLocalization.format("coolantloops.crawler.cycle_detected", String.join(" -> ", cycle)));
             } else {
-                return CrawlResult.fail("Invalid cyclic loop topology: cycle detected: " + String.join(" -> ", cycle));
+                return CrawlResult
+                    .fail(CoolantLocalization.format("coolantloops.crawler.cycle_generic", String.join(" -> ", cycle)));
             }
         }
 

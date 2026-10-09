@@ -66,12 +66,13 @@ public class BlockCreativeHeatReservoir extends BlockContainer {
                     res.setTargetTemperatureCelsius(next);
                     player.addChatMessage(
                         new ChatComponentText(
-                            String.format("Creative Heat Reservoir: Temperature set to %.1f C", next)));
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                                .format("coolantloops.chat.creative_reservoir.temp_set", next)));
                 } else {
                     player.addChatMessage(
                         new ChatComponentText(
-                            String.format(
-                                "Creative Heat Reservoir: Current Temp = %.1f C, Area = %.1f m^2 (Sneak-click to cycle temp)",
+                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                                "coolantloops.chat.creative_reservoir.info",
                                 res.getDeviceTemperatureCelsius(),
                                 res.getHeatTransferArea())));
                 }

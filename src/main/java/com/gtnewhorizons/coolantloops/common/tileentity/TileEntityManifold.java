@@ -111,9 +111,12 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
 
     public String getPlaneName() {
         return switch (getPlaneAxis()) {
-            case 0 -> "YZ (East-West normal)";
-            case 1 -> "XZ (Vertical normal)";
-            case 2 -> "XY (North-South normal)";
+            case 0 -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("coolantloops.manifold.plane.yz");
+            case 1 -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("coolantloops.manifold.plane.xz");
+            case 2 -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("coolantloops.manifold.plane.xy");
             default -> "XY";
         };
     }

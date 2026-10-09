@@ -144,7 +144,9 @@ public class MTECoolantPipe extends MTEFluidPipe {
     @Override
     public String[] getDescription() {
         List<String> list = new ArrayList<>();
-        list.add(EnumChatFormatting.AQUA + "Thermally Insulated Coolant Loop Pipe");
+        list.add(
+            EnumChatFormatting.AQUA + com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("gt.pipe.coolant.desc", "Thermally insulated coolant loop pipe"));
         String[] superDesc = super.getDescription();
         if (superDesc != null) {
             list.addAll(Arrays.asList(superDesc));
@@ -152,9 +154,15 @@ public class MTECoolantPipe extends MTEFluidPipe {
         double maxP = CoolantPipingRegistry.getMaxPressureBar(mMaterial);
         double maxT = CoolantPipingRegistry.getMaxTemperatureCelsius(this);
         double diamCm = CoolantPipingRegistry.getDiameterForThickness(mThickNess) * 100.0;
-        list.add(EnumChatFormatting.GRAY + String.format("Inner Diameter: %.1f cm", diamCm));
-        list.add(EnumChatFormatting.GRAY + String.format("Max Safe Pressure: %.1f bar", maxP));
-        list.add(EnumChatFormatting.GRAY + String.format("Max Safe Temperature: %.1f \u00B0C", maxT));
+        list.add(
+            EnumChatFormatting.GRAY + com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.pipe.coolant.specs.diameter", diamCm));
+        list.add(
+            EnumChatFormatting.GRAY + com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.pipe.coolant.specs.pressure", maxP));
+        list.add(
+            EnumChatFormatting.GRAY + com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.pipe.coolant.specs.temperature", maxT));
         return list.toArray(new String[0]);
     }
 
