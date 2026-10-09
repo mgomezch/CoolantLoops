@@ -29,6 +29,63 @@ public final class CoolantFluidHelper {
         return isPlainRegularWater(stack.getFluid());
     }
 
+    public static boolean isLiquidNuclearFuel(String name) {
+        if (name == null) return false;
+        String clean = name.trim()
+            .toLowerCase();
+        if (clean.contains("liquidfuel") || clean.contains("liquid_fuel") || clean.contains("nuclearfuel")) {
+            return true;
+        }
+        if (clean.contains("uraniumhexafluoride") || clean.contains("uraniumtetrafluoride")) {
+            return true;
+        }
+        if (clean.contains("thoriumbasedliquidfuel") || (clean.contains("thorium") && clean.contains("liquidfuel"))) {
+            return true;
+        }
+        if (clean.contains("uraniumbasedliquidfuel") || (clean.contains("uranium") && clean.contains("liquidfuel"))) {
+            return true;
+        }
+        if (clean.contains("plutoniumbasedliquidfuel")
+            || (clean.contains("plutonium") && clean.contains("liquidfuel"))) {
+            return true;
+        }
+        if (clean.contains("naquadahbasedliquidfuel") || (clean.contains("naquadah") && clean.contains("liquidfuel"))
+            || clean.contains("liquid_naquadah_fuel")) {
+            return true;
+        }
+        if (clean.contains("uranium") || clean.contains("plutonium")
+            || clean.contains("thorium")
+            || clean.contains("naquadah")
+            || clean.contains("naquadria")) {
+            if (clean.contains("fuel") || clean.contains("plasma")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isLiquidNuclearFuel(Fluid fluid, FluidStack stack) {
+        if (fluid == null && stack != null) {
+            fluid = stack.getFluid();
+        }
+        if (fluid == null) return false;
+        if (isLiquidNuclearFuel(fluid.getName())) {
+            return true;
+        }
+        try {
+            Materials mat = Materials.FLUID_MAP.get(fluid);
+            if (mat != null && mat.mName != null && isLiquidNuclearFuel(mat.mName)) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    public static boolean isLiquidNuclearFuel(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) return false;
+        return isLiquidNuclearFuel(stack.getFluid(), stack);
+    }
+
     public static boolean isGaseousFluid(Fluid fluid, FluidStack stack) {
         if (fluid == null) return false;
         if (fluid.isGaseous() || (stack != null && fluid.isGaseous(stack))) {

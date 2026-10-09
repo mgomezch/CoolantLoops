@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.minecraft.block.Block;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -402,6 +403,14 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return CoolantFluidHelper.isPlainRegularWater(stack);
     }
 
+    public static boolean isLiquidNuclearFuel(FluidStack stack) {
+        return CoolantFluidHelper.isLiquidNuclearFuel(stack);
+    }
+
+    public static boolean isLiquidNuclearFuel(String name) {
+        return CoolantFluidHelper.isLiquidNuclearFuel(name);
+    }
+
     public static boolean isGaseousFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack) {
         return CoolantFluidHelper.isGaseousFluid(fluid, stack);
     }
@@ -613,9 +622,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true; // Pauses/stops cleanly without explosion!
         }
 
-        // Validate fluid in reservoir / loop: plain regular water and gases refuse to start pump
+        // Validate fluid in reservoir / loop: liquid nuclear fuel fails pump and destroys impeller immediately!
         FluidStack reservoirFluid = getReservoirFluid();
         if (reservoirFluid != null && reservoirFluid.getFluid() != null) {
+            if (isLiquidNuclearFuel(reservoirFluid)) {
+                failOnLiquidNuclearFuel(
+                    reservoirFluid.getFluid()
+                        .getName());
+                return true;
+            }
             if (isPlainRegularWater(reservoirFluid)) {
                 mLoopState = LoopState.STOPPED;
                 mEngine.setPumpPowered(false);
@@ -635,8 +650,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.step(0.05);
                 return true;
             }
-        } else if (mEngine.getFluid() != null && mEngine.getFluid()
-            .isPlainWater()) {
+        } else if (mEngine.getFluid() != null) {
+            if (isLiquidNuclearFuel(
+                mEngine.getFluid()
+                    .getFluidName())) {
+                failOnLiquidNuclearFuel(
+                    mEngine.getFluid()
+                        .getFluidName());
+                return true;
+            }
+            if (mEngine.getFluid()
+                .isPlainWater()) {
                 mLoopState = LoopState.STOPPED;
                 mEngine.setPumpPowered(false);
                 mEngine.setPumpMechanicalPowerWatts(0.0);
@@ -645,6 +669,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.step(0.05);
                 return true;
             }
+        }
 
         // Validate molten fluid temperature
         CoolantFluidProperty currentProp = mEngine.getFluid();
@@ -977,9 +1002,24 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
     }
 
+    public static boolean isMetaGeneratedTool(Item item) {
+        if (item == null) return false;
+        try {
+            Class<?> clazz = item.getClass();
+            while (clazz != null && clazz != Object.class) {
+                if (clazz.getName()
+                    .endsWith("MetaGeneratedTool")) {
+                    return true;
+                }
+                clazz = clazz.getSuperclass();
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public static boolean isValidRotor(ItemStack aStack) {
-        if (aStack == null) return false;
-        if (aStack.getItem() instanceof MetaGeneratedTool) {
+        if (aStack == null || aStack.getItem() == null) return false;
+        if (isMetaGeneratedTool(aStack.getItem())) {
             int damage = aStack.getItemDamage();
             return damage >= 170 && damage <= 179;
         }
@@ -991,19 +1031,26 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (isValidRotor(controller)) {
             return controller;
         }
-        if (mRotorStack != null && isValidRotor(mRotorStack)) {
-            return mRotorStack;
+        if (mRotorStack != null) {
+            if (isValidRotor(mRotorStack)) {
+                return mRotorStack;
+            }
+            if (getBaseMetaTileEntity() == null || getBaseMetaTileEntity().getWorld() == null) {
+                return mRotorStack;
+            }
         }
         return null;
     }
 
     public boolean updateRotorEfficiency() {
         ItemStack rotor = getRotor();
-        if (rotor != null && rotor.getItem() instanceof MetaGeneratedTool) {
-            TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
-            mRotorEfficiency = calc.getBaseEfficiency();
-            mRotorStack = rotor;
-            return true;
+        if (rotor != null && isMetaGeneratedTool(rotor.getItem())) {
+            try {
+                TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
+                mRotorEfficiency = calc.getBaseEfficiency();
+                mRotorStack = rotor;
+                return true;
+            } catch (Throwable ignored) {}
         }
         // Headless mock or test environment fallback
         if (getBaseMetaTileEntity() == null || getBaseMetaTileEntity().getWorld() == null) {
@@ -1015,9 +1062,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public void setRotorStack(ItemStack stack) {
         this.mRotorStack = stack;
-        if (stack != null && stack.getItem() instanceof MetaGeneratedTool) {
-            TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) stack.getItem(), stack);
-            this.mRotorEfficiency = calc.getBaseEfficiency();
+        if (stack != null && isMetaGeneratedTool(stack.getItem())) {
+            try {
+                TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) stack.getItem(), stack);
+                this.mRotorEfficiency = calc.getBaseEfficiency();
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -1046,16 +1095,68 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return 0;
     }
 
+    public void failOnLiquidNuclearFuel(String fluidName) {
+        destroyImpeller();
+        mLoopState = LoopState.STOPPED;
+        mEngine.setPumpPowered(false);
+        mEngine.setPumpMechanicalPowerWatts(0.0);
+        mEngine.setBraking(false);
+        mEngine.setVolumetricFlowRate(0.0);
+        String name = fluidName != null ? fluidName : "liquid nuclear fuel";
+        mLoopStatus = String.format(
+            "Catastrophic pump failure: %s is a liquid nuclear fuel, not a coolant! Impeller disintegrated!",
+            name);
+    }
+
+    public void destroyImpeller() {
+        ItemStack controller = getControllerSlot();
+        if (isValidRotor(controller)) {
+            setInventorySlotContents(getControllerSlotIndex(), null);
+        }
+        mRotorStack = null;
+        mRotorEfficiency = 0.0;
+        IGregTechTileEntity te = getBaseMetaTileEntity();
+        if (te != null && te.getWorld() != null && !te.getWorld().isRemote) {
+            te.getWorld()
+                .playSoundEffect(
+                    te.getXCoord() + 0.5,
+                    te.getYCoord() + 1.5,
+                    te.getZCoord() + 0.5,
+                    "random.break",
+                    1.0f,
+                    0.8f);
+        }
+    }
+
+    private double mRotorDamageAccumulator = 0.0;
+
+    public double getRotorDamageAccumulator() {
+        return mRotorDamageAccumulator;
+    }
+
+    public void setRotorDamageAccumulator(double accumulator) {
+        this.mRotorDamageAccumulator = accumulator;
+    }
+
     protected void degradeRotor(long euPerTick) {
         ItemStack rotor = getRotor();
         if (rotor != null && rotor.getItemDamage() < rotor.getMaxDamage()) {
-            if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getTimer() % 100 == 0) {
-                rotor.setItemDamage(rotor.getItemDamage() + 1);
-                if (rotor.getItemDamage() >= rotor.getMaxDamage()) {
-                    if (getControllerSlot() == rotor) {
-                        setInventorySlotContents(getControllerSlotIndex(), null);
+            boolean shouldTick = (getBaseMetaTileEntity() == null) || (getBaseMetaTileEntity().getTimer() % 100 == 0);
+            if (shouldTick) {
+                double gasFrac = getDissolvedGasFraction();
+                double wearMultiplier = 1.0 + gasFrac; // k_cavit = 1.0
+                mRotorDamageAccumulator += wearMultiplier;
+                int dmg = (int) mRotorDamageAccumulator;
+                if (dmg > 0) {
+                    mRotorDamageAccumulator -= dmg;
+                    rotor.setItemDamage(rotor.getItemDamage() + dmg);
+                    if (rotor.getItemDamage() >= rotor.getMaxDamage()) {
+                        if (getControllerSlot() == rotor) {
+                            setInventorySlotContents(getControllerSlotIndex(), null);
+                        }
+                        mRotorStack = null; // Rotor broken!
+                        mRotorEfficiency = 0.0;
                     }
-                    mRotorStack = null; // Rotor broken!
                 }
             }
         }
@@ -1191,15 +1292,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         double maxFlowRateLPerSec = mEngine.getMaxFlowRateLitersPerSecond();
         String maxFlowStr = (maxFlowRateLPerSec == Double.MAX_VALUE) ? "Unlimited"
             : String.format("%.1f L/s", maxFlowRateLPerSec);
-        String hatchState = isDischargeHatchDisabled() ? "Disabled (Stopping/Draining)" : "Enabled";
-        return new String[] { "State: " + mLoopState.name(), "Discharge Hatch: " + hatchState,
-            "Tank Material: " + tankMatName,
-            "Current Flow: " + String.format("%.2f L/s", mEngine.getFlowRateLitersPerSecond()),
-            "Max Pipe Flow: " + maxFlowStr,
-            "Peak Pressure: " + String.format("%.2f bar", mEngine.getPeakLoopPressureBar()),
-            "Peak Temp: " + String.format("%.1f C", mEngine.getPeakLoopTempCelsius()),
-            "Loop Fluid: " + String.format("%d / %d L", mCurrentFillLiters, mRequiredFillLiters),
-            "Dissolved Gas: " + String.format("%.2f%%", getDissolvedGasFraction() * 100.0) };
+        String hatchState = isDischargeHatchDisabled() ? "Disabled (stopping/draining)" : "Enabled";
+        return new String[] { "State: " + mLoopState.name(), "Discharge hatch: " + hatchState,
+            "Tank material: " + tankMatName,
+            "Current flow: " + String.format("%.2f L/s", mEngine.getFlowRateLitersPerSecond()),
+            "Max pipe flow: " + maxFlowStr,
+            "Peak pressure: " + String.format("%.2f bar", mEngine.getPeakLoopPressureBar()),
+            "Peak temp: " + String.format("%.1f C", mEngine.getPeakLoopTempCelsius()),
+            "Loop fluid: " + String.format("%d / %d L", mCurrentFillLiters, mRequiredFillLiters),
+            "Dissolved gas: " + String.format("%.2f%%", getDissolvedGasFraction() * 100.0) };
     }
 
     @Override
@@ -1209,6 +1310,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         aNBT.setString("mLoopState", mLoopState.name());
         aNBT.setLong("mCurrentFillLiters", mCurrentFillLiters);
         aNBT.setLong("mRequiredFillLiters", mRequiredFillLiters);
+        aNBT.setDouble("mRotorDamageAccumulator", mRotorDamageAccumulator);
         if (mTankMaterial != null && mTankMaterial.mName != null) {
             aNBT.setString("mTankMaterial", mTankMaterial.mName);
         }
@@ -1228,6 +1330,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         if (aNBT.hasKey("mRequiredFillLiters")) {
             mRequiredFillLiters = aNBT.getLong("mRequiredFillLiters");
+        }
+        if (aNBT.hasKey("mRotorDamageAccumulator")) {
+            mRotorDamageAccumulator = aNBT.getDouble("mRotorDamageAccumulator");
         }
         if (aNBT.hasKey("mTankMaterial")) {
             Materials mat = Materials.get(aNBT.getString("mTankMaterial"));

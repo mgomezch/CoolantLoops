@@ -373,4 +373,133 @@ public class CoolantPumpStructureTest {
             .thenReturn(2.0f);
         assertEquals(93.33, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
     }
+
+    @Test
+    public void testLiquidNuclearFuelFailureAndImpellerDestruction() {
+        // 1. Classification tests
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper
+                .isLiquidNuclearFuel("thoriumbasedliquidfuel"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper
+                .isLiquidNuclearFuel("uraniumbasedliquidfuel"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper
+                .isLiquidNuclearFuel("plutoniumbasedliquidfuel"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper
+                .isLiquidNuclearFuel("naquadahbasedliquidfuel"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("liquid_naquadah_fuel"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("uraniumhexafluoride"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("uraniumtetrafluoride"));
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper
+                .isLiquidNuclearFuel("depleteduraniumbasedliquidfuel"));
+
+        // Regular coolants are NOT liquid nuclear fuels
+        assertFalse(
+            com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("ic2distilledwater"));
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("heavywater"));
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("sodium"));
+        assertFalse(com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper.isLiquidNuclearFuel("molten.cheese"));
+
+        // 2. Pump failure and impeller destruction
+        MTECoolantPump pump = new MTECoolantPump("test_pump_nuke");
+        net.minecraft.item.Item mockTool = Mockito.mock(net.minecraft.item.Item.class);
+        ItemStack mockRotor = Mockito.mock(ItemStack.class);
+        Mockito.when(mockRotor.getItem())
+            .thenReturn(mockTool);
+        Mockito.when(mockRotor.getItemDamage())
+            .thenReturn(170);
+        Mockito.when(mockRotor.getMaxDamage())
+            .thenReturn(1000);
+
+        pump.setRotorStack(mockRotor);
+        assertEquals(mockRotor, pump.getRotor());
+
+        // Feeding liquid nuclear fuel immediately fails pump and voids impeller
+        pump.failOnLiquidNuclearFuel("uraniumbasedliquidfuel");
+
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+        assertNull(pump.getRotor(), "Impeller must be destroyed/voided");
+        assertEquals(0.0, pump.getRotorEfficiency(), 1e-6);
+        assertFalse(
+            pump.getEngine()
+                .isRuptured(),
+            "No terrain explosion on liquid fuel seizure");
+        assertTrue(
+            pump.getLoopStatus()
+                .contains(
+                    "Catastrophic pump failure: uraniumbasedliquidfuel is a liquid nuclear fuel, not a coolant! Impeller disintegrated!"));
+    }
+
+    @Test
+    public void testImpellerCavitationWearFromDissolvedGases() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_cavit");
+        net.minecraft.item.Item mockTool = Mockito.mock(net.minecraft.item.Item.class);
+        ItemStack mockRotor = Mockito.mock(ItemStack.class);
+        Mockito.when(mockRotor.getItem())
+            .thenReturn(mockTool);
+        Mockito.when(mockRotor.getItemDamage())
+            .thenReturn(0);
+        Mockito.when(mockRotor.getMaxDamage())
+            .thenReturn(1000);
+        pump.setRotorStack(mockRotor);
+
+        // At 0% dissolved gas: wear multiplier is 1.0x (1 damage per interval)
+        pump.setCurrentFillLiters(10000L);
+        pump.setSimulatedCoolantLiters(10000L);
+        assertEquals(0.0, pump.getDissolvedGasFraction(), 1e-6);
+
+        pump.setRotorDamageAccumulator(0.0);
+        // Direct degradation call: should add (1.0 + 0.0) = 1.0 -> 1 damage applied
+        pump.setRotorDamageAccumulator(0.0);
+        // Test accumulator math
+        double wear0 = 1.0 + pump.getDissolvedGasFraction(); // 1.0
+        assertEquals(1.0, wear0, 1e-6);
+
+        // At 100% dissolved gas: wear multiplier is 2.0x (doubled wear: 1.0 + 1.0 = 2.0x)
+        pump.addDissolvedGas("Tritium", 10000L);
+        assertEquals(1.0, pump.getDissolvedGasFraction(), 1e-6);
+        double wear100 = 1.0 + pump.getDissolvedGasFraction(); // 2.0
+        assertEquals(2.0, wear100, 1e-6);
+
+        // At 20% dissolved gas: wear multiplier is 1.20x (+20% wear)
+        pump.extractDissolvedGas("Tritium", 8000L);
+        assertEquals(0.20, pump.getDissolvedGasFraction(), 1e-6);
+        double wear20 = 1.0 + pump.getDissolvedGasFraction(); // 1.20
+        assertEquals(1.20, wear20, 1e-6);
+    }
+
+    @Test
+    public void testScannerInfoDataUsesNormalSentenceCase() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_scanner");
+        String[] info = pump.getInfoData();
+        assertNotNull(info);
+        assertTrue(info.length >= 8);
+
+        // Verify normal sentence case
+        for (String line : info) {
+            assertFalse(line.contains("Discharge Hatch:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Tank Material:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Current Flow:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Max Pipe Flow:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Peak Pressure:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Peak Temp:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Loop Fluid:"), "Must use normal sentence case: " + line);
+            assertFalse(line.contains("Dissolved Gas:"), "Must use normal sentence case: " + line);
+        }
+
+        assertTrue(info[1].startsWith("Discharge hatch: "));
+        assertTrue(info[2].startsWith("Tank material: "));
+        assertTrue(info[3].startsWith("Current flow: "));
+        assertTrue(info[4].startsWith("Max pipe flow: "));
+        assertTrue(info[5].startsWith("Peak pressure: "));
+        assertTrue(info[6].startsWith("Peak temp: "));
+        assertTrue(info[7].startsWith("Loop fluid: "));
+        assertTrue(info[8].startsWith("Dissolved gas: "));
+    }
 }

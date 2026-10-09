@@ -270,6 +270,13 @@ public class CoolantPumpReservoir {
             return false;
         }
 
+        if (CoolantFluidHelper.isLiquidNuclearFuel(availableFluid)) {
+            pump.failOnLiquidNuclearFuel(
+                availableFluid.getFluid()
+                    .getName());
+            return false;
+        }
+
         if (CoolantFluidHelper.isPlainRegularWater(availableFluid)) {
             pump.setLoopStatus(
                 "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
