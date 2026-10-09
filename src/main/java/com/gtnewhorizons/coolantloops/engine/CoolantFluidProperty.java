@@ -42,7 +42,8 @@ public class CoolantFluidProperty {
         if (name == null) {
             return null;
         }
-        String clean = name.trim().toLowerCase();
+        String clean = name.trim()
+            .toLowerCase();
         if (clean.contains("cheese")) {
             return MOLTEN_CHEESE;
         }
@@ -142,7 +143,8 @@ public class CoolantFluidProperty {
     }
 
     public boolean isMolten() {
-        return fluidName != null && fluidName.toLowerCase().contains("molten");
+        return fluidName != null && fluidName.toLowerCase()
+            .contains("molten");
     }
 
     public double getDeclaredTemperatureCelsius() {

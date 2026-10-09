@@ -175,7 +175,8 @@ public class CoolantPumpReservoir {
                     TileMultiBlock tmb = (TileMultiBlock) te;
                     if (!tmb.isStructureValid()) {
                         try {
-                            java.lang.reflect.Method mTest = TileMultiBlock.class.getDeclaredMethod("testIfMasterBlock");
+                            java.lang.reflect.Method mTest = TileMultiBlock.class
+                                .getDeclaredMethod("testIfMasterBlock");
                             mTest.setAccessible(true);
                             mTest.invoke(tmb);
                         } catch (Throwable ignored) {}
@@ -197,9 +198,10 @@ public class CoolantPumpReservoir {
             return false;
         }
         if (!LoopGraphCrawler.isAllowedCoolantPipeMaterial(tankMat)) {
-            pump.setLoopStatus(String.format(
-                "Railcraft tank material %s has no matching GregTech fluid pipe! Allowed materials: Iron, Steel, Stainless Steel, Titanium, Tungstensteel, Neutronium.",
-                tankMat.mDefaultLocalName));
+            pump.setLoopStatus(
+                String.format(
+                    "Railcraft tank material %s has no matching GregTech fluid pipe! Allowed materials: Iron, Steel, Stainless Steel, Titanium, Tungstensteel, Neutronium.",
+                    tankMat.mDefaultLocalName));
             return false;
         }
         pump.setTankMaterial(tankMat);
@@ -216,7 +218,8 @@ public class CoolantPumpReservoir {
 
         int detectedWidth = effX;
         if (detectedWidth != 3 && detectedWidth != 5 && detectedWidth != 7 && detectedWidth != 9) {
-            pump.setLoopStatus(String.format("Unsupported Railcraft tank width %d (must be 3, 5, 7, or 9)!", detectedWidth));
+            pump.setLoopStatus(
+                String.format("Unsupported Railcraft tank width %d (must be 3, 5, 7, or 9)!", detectedWidth));
             return false;
         }
         if (effX != effZ) {
@@ -238,12 +241,14 @@ public class CoolantPumpReservoir {
                     return false;
                 }
                 if (!(te instanceof TileMultiBlock)) {
-                    pump.setLoopStatus(String.format(
-                        "Block at (%d, %d, %d) is %s, not a Railcraft tank block",
-                        bx,
-                        y,
-                        bz,
-                        te.getClass().getSimpleName()));
+                    pump.setLoopStatus(
+                        String.format(
+                            "Block at (%d, %d, %d) is %s, not a Railcraft tank block",
+                            bx,
+                            y,
+                            bz,
+                            te.getClass()
+                                .getSimpleName()));
                     return false;
                 }
                 TileMultiBlock tmb = (TileMultiBlock) te;
@@ -252,7 +257,8 @@ public class CoolantPumpReservoir {
                     return false;
                 }
                 if (tmb.getMasterBlock() != masterBlock) {
-                    pump.setLoopStatus("Mismatched Railcraft tank: multiple distinct tank multiblocks detected above pump!");
+                    pump.setLoopStatus(
+                        "Mismatched Railcraft tank: multiple distinct tank multiblocks detected above pump!");
                     return false;
                 }
             }
@@ -265,34 +271,43 @@ public class CoolantPumpReservoir {
         }
 
         if (CoolantFluidHelper.isPlainRegularWater(availableFluid)) {
-            pump.setLoopStatus("Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
+            pump.setLoopStatus(
+                "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
             return false;
         }
 
         if (CoolantFluidHelper.isGaseousFluid(availableFluid)) {
-            pump.setLoopStatus("Pump refused to start: Gaseous fluid (" + availableFluid.getFluid().getName() + ") cannot be used as a coolant!");
+            pump.setLoopStatus(
+                "Pump refused to start: Gaseous fluid (" + availableFluid.getFluid()
+                    .getName() + ") cannot be used as a coolant!");
             return false;
         }
 
-        CoolantFluidProperty prop = CoolantFluidProperty.get(availableFluid.getFluid().getName());
+        CoolantFluidProperty prop = CoolantFluidProperty.get(
+            availableFluid.getFluid()
+                .getName());
         if (prop == null || prop.isPlainWater()) {
-            pump.setLoopStatus("Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
+            pump.setLoopStatus(
+                "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.");
             return false;
         }
 
         if (CoolantFluidHelper.isMoltenFluid(availableFluid.getFluid(), availableFluid, prop)) {
-            double declaredMelting = CoolantFluidHelper.getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
+            double declaredMelting = CoolantFluidHelper
+                .getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
             double biomeTemp = pump.getBiomeTemperatureCelsius();
             if (biomeTemp < declaredMelting) {
-                pump.setLoopStatus(String.format(
-                    "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
-                    biomeTemp,
-                    declaredMelting,
-                    prop.getFluidName()));
+                pump.setLoopStatus(
+                    String.format(
+                        "Pump refused to start: Biome ambient temperature (%.1f °C) at pump is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify in this biome.",
+                        biomeTemp,
+                        declaredMelting,
+                        prop.getFluidName()));
                 return false;
             }
         }
-        pump.getEngine().setFluid(prop);
+        pump.getEngine()
+            .setFluid(prop);
         return true;
     }
 
@@ -319,8 +334,11 @@ public class CoolantPumpReservoir {
                     if (tile instanceof TileTankBase) {
                         TileTankBase tankTile = (TileTankBase) tile;
                         TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
-                        if (master != null && master.getTank() != null && master.getTank().getFluid() != null) {
-                            return master.getTank().getFluid();
+                        if (master != null && master.getTank() != null
+                            && master.getTank()
+                                .getFluid() != null) {
+                            return master.getTank()
+                                .getFluid();
                         }
                     }
                     if (tile instanceof IFluidHandler) {
@@ -362,7 +380,8 @@ public class CoolantPumpReservoir {
                             TileTankBase tankTile = (TileTankBase) tile;
                             TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
                             if (master != null && master.getTank() != null) {
-                                FluidStack drained = master.getTank().drain(liters, true);
+                                FluidStack drained = master.getTank()
+                                    .drain(liters, true);
                                 if (drained != null && drained.amount > 0) {
                                     return drained.amount;
                                 }
@@ -420,7 +439,10 @@ public class CoolantPumpReservoir {
                                     return 0;
                                 }
                                 int toFill = Math.min(liters, space);
-                                String fluidName = pump.getEngine().getFluid() != null ? pump.getEngine().getFluid().getFluidName() : "ic2distilledwater";
+                                String fluidName = pump.getEngine()
+                                    .getFluid() != null ? pump.getEngine()
+                                        .getFluid()
+                                        .getFluidName() : "ic2distilledwater";
                                 net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
                                 if (f != null) {
                                     FluidStack stack = new FluidStack(f, toFill);
@@ -430,7 +452,10 @@ public class CoolantPumpReservoir {
                             }
                         }
                         if (tile instanceof IFluidHandler) {
-                            String fluidName = pump.getEngine().getFluid() != null ? pump.getEngine().getFluid().getFluidName() : "ic2distilledwater";
+                            String fluidName = pump.getEngine()
+                                .getFluid() != null ? pump.getEngine()
+                                    .getFluid()
+                                    .getFluidName() : "ic2distilledwater";
                             net.minecraftforge.fluids.Fluid f = FluidRegistry.getFluid(fluidName);
                             if (f != null) {
                                 FluidStack stack = new FluidStack(f, liters);
@@ -480,7 +505,10 @@ public class CoolantPumpReservoir {
                             TileTankBase tankTile = (TileTankBase) tile;
                             TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
                             if (master != null && master.getTank() != null) {
-                                return master.getTank().getFluidAmount() >= master.getTank().getCapacity();
+                                return master.getTank()
+                                    .getFluidAmount()
+                                    >= master.getTank()
+                                        .getCapacity();
                             }
                         }
                         if (tile instanceof IFluidHandler) {
@@ -574,7 +602,8 @@ public class CoolantPumpReservoir {
                         if (tile instanceof TileTankBase) {
                             TileTankBase master = (TileTankBase) ((TileTankBase) tile).getMasterBlock();
                             if (master != null && master.getTank() != null) {
-                                return master.getTank().getFluidAmount();
+                                return master.getTank()
+                                    .getFluidAmount();
                             }
                         }
                         if (tile instanceof IFluidHandler) {

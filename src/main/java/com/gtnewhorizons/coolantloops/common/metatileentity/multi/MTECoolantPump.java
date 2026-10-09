@@ -1,42 +1,29 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import net.minecraft.block.Block;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.IChatComponent;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
-import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidTankInfo;
-import net.minecraftforge.fluids.IFluidHandler;
 
-import com.gtnewhorizon.structurelib.StructureLibAPI;
-import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
-import com.gtnewhorizon.structurelib.structure.AutoPlaceEnvironment;
-import com.gtnewhorizon.structurelib.structure.IItemSource;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
-import com.gtnewhorizon.structurelib.structure.IStructureElement.BlocksToPlace;
-import com.gtnewhorizon.structurelib.structure.IStructureElement.PlaceResult;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
-import com.gtnewhorizon.structurelib.structure.StructureDefinition;
-import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.util.CoolantPumpReservoir;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
+import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
@@ -58,20 +45,9 @@ import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
-import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.TurbineStatCalculator;
 import gregtech.common.blocks.BlockFrameBox;
-import mods.railcraft.common.blocks.machine.MultiBlockPattern;
-import mods.railcraft.common.blocks.machine.TileMultiBlock;
-import mods.railcraft.common.blocks.machine.beta.EnumMachineBeta;
-import mods.railcraft.common.blocks.machine.beta.TileTankBase;
-import mods.railcraft.common.fluids.tanks.StandardTank;
-import mods.railcraft.common.modules.ModuleAdvancedTanks;
-
-import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
-import com.gtnewhorizons.coolantloops.common.metatileentity.multi.util.CoolantPumpReservoir;
-import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 
 /**
  * Multiblock Coolant Loop Pump.
@@ -434,7 +410,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return CoolantFluidHelper.isGaseousFluid(stack);
     }
 
-    public static boolean isMoltenFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+    public static boolean isMoltenFluid(net.minecraftforge.fluids.Fluid fluid, FluidStack stack,
+        CoolantFluidProperty prop) {
         return CoolantFluidHelper.isMoltenFluid(fluid, stack, prop);
     }
 
@@ -442,7 +419,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return CoolantFluidHelper.isMoltenFluid(stack);
     }
 
-    public static double getDeclaredGregTechFluidTemperatureCelsius(net.minecraftforge.fluids.Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+    public static double getDeclaredGregTechFluidTemperatureCelsius(net.minecraftforge.fluids.Fluid fluid,
+        FluidStack stack, CoolantFluidProperty prop) {
         return CoolantFluidHelper.getDeclaredGregTechFluidTemperatureCelsius(fluid, stack, prop);
     }
 
@@ -463,17 +441,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public double getBiomeTemperatureCelsius() {
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null && te.getWorld() != null) {
-            return calculateAmbientTemperature(
-                te.getWorld(),
-                te.getXCoord(),
-                te.getYCoord(),
-                te.getZCoord());
+            return calculateAmbientTemperature(te.getWorld(), te.getXCoord(), te.getYCoord(), te.getZCoord());
         }
         return mSimulatedBiomeTempCelsius;
     }
 
     public double getCoolantTemperatureCelsius() {
-        if (mEngine != null && mEngine.getSegments() != null && !mEngine.getSegments().isEmpty()) {
+        if (mEngine != null && mEngine.getSegments() != null
+            && !mEngine.getSegments()
+                .isEmpty()) {
             if (mLoopState == LoopState.CIRCULATING || mEngine.getVolumetricFlowRate() > 1e-5) {
                 return mEngine.getMinLoopTempCelsius();
             }
@@ -654,26 +630,33 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.setPumpPowered(false);
                 mEngine.setPumpMechanicalPowerWatts(0.0);
                 mEngine.setBraking(false);
-                mLoopStatus = "Pump refused to start: Gaseous fluid (" + reservoirFluid.getFluid().getName() + ") cannot be used as a coolant!";
+                mLoopStatus = "Pump refused to start: Gaseous fluid (" + reservoirFluid.getFluid()
+                    .getName() + ") cannot be used as a coolant!";
                 mEngine.step(0.05);
                 return true;
             }
-        } else if (mEngine.getFluid() != null && mEngine.getFluid().isPlainWater()) {
-            mLoopState = LoopState.STOPPED;
-            mEngine.setPumpPowered(false);
-            mEngine.setPumpMechanicalPowerWatts(0.0);
-            mEngine.setBraking(false);
-            mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
-            mEngine.step(0.05);
-            return true;
-        }
+        } else if (mEngine.getFluid() != null && mEngine.getFluid()
+            .isPlainWater()) {
+                mLoopState = LoopState.STOPPED;
+                mEngine.setPumpPowered(false);
+                mEngine.setPumpMechanicalPowerWatts(0.0);
+                mEngine.setBraking(false);
+                mLoopStatus = "Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.";
+                mEngine.step(0.05);
+                return true;
+            }
 
         // Validate molten fluid temperature
         CoolantFluidProperty currentProp = mEngine.getFluid();
         if (currentProp == null && reservoirFluid != null) {
-            currentProp = CoolantFluidProperty.get(reservoirFluid.getFluid().getName());
+            currentProp = CoolantFluidProperty.get(
+                reservoirFluid.getFluid()
+                    .getName());
         }
-        boolean isMolten = isMoltenFluid(reservoirFluid != null ? reservoirFluid.getFluid() : null, reservoirFluid, currentProp);
+        boolean isMolten = isMoltenFluid(
+            reservoirFluid != null ? reservoirFluid.getFluid() : null,
+            reservoirFluid,
+            currentProp);
 
         if (isMolten) {
             double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
@@ -681,21 +664,24 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 reservoirFluid,
                 currentProp);
 
-            // Active circulation check: if circulating, dropping below melting point causes catastrophic solidification explosion!
+            // Active circulation check: if circulating, dropping below melting point causes catastrophic solidification
+            // explosion!
             if (mLoopState == LoopState.CIRCULATING || mEngine.getVolumetricFlowRate() > 1e-5) {
                 double minLoopTemp = mEngine.getMinLoopTempCelsius();
                 if (minLoopTemp < declaredMelting) {
                     mEngine.setRuptured(true);
-                    mEngine.setFailureReason(String.format(
-                        "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
-                        minLoopTemp,
-                        declaredMelting,
-                        currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                    mEngine.setFailureReason(
+                        String.format(
+                            "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid"));
                     triggerCatastrophicExplosion(mEngine.getFailureReason());
                     return false;
                 }
             } else {
-                // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or accelerate!
+                // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or
+                // accelerate!
                 double biomeTemp = getBiomeTemperatureCelsius();
                 if (biomeTemp < declaredMelting) {
                     mLoopState = LoopState.STOPPED;
@@ -889,11 +875,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 if (minLoopTemp < declaredMelting) {
                     if (mEngine.getVolumetricFlowRate() > 1e-5) {
                         mEngine.setRuptured(true);
-                        mEngine.setFailureReason(String.format(
-                            "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
-                            minLoopTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                        mEngine.setFailureReason(
+                            String.format(
+                                "Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                                minLoopTemp,
+                                declaredMelting,
+                                currentProp != null ? currentProp.getFluidName() : "molten fluid"));
                         triggerCatastrophicExplosion(mEngine.getFailureReason());
                         return false;
                     } else {

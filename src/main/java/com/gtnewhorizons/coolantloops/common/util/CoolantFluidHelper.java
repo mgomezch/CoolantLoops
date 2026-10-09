@@ -15,7 +15,9 @@ public final class CoolantFluidHelper {
 
     public static boolean isPlainRegularWater(Fluid fluid) {
         if (fluid == null) return false;
-        String name = fluid.getName().trim().toLowerCase();
+        String name = fluid.getName()
+            .trim()
+            .toLowerCase();
         if (name.contains("distill") || name.contains("heavy")) {
             return false;
         }
@@ -32,7 +34,9 @@ public final class CoolantFluidHelper {
         if (fluid.isGaseous() || (stack != null && fluid.isGaseous(stack))) {
             return true;
         }
-        String name = fluid.getName().trim().toLowerCase();
+        String name = fluid.getName()
+            .trim()
+            .toLowerCase();
         if (name.startsWith("gas_") || name.endsWith("_gas") || name.endsWith(".gas")) {
             return true;
         }
@@ -54,12 +58,19 @@ public final class CoolantFluidHelper {
         if (prop != null && prop.isMolten()) {
             return true;
         }
-        if (stack != null && stack.getFluid() != null && stack.getFluid().getName() != null
-            && stack.getFluid().getName().toLowerCase().contains("molten")) {
+        if (stack != null && stack.getFluid() != null
+            && stack.getFluid()
+                .getName() != null
+            && stack.getFluid()
+                .getName()
+                .toLowerCase()
+                .contains("molten")) {
             return true;
         }
         if (fluid != null && fluid.getName() != null
-            && fluid.getName().toLowerCase().contains("molten")) {
+            && fluid.getName()
+                .toLowerCase()
+                .contains("molten")) {
             return true;
         }
         return false;
@@ -67,10 +78,16 @@ public final class CoolantFluidHelper {
 
     public static boolean isMoltenFluid(FluidStack stack) {
         if (stack == null || stack.getFluid() == null) return false;
-        return isMoltenFluid(stack.getFluid(), stack, CoolantFluidProperty.get(stack.getFluid().getName()));
+        return isMoltenFluid(
+            stack.getFluid(),
+            stack,
+            CoolantFluidProperty.get(
+                stack.getFluid()
+                    .getName()));
     }
 
-    public static double getDeclaredGregTechFluidTemperatureCelsius(Fluid fluid, FluidStack stack, CoolantFluidProperty prop) {
+    public static double getDeclaredGregTechFluidTemperatureCelsius(Fluid fluid, FluidStack stack,
+        CoolantFluidProperty prop) {
         if (fluid == null && stack != null) {
             fluid = stack.getFluid();
         }
@@ -107,14 +124,16 @@ public final class CoolantFluidHelper {
                 return t > 200.0 ? (t - 273.15) : t;
             }
         }
-        int tempK = stack.getFluid().getTemperature(stack);
+        int tempK = stack.getFluid()
+            .getTemperature(stack);
         return tempK - 273.15;
     }
 
     public static double calculateAmbientTemperature(World world, int x, int y, int z) {
         if (world != null) {
             try {
-                float bTemp = world.getBiomeGenForCoords(x, z).getFloatTemperature(x, y, z);
+                float bTemp = world.getBiomeGenForCoords(x, z)
+                    .getFloatTemperature(x, y, z);
                 return (bTemp * 100.0 - 32.0) / 1.8;
             } catch (Exception ignored) {}
         }

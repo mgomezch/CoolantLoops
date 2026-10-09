@@ -11,14 +11,12 @@ import net.minecraft.world.World;
 
 import com.gtnewhorizon.structurelib.StructureLibAPI;
 import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
-import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.AutoPlaceEnvironment;
 import com.gtnewhorizon.structurelib.structure.IItemSource;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizon.structurelib.structure.IStructureElement.BlocksToPlace;
 import com.gtnewhorizon.structurelib.structure.IStructureElement.PlaceResult;
-import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
@@ -244,7 +242,8 @@ public final class CoolantPumpStructure {
 
             @Override
             public boolean check(MTECoolantPump t, World world, int x, int y, int z) {
-                return GTStructureUtility.<MTECoolantPump>ofFrame(t.getTankMaterial()).check(t, world, x, y, z);
+                return GTStructureUtility.<MTECoolantPump>ofFrame(t.getTankMaterial())
+                    .check(t, world, x, y, z);
             }
 
             @Override

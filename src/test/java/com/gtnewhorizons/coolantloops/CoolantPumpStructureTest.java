@@ -204,9 +204,12 @@ public class CoolantPumpStructureTest {
 
         // Energy hatch capacity tests
         pump.mEnergyHatches.clear();
-        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch1 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
-        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch2 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
-        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch3 = Mockito.mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch1 = Mockito
+            .mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch2 = Mockito
+            .mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
+        gregtech.api.metatileentity.implementations.MTEHatchEnergy hatch3 = Mockito
+            .mock(gregtech.api.metatileentity.implementations.MTEHatchEnergy.class);
 
         // 1 hatch: valid
         pump.mEnergyHatches.add(hatch1);
@@ -242,16 +245,32 @@ public class CoolantPumpStructureTest {
 
         // Pump simulation step refusal on regular water
         MTECoolantPump pump = new MTECoolantPump("test_pump_water");
-        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito.mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
-        Mockito.when(mockPumpBase.isAllowedToWork()).thenReturn(true);
-        Mockito.when(mockPumpBase.isServerSide()).thenReturn(true);
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
         pump.setBaseMetaTileEntity(mockPumpBase);
         pump.setLoopFormed(true);
-        pump.getEngine().addSegment(new com.gtnewhorizons.coolantloops.engine.LoopSegment("test_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 20.0));
-        pump.getEngine().setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.WATER);
+        pump.getEngine()
+            .addSegment(
+                new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+                    "test_seg",
+                    10.0,
+                    0.2,
+                    0.0001,
+                    1.0,
+                    100.0,
+                    1000.0,
+                    20.0));
+        pump.getEngine()
+            .setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.WATER);
         assertTrue(pump.stepCoolantLoop());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
-        assertTrue(pump.getLoopStatus().contains("Plain regular water cannot be used in a coolant loop"));
+        assertTrue(
+            pump.getLoopStatus()
+                .contains("Plain regular water cannot be used in a coolant loop"));
     }
 
     @Test
@@ -260,37 +279,63 @@ public class CoolantPumpStructureTest {
         moltenCheese.setTemperature(320); // 320 K (46.85 °C)
 
         assertTrue(MTECoolantPump.isMoltenFluid(moltenCheese, null, null));
-        assertEquals(320 - 273.15, MTECoolantPump.getDeclaredGregTechFluidTemperatureCelsius(moltenCheese, null, null), 0.01);
+        assertEquals(
+            320 - 273.15,
+            MTECoolantPump.getDeclaredGregTechFluidTemperatureCelsius(moltenCheese, null, null),
+            0.01);
 
         // 1. Pump refuses to start / accelerate if cold (< 46.85 °C)
         MTECoolantPump pump = new MTECoolantPump("test_pump_molten");
-        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito.mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
-        Mockito.when(mockPumpBase.isAllowedToWork()).thenReturn(true);
-        Mockito.when(mockPumpBase.isServerSide()).thenReturn(true);
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
         pump.setBaseMetaTileEntity(mockPumpBase);
         pump.setLoopFormed(true);
         com.gtnewhorizons.coolantloops.engine.LoopSegment coldSeg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
-            "cold_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 20.0); // 20 °C < 46.85 °C
-        pump.getEngine().addSegment(coldSeg);
-        pump.getEngine().setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
+            "cold_seg",
+            10.0,
+            0.2,
+            0.0001,
+            1.0,
+            100.0,
+            1000.0,
+            20.0); // 20 °C < 46.85 °C
+        pump.getEngine()
+            .addSegment(coldSeg);
+        pump.getEngine()
+            .setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
 
         assertTrue(pump.stepCoolantLoop());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
-        assertTrue(pump.getLoopStatus().contains("below declared GregTech melting point"));
+        assertTrue(
+            pump.getLoopStatus()
+                .contains("below declared GregTech melting point"));
 
         // 2. In a hot biome (e.g. Nether at ~55 °C > 46.85 °C), pump is allowed to start/circulate
         pump.setSimulatedBiomeTemperatureCelsius(55.0);
         coldSeg.setCurrentTemperatureCelsius(55.0);
         assertTrue(pump.stepCoolantLoop());
         // Temperature check passes! Pump advances all the way to circulation power check
-        assertFalse(pump.getLoopStatus().contains("below declared GregTech melting point"));
+        assertFalse(
+            pump.getLoopStatus()
+                .contains("below declared GregTech melting point"));
         assertEquals("Pump unpowered (No EU in Energy Hatch)", pump.getLoopStatus());
 
         // 3. Circulating molten coolant below melting point causes catastrophic explosion / rupture!
         com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine engine = new com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine(
             com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
         com.gtnewhorizons.coolantloops.engine.LoopSegment frozenSeg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
-            "frozen_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 30.0); // 30 °C < 46.85 °C
+            "frozen_seg",
+            10.0,
+            0.2,
+            0.0001,
+            1.0,
+            100.0,
+            1000.0,
+            30.0); // 30 °C < 46.85 °C
         engine.addSegment(frozenSeg);
         engine.setVolumetricFlowRate(0.05); // moving/circulating
         engine.setPumpPowered(true);
@@ -298,7 +343,9 @@ public class CoolantPumpStructureTest {
         engine.step(0.05);
 
         assertTrue(engine.isRuptured());
-        assertTrue(engine.getFailureReason().contains("Catastrophic coolant solidification"));
+        assertTrue(
+            engine.getFailureReason()
+                .contains("Catastrophic coolant solidification"));
     }
 
     @Test
@@ -308,18 +355,22 @@ public class CoolantPumpStructureTest {
 
         net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
         net.minecraft.world.biome.BiomeGenBase mockBiome = Mockito.mock(net.minecraft.world.biome.BiomeGenBase.class);
-        Mockito.when(mockWorld.getBiomeGenForCoords(0, 0)).thenReturn(mockBiome);
+        Mockito.when(mockWorld.getBiomeGenForCoords(0, 0))
+            .thenReturn(mockBiome);
 
         // Plains (0.80) -> (80.0 - 32.0) / 1.8 = ~26.67 °C
-        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(0.80f);
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0))
+            .thenReturn(0.80f);
         assertEquals(26.67, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
 
         // Freezing snow biome (0.00) -> (0.0 - 32.0) / 1.8 = ~-17.78 °C
-        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(0.0f);
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0))
+            .thenReturn(0.0f);
         assertEquals(-17.78, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
 
         // Nether / Hell biome (2.00) -> (200.0 - 32.0) / 1.8 = ~93.33 °C
-        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0)).thenReturn(2.0f);
+        Mockito.when(mockBiome.getFloatTemperature(0, 64, 0))
+            .thenReturn(2.0f);
         assertEquals(93.33, MTECoolantPump.calculateAmbientTemperature(mockWorld, 0, 64, 0), 0.05);
     }
 }
