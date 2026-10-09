@@ -40,6 +40,8 @@ public class CoolantLoops {
             .getSide()
             .isClient()) {
             com.gtnewhorizons.coolantloops.client.renderer.RenderBlockManifold.init();
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS
+                .register(new com.gtnewhorizons.coolantloops.client.tooltip.RotorTooltipEventHandler());
         }
     }
 

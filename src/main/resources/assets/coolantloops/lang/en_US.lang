@@ -58,6 +58,8 @@ gt.multiblock.coolant_pump.desc1=Closed-loop hydrodynamic and thermodynamic circ
 gt.multiblock.coolant_pump.desc2=Sits directly underneath a Railcraft multiblock tank
 gt.multiblock.coolant_pump.desc3=Circulates coolant through empty GregTech fluid pipes
 gt.multiblock.coolant_pump.desc4=Requires a Turbine Rotor in the controller slot as an impeller
+gt.multiblock.coolant_pump.desc5=Impellers experience thermal softening and accelerated wear above 50% homologous temperature (0.5 * T_melt)
+gt.multiblock.coolant_pump.desc6=Wear accelerates up to 5x near melting point; reaching melting point destroys the impeller
 gt.multiblock.coolant_pump.structure.controller=Center of bottom front layer
 gt.multiblock.coolant_pump.structure.casings=Robust tungstensteel machine casings
 gt.multiblock.coolant_pump.structure.frames=Corner frame boxes (4x at layer 0 and 1)
@@ -125,6 +127,10 @@ gt.scanner.coolant_pump.peak_pressure=Peak pressure: %.2f bar
 gt.scanner.coolant_pump.peak_temp=Peak temp: %.1f C
 gt.scanner.coolant_pump.loop_fluid=Loop fluid: %d / %d L
 gt.scanner.coolant_pump.dissolved_gas=Dissolved gas: %.2f%%
+gt.scanner.coolant_pump.impeller=Impeller: %s (%.0f%% eff, melts at %.0f C)
+gt.scanner.coolant_pump.impeller.none=Impeller: None
+gt.scanner.coolant_pump.impeller_thermal_wear=Impeller thermal wear: %.2fx (Th = %.2f%s)
+gt.scanner.coolant_pump.impeller_thermal.softening=, thermal softening active
 
 # Pump Loop Status & Failure Messages
 coolantloops.pump.status.waiting=Waiting for loop formation...
@@ -179,6 +185,12 @@ coolantloops.pump.status.refuse_solidify_coolant=Pump refused to start: Coolant 
 
 coolantloops.pump.status.catastrophic_fuel=Catastrophic pump failure: %s is a liquid nuclear fuel, not a coolant! Impeller disintegrated!
 coolantloops.pump.status.catastrophic_solidification=Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.
+coolantloops.pump.status.catastrophic_melt=Catastrophic pump failure: Coolant temperature (%.1f °C) exceeded impeller melting point (%.1f °C) for %s! Impeller melted!
+
+# Rotor Tooltip Impeller Thermal Limits
+coolantloops.tooltip.rotor.header=Coolant loop impeller limits:
+coolantloops.tooltip.rotor.softening=Thermal softening: %.0f °C (wear up to 5x)
+coolantloops.tooltip.rotor.melting=Melting point: %.0f °C (impeller failure)
 
 # Loop Graph Crawler Error Messages
 coolantloops.crawler.max_length=Loop exceeds maximum supported length (%d steps)

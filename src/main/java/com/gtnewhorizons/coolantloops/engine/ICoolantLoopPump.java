@@ -188,4 +188,46 @@ public interface ICoolantLoopPump {
     default long getReservoirCapacityLiters() {
         return 0L;
     }
+
+    /**
+     * Gets the primary material of the turbine rotor impeller.
+     */
+    default gregtech.api.enums.Materials getRotorMaterial() {
+        return null;
+    }
+
+    /**
+     * Gets the fluid temperature at the pump suction in degrees Celsius.
+     */
+    default double getPumpFluidTemperatureCelsius() {
+        return 20.0;
+    }
+
+    /**
+     * Gets the homologous temperature Th = T_fluid,K / T_melt,K of the impeller.
+     */
+    default double getHomologousTemperature() {
+        return 0.0;
+    }
+
+    /**
+     * Gets the thermal softening / creep wear multiplier k_temp on the impeller.
+     */
+    default double getThermalWearMultiplier() {
+        return 1.0;
+    }
+
+    /**
+     * Gets the effective melting point of the rotor material in degrees Celsius.
+     */
+    default double getRotorMeltingPointCelsius() {
+        return 726.85;
+    }
+
+    /**
+     * Gets the temperature at which thermal softening begins (0.5 * T_melt in Kelvin) in degrees Celsius.
+     */
+    default double getRotorSofteningCelsius() {
+        return 226.85;
+    }
 }

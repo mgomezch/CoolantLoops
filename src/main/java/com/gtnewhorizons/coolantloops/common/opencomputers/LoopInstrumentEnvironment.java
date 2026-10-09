@@ -7,6 +7,7 @@ import java.util.Map;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument;
+import com.gtnewhorizons.coolantloops.common.util.RotorThermalHelper;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 
@@ -102,6 +103,15 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             data.put("impellerMaxDamage", pump.getRotorMaxDamage());
             data.put("impellerDurabilityPercent", pump.getRotorDurabilityPercent());
             data.put("impellerDamageAccumulator", pump.getRotorDamageAccumulator());
+            data.put(
+                "impellerMaterial",
+                pump.getRotorMaterial() != null ? RotorThermalHelper.getMaterialLocalizedName(pump.getRotorMaterial())
+                    : "");
+            data.put("impellerMeltingPointCelsius", pump.getRotorMeltingPointCelsius());
+            data.put("impellerSofteningTempCelsius", pump.getRotorSofteningCelsius());
+            data.put("homologousTemperature", pump.getHomologousTemperature());
+            data.put("thermalWearMultiplier", pump.getThermalWearMultiplier());
+            data.put("thermalSofteningActive", pump.getHomologousTemperature() >= 0.5);
 
             // Dissolved gases map
             data.put("dissolvedGases", new LinkedHashMap<>(pump.getDissolvedGases()));
@@ -129,6 +139,12 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             data.put("impellerMaxDamage", 0);
             data.put("impellerDurabilityPercent", 0.0);
             data.put("impellerDamageAccumulator", 0.0);
+            data.put("impellerMaterial", "");
+            data.put("impellerMeltingPointCelsius", 0.0);
+            data.put("impellerSofteningTempCelsius", 0.0);
+            data.put("homologousTemperature", 0.0);
+            data.put("thermalWearMultiplier", 1.0);
+            data.put("thermalSofteningActive", false);
             data.put("dissolvedGases", Collections.emptyMap());
         }
 
@@ -184,6 +200,15 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             status.put("wearPercent", instrument.getCurrentImpellerWearPercent());
             status.put("durabilityPercent", pump.getRotorDurabilityPercent());
             status.put("damageAccumulator", pump.getRotorDamageAccumulator());
+            status.put(
+                "material",
+                pump.getRotorMaterial() != null ? RotorThermalHelper.getMaterialLocalizedName(pump.getRotorMaterial())
+                    : "");
+            status.put("meltingPointCelsius", pump.getRotorMeltingPointCelsius());
+            status.put("softeningTempCelsius", pump.getRotorSofteningCelsius());
+            status.put("homologousTemperature", pump.getHomologousTemperature());
+            status.put("thermalWearMultiplier", pump.getThermalWearMultiplier());
+            status.put("thermalSofteningActive", pump.getHomologousTemperature() >= 0.5);
         } else {
             status.put("hasImpeller", false);
             status.put("efficiency", 0.0);
@@ -192,6 +217,12 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             status.put("wearPercent", instrument.getCurrentImpellerWearPercent());
             status.put("durabilityPercent", 0.0);
             status.put("damageAccumulator", 0.0);
+            status.put("material", "");
+            status.put("meltingPointCelsius", 0.0);
+            status.put("softeningTempCelsius", 0.0);
+            status.put("homologousTemperature", 0.0);
+            status.put("thermalWearMultiplier", 1.0);
+            status.put("thermalSofteningActive", false);
         }
         return new Object[] { status };
     }

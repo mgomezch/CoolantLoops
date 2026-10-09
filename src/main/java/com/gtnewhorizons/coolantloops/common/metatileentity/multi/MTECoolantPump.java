@@ -26,6 +26,7 @@ import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
 import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 import com.gtnewhorizons.coolantloops.common.util.CoolantLocalization;
+import com.gtnewhorizons.coolantloops.common.util.RotorThermalHelper;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
@@ -79,6 +80,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     // Impeller slot
     protected ItemStack mRotorStack = null;
     protected double mRotorEfficiency = 0.85;
+    protected Materials mRotorMaterial = null;
+    protected Double mSimulatedFluidTempCelsius = null;
 
     public enum LoopState {
         EMPTY,
@@ -786,6 +789,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true;
         }
 
+        // Impeller melting check: if fluid temperature exceeds impeller melting point, melt catastrophically!
+        double pumpFluidTemp = getPumpFluidTemperatureCelsius();
+        Materials rotorMat = getRotorMaterial();
+        double th = RotorThermalHelper.calculateHomologousTemperature(pumpFluidTemp, rotorMat);
+        if (RotorThermalHelper.isMelted(th)) {
+            failOnImpellerMelting(pumpFluidTemp, rotorMat);
+            mEngine.step(0.05);
+            return true;
+        }
+
         // Check if high-pressure output hatch is disabled by machine controller cover
         boolean dischargeDisabled = isDischargeHatchDisabled();
         if (dischargeDisabled) {
@@ -1097,6 +1110,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
                 mRotorEfficiency = calc.getBaseEfficiency();
                 mRotorStack = rotor;
+                mRotorMaterial = RotorThermalHelper.getRotorMaterial(rotor);
                 return true;
             } catch (Throwable ignored) {}
         }
@@ -1105,11 +1119,13 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true;
         }
         mRotorStack = null;
+        mRotorMaterial = null;
         return false;
     }
 
     public void setRotorStack(ItemStack stack) {
         this.mRotorStack = stack;
+        this.mRotorMaterial = RotorThermalHelper.getRotorMaterial(stack);
         if (stack != null && isMetaGeneratedTool(stack.getItem())) {
             try {
                 TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) stack.getItem(), stack);
@@ -1124,6 +1140,65 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public double getRotorEfficiency() {
         return mRotorEfficiency;
+    }
+
+    @Override
+    public Materials getRotorMaterial() {
+        if (mRotorMaterial != null) return mRotorMaterial;
+        ItemStack r = getRotor();
+        if (r != null) {
+            mRotorMaterial = RotorThermalHelper.getRotorMaterial(r);
+        }
+        return mRotorMaterial;
+    }
+
+    public void setRotorMaterial(Materials mat) {
+        this.mRotorMaterial = mat;
+    }
+
+    public void setSimulatedFluidTemperatureCelsius(Double temp) {
+        this.mSimulatedFluidTempCelsius = temp;
+    }
+
+    public Double getSimulatedFluidTemperatureCelsius() {
+        return this.mSimulatedFluidTempCelsius;
+    }
+
+    @Override
+    public double getPumpFluidTemperatureCelsius() {
+        if (mSimulatedFluidTempCelsius != null) {
+            return mSimulatedFluidTempCelsius;
+        }
+        if (mEngine != null && mEngine.getSegments() != null
+            && !mEngine.getSegments()
+                .isEmpty()) {
+            List<LoopSegment> segs = mEngine.getSegments();
+            LoopSegment suctionSeg = segs.get(segs.size() - 1);
+            if (suctionSeg != null) {
+                return suctionSeg.getCurrentTemperatureCelsius();
+            }
+        }
+        return getBiomeTemperatureCelsius();
+    }
+
+    @Override
+    public double getHomologousTemperature() {
+        return RotorThermalHelper.calculateHomologousTemperature(getPumpFluidTemperatureCelsius(), getRotorMaterial());
+    }
+
+    @Override
+    public double getThermalWearMultiplier() {
+        return RotorThermalHelper.calculateThermalWearMultiplier(getHomologousTemperature());
+    }
+
+    @Override
+    public double getRotorMeltingPointCelsius() {
+        return RotorThermalHelper.getMeltingPointCelsius(getRotorMaterial());
+    }
+
+    @Override
+    public double getRotorSofteningCelsius() {
+        return RotorThermalHelper.getThermalSofteningCelsius(getRotorMaterial());
     }
 
     @Override
@@ -1154,6 +1229,19 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.catastrophic_fuel", name);
     }
 
+    public void failOnImpellerMelting(double fluidTemp, Materials mat) {
+        destroyImpeller();
+        mLoopState = LoopState.STOPPED;
+        mEngine.setPumpPowered(false);
+        mEngine.setPumpMechanicalPowerWatts(0.0);
+        mEngine.setBraking(false);
+        mEngine.setVolumetricFlowRate(0.0);
+        String matName = mat != null ? RotorThermalHelper.getMaterialLocalizedName(mat) : "impeller";
+        double meltC = RotorThermalHelper.getMeltingPointCelsius(mat);
+        mLoopStatus = CoolantLocalization
+            .format("coolantloops.pump.status.catastrophic_melt", fluidTemp, meltC, matName);
+    }
+
     public void destroyImpeller() {
         ItemStack controller = getControllerSlot();
         if (isValidRotor(controller)) {
@@ -1161,6 +1249,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         mRotorStack = null;
         mRotorEfficiency = 0.0;
+        mRotorMaterial = null;
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null && te.getWorld() != null && !te.getWorld().isRemote) {
             te.getWorld()
@@ -1184,24 +1273,52 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         this.mRotorDamageAccumulator = accumulator;
     }
 
-    protected void degradeRotor(long euPerTick) {
+    public void degradeRotor(long euPerTick) {
         ItemStack rotor = getRotor();
-        if (rotor != null && rotor.getItemDamage() < rotor.getMaxDamage()) {
-            boolean shouldTick = (getBaseMetaTileEntity() == null) || (getBaseMetaTileEntity().getTimer() % 100 == 0);
-            if (shouldTick) {
-                double gasFrac = getDissolvedGasFraction();
-                double wearMultiplier = 1.0 + gasFrac; // k_cavit = 1.0
-                mRotorDamageAccumulator += wearMultiplier;
-                int dmg = (int) mRotorDamageAccumulator;
-                if (dmg > 0) {
-                    mRotorDamageAccumulator -= dmg;
+        if (rotor == null) {
+            return;
+        }
+
+        double fluidTempC = getPumpFluidTemperatureCelsius();
+        Materials mat = getRotorMaterial();
+        double th = RotorThermalHelper.calculateHomologousTemperature(fluidTempC, mat);
+        if (RotorThermalHelper.isMelted(th)) {
+            failOnImpellerMelting(fluidTempC, mat);
+            return;
+        }
+
+        boolean shouldTick = (getBaseMetaTileEntity() == null) || (getBaseMetaTileEntity().getTimer() % 100 == 0);
+        if (shouldTick) {
+            double gasFrac = getDissolvedGasFraction();
+            double cavitationFactor = 1.0 + gasFrac; // k_cavit = 1.0
+            double thermalFactor = RotorThermalHelper.calculateThermalWearMultiplier(th);
+            double totalWearMultiplier = cavitationFactor * thermalFactor;
+            mRotorDamageAccumulator += totalWearMultiplier;
+            int dmg = (int) mRotorDamageAccumulator;
+            if (dmg > 0) {
+                mRotorDamageAccumulator -= dmg;
+                if (rotor.getItem() instanceof MetaGeneratedTool) {
+                    MetaGeneratedTool tool = (MetaGeneratedTool) rotor.getItem();
+                    tool.doDamage(rotor, dmg);
+                    if (rotor.stackSize == 0
+                        || MetaGeneratedTool.getToolDamage(rotor) >= MetaGeneratedTool.getToolMaxDamage(rotor)) {
+                        if (getControllerSlot() == rotor
+                            || (getControllerSlot() != null && getControllerSlot().stackSize == 0)) {
+                            setInventorySlotContents(getControllerSlotIndex(), null);
+                        }
+                        mRotorStack = null; // Rotor broken!
+                        mRotorEfficiency = 0.0;
+                        mRotorMaterial = null;
+                    }
+                } else {
                     rotor.setItemDamage(rotor.getItemDamage() + dmg);
-                    if (rotor.getItemDamage() >= rotor.getMaxDamage()) {
+                    if (rotor.getMaxDamage() > 0 && rotor.getItemDamage() >= rotor.getMaxDamage()) {
                         if (getControllerSlot() == rotor) {
                             setInventorySlotContents(getControllerSlotIndex(), null);
                         }
                         mRotorStack = null; // Rotor broken!
                         mRotorEfficiency = 0.0;
+                        mRotorMaterial = null;
                     }
                 }
             }
@@ -1288,20 +1405,36 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     public int getRotorDamage() {
         ItemStack rotor = getRotor();
-        return rotor != null ? rotor.getItemDamage() : 0;
+        if (rotor == null) return 0;
+        if (rotor.getItem() instanceof MetaGeneratedTool) {
+            return (int) Math.min(Integer.MAX_VALUE, MetaGeneratedTool.getToolDamage(rotor));
+        }
+        return rotor.getItemDamage();
     }
 
     @Override
     public int getRotorMaxDamage() {
         ItemStack rotor = getRotor();
-        return rotor != null ? rotor.getMaxDamage() : 0;
+        if (rotor == null) return 0;
+        if (rotor.getItem() instanceof MetaGeneratedTool) {
+            return (int) Math.min(Integer.MAX_VALUE, MetaGeneratedTool.getToolMaxDamage(rotor));
+        }
+        return rotor.getMaxDamage();
     }
 
     @Override
     public double getRotorDurabilityPercent() {
         ItemStack rotor = getRotor();
-        if (rotor != null && rotor.getMaxDamage() > 0) {
-            return Math.max(0.0, 100.0 * (1.0 - (double) rotor.getItemDamage() / rotor.getMaxDamage()));
+        if (rotor != null) {
+            if (rotor.getItem() instanceof MetaGeneratedTool) {
+                long max = MetaGeneratedTool.getToolMaxDamage(rotor);
+                if (max > 0) {
+                    long dmg = MetaGeneratedTool.getToolDamage(rotor);
+                    return Math.max(0.0, 100.0 * (1.0 - (double) dmg / max));
+                }
+            } else if (rotor.getMaxDamage() > 0) {
+                return Math.max(0.0, 100.0 * (1.0 - (double) rotor.getItemDamage() / rotor.getMaxDamage()));
+            }
         }
         return 0.0;
     }
@@ -1415,6 +1548,29 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 .get("gt.scanner.coolant_pump.discharge_hatch.disabled")
             : com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .get("gt.scanner.coolant_pump.discharge_hatch.enabled");
+        Materials rMat = getRotorMaterial();
+        String impellerStr;
+        String thermalWearStr;
+        if (rMat != null || hasRotor()) {
+            String matName = rMat != null ? RotorThermalHelper.getMaterialLocalizedName(rMat) : "Unknown";
+            double meltC = RotorThermalHelper.getMeltingPointCelsius(rMat);
+            impellerStr = com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.scanner.coolant_pump.impeller", matName, mRotorEfficiency * 100.0, meltC);
+            double th = getHomologousTemperature();
+            double thermalWear = getThermalWearMultiplier();
+            String softeningActive = th >= 0.5
+                ? com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                    .get("gt.scanner.coolant_pump.impeller_thermal.softening")
+                : "";
+            thermalWearStr = com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.scanner.coolant_pump.impeller_thermal_wear", thermalWear, th, softeningActive);
+        } else {
+            impellerStr = com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .get("gt.scanner.coolant_pump.impeller.none");
+            thermalWearStr = com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.scanner.coolant_pump.impeller_thermal_wear", 1.0, 0.0, "");
+        }
+
         return new String[] {
             com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .format("gt.scanner.coolant_pump.state", mLoopState.name()),
@@ -1433,7 +1589,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .format("gt.scanner.coolant_pump.loop_fluid", mCurrentFillLiters, mRequiredFillLiters),
             com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
-                .format("gt.scanner.coolant_pump.dissolved_gas", getDissolvedGasFraction() * 100.0) };
+                .format("gt.scanner.coolant_pump.dissolved_gas", getDissolvedGasFraction() * 100.0),
+            impellerStr, thermalWearStr };
     }
 
     @Override
@@ -1446,6 +1603,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         aNBT.setDouble("mRotorDamageAccumulator", mRotorDamageAccumulator);
         if (mTankMaterial != null && mTankMaterial.mName != null) {
             aNBT.setString("mTankMaterial", mTankMaterial.mName);
+        }
+        if (mRotorMaterial != null && mRotorMaterial.mName != null) {
+            aNBT.setString("mRotorMaterial", mRotorMaterial.mName);
         }
     }
 
@@ -1471,6 +1631,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             Materials mat = Materials.get(aNBT.getString("mTankMaterial"));
             if (mat != null) {
                 mTankMaterial = mat;
+            }
+        }
+        if (aNBT.hasKey("mRotorMaterial")) {
+            Materials mat = Materials.get(aNBT.getString("mRotorMaterial"));
+            if (mat != null) {
+                mRotorMaterial = mat;
             }
         }
     }
@@ -1668,6 +1834,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc2"))
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc3"))
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc4"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc5"))
+            .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc6"))
             .addPerfectOCInfo()
             .addSeparator()
             .beginStructureBlock(3, 2, 3, false)
