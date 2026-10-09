@@ -12,6 +12,7 @@ import net.minecraftforge.fluids.IFluidHandler;
 
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
+import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 import com.gtnewhorizons.modularui.api.drawable.IDrawable;
 import com.gtnewhorizons.modularui.api.drawable.Text;
@@ -41,10 +42,13 @@ public class TileEntityLoopInstrument extends TileEntity
 
     public enum TrackedMetric {
 
-        FLOW_RATE("Flow Rate", "L/s"),
+        FLOW_RATE("Flow rate", "L/s"),
         TEMPERATURE("Temperature", "°C"),
         PRESSURE("Pressure", "bar"),
-        DISSOLVED_GAS("Dissolved Gas", "%");
+        DISSOLVED_GAS("Dissolved gas", "%"),
+        IMPELLER_WEAR("Impeller wear", "%"),
+        FILL_LEVEL("Fill level", "%"),
+        RESERVOIR_LEVEL("Reservoir level", "L");
 
         public final String displayName;
         public final String unit;
@@ -68,6 +72,11 @@ public class TileEntityLoopInstrument extends TileEntity
     private int fineOutputStrength = 0;
     private int bundledMode = BUNDLED_MODE_BROADCAST;
     private final byte[] bundledSignal = new byte[16];
+
+    private ICoolantLoopPump loopPump = null;
+    private double currentImpellerWearPercent = 0.0;
+    private double currentFillPercent = 0.0;
+    private long currentReservoirLiters = 0L;
 
     private double currentTemperatureCelsius = 20.0;
     private double currentFlowRateM3s = 0.0;
@@ -132,8 +141,10 @@ public class TileEntityLoopInstrument extends TileEntity
     }
 
     public static String getBundledModeName(int mode) {
-        if (mode == BUNDLED_MODE_BROADCAST) return "Broadcast (All Channels)";
-        if (mode == BUNDLED_MODE_MULTI) return "Multi (Ch0:Flow, Ch1:Temp, Ch2:Pres, Ch3:Gas)";
+        if (mode == BUNDLED_MODE_BROADCAST) return "Broadcast (all channels)";
+        if (mode == BUNDLED_MODE_MULTI) {
+            return "Multi (Ch0: flow, Ch1: temp, Ch2: pres, Ch3: gas, Ch4: wear, Ch5: fill, Ch6: res, Ch7: state)";
+        }
         int dyeIdx = mode - 2;
         if (dyeIdx >= 0 && dyeIdx < DYE_NAMES.length) {
             return "Channel " + dyeIdx + " (" + DYE_NAMES[dyeIdx] + ")";
@@ -147,6 +158,55 @@ public class TileEntityLoopInstrument extends TileEntity
 
     public int getFineOutputStrength() {
         return fineOutputStrength;
+    }
+
+    @Override
+    public void setLoopPump(ICoolantLoopPump pump) {
+        this.loopPump = pump;
+        updateOutputs();
+    }
+
+    public ICoolantLoopPump getLoopPump() {
+        return this.loopPump;
+    }
+
+    public double getCurrentImpellerWearPercent() {
+        if (loopPump != null) {
+            if (!loopPump.hasRotor()) return 100.0;
+            int maxDmg = loopPump.getRotorMaxDamage();
+            if (maxDmg <= 0) return 0.0;
+            return Math.min(100.0, Math.max(0.0, 100.0 * (double) loopPump.getRotorDamage() / maxDmg));
+        }
+        return currentImpellerWearPercent;
+    }
+
+    public void setCurrentImpellerWearPercent(double percent) {
+        this.currentImpellerWearPercent = Math.max(0.0, Math.min(100.0, percent));
+        updateOutputs();
+    }
+
+    public double getCurrentFillPercent() {
+        if (loopPump != null) {
+            return Math.max(0.0, Math.min(100.0, loopPump.getFillFraction() * 100.0));
+        }
+        return currentFillPercent;
+    }
+
+    public void setCurrentFillPercent(double percent) {
+        this.currentFillPercent = Math.max(0.0, Math.min(100.0, percent));
+        updateOutputs();
+    }
+
+    public long getCurrentReservoirLiters() {
+        if (loopPump != null) {
+            return Math.max(0L, loopPump.getTotalCoolantLiters());
+        }
+        return currentReservoirLiters;
+    }
+
+    public void setCurrentReservoirLiters(long liters) {
+        this.currentReservoirLiters = Math.max(0L, liters);
+        updateOutputs();
     }
 
     public double getCurrentFlowRateLitersPerSecond() {
@@ -176,6 +236,9 @@ public class TileEntityLoopInstrument extends TileEntity
             case TEMPERATURE -> currentTemperatureCelsius;
             case PRESSURE -> currentPressureBar;
             case DISSOLVED_GAS -> currentGasFraction * 100.0;
+            case IMPELLER_WEAR -> getCurrentImpellerWearPercent();
+            case FILL_LEVEL -> getCurrentFillPercent();
+            case RESERVOIR_LEVEL -> (double) getCurrentReservoirLiters();
         };
     }
 
@@ -216,6 +279,30 @@ public class TileEntityLoopInstrument extends TileEntity
         updateOutputs();
     }
 
+    @Override
+    public boolean canUpdate() {
+        return true;
+    }
+
+    @Override
+    public void updateEntity() {
+        super.updateEntity();
+        if (worldObj != null && !worldObj.isRemote) {
+            if (loopPump != null) {
+                if (!"CIRCULATING".equalsIgnoreCase(loopPump.getLoopStateName())
+                    && !"DECELERATING".equalsIgnoreCase(loopPump.getLoopStateName())) {
+                    if (this.currentFlowRateM3s > 0) {
+                        this.currentFlowRateM3s = 0.0;
+                        this.currentVelocityMs = 0.0;
+                    }
+                }
+            }
+            if (worldObj.getTotalWorldTime() % 10 == 0) {
+                updateOutputs();
+            }
+        }
+    }
+
     public void updateOutputs() {
         int oldRedstone = this.redstoneOutput;
         int coarse = 0;
@@ -247,6 +334,27 @@ public class TileEntityLoopInstrument extends TileEntity
                 coarse = (int) Math.min(15.0, Math.max(0.0, normGas * 15.0));
                 fine = (int) Math.min(255.0, Math.max(0.0, normGas * 255.0));
                 break;
+            case IMPELLER_WEAR:
+                // Impeller wear 0.0 to 100.0%
+                double normWear = Math.max(0.0, Math.min(1.0, getCurrentImpellerWearPercent() / 100.0));
+                coarse = (int) Math.min(15.0, Math.max(0.0, normWear * 15.0));
+                fine = (int) Math.min(255.0, Math.max(0.0, normWear * 255.0));
+                break;
+            case FILL_LEVEL:
+                // Fill level 0.0 to 100.0%
+                double normFill = Math.max(0.0, Math.min(1.0, getCurrentFillPercent() / 100.0));
+                coarse = (int) Math.min(15.0, Math.max(0.0, normFill * 15.0));
+                fine = (int) Math.min(255.0, Math.max(0.0, normFill * 255.0));
+                break;
+            case RESERVOIR_LEVEL:
+                // Reservoir level scaled to tank capacity (default 1,000,000 L)
+                long cap = (loopPump != null && loopPump.getReservoirCapacityLiters() > 0)
+                    ? loopPump.getReservoirCapacityLiters()
+                    : 1000000L;
+                double normRes = Math.max(0.0, Math.min(1.0, (double) getCurrentReservoirLiters() / cap));
+                coarse = (int) Math.min(15.0, Math.max(0.0, normRes * 15.0));
+                fine = (int) Math.min(255.0, Math.max(0.0, normRes * 255.0));
+                break;
         }
 
         this.redstoneOutput = coarse;
@@ -267,13 +375,24 @@ public class TileEntityLoopInstrument extends TileEntity
         } else if (bundledMode == BUNDLED_MODE_MULTI) {
             double normFlow = (currentVelocityMs > 0) ? Math.max(0.0, Math.min(1.0, currentVelocityMs / 10.0))
                 : Math.max(0.0, Math.min(1.0, getCurrentFlowRateLitersPerSecond() / 1000.0));
-            bundledSignal[0] = (byte) ((int) Math.round(normFlow * 255.0) & 0xFF);
+            bundledSignal[0] = (byte) ((int) Math.round(Math.max(0.0, Math.min(1.0, normFlow)) * 255.0) & 0xFF);
             bundledSignal[1] = (byte) ((int) Math
                 .round(Math.max(0.0, Math.min(1.0, currentTemperatureCelsius / 1000.0)) * 255.0) & 0xFF);
             bundledSignal[2] = (byte) ((int) Math
                 .round(Math.max(0.0, Math.min(1.0, currentPressureBar / 100.0)) * 255.0) & 0xFF);
             bundledSignal[3] = (byte) ((int) Math.round(Math.max(0.0, Math.min(1.0, currentGasFraction)) * 255.0)
                 & 0xFF);
+            bundledSignal[4] = (byte) ((int) Math
+                .round(Math.max(0.0, Math.min(1.0, getCurrentImpellerWearPercent() / 100.0)) * 255.0) & 0xFF);
+            bundledSignal[5] = (byte) ((int) Math
+                .round(Math.max(0.0, Math.min(1.0, getCurrentFillPercent() / 100.0)) * 255.0) & 0xFF);
+            long cap = (loopPump != null && loopPump.getReservoirCapacityLiters() > 0)
+                ? loopPump.getReservoirCapacityLiters()
+                : 1000000L;
+            bundledSignal[6] = (byte) ((int) Math
+                .round(Math.max(0.0, Math.min(1.0, (double) getCurrentReservoirLiters() / cap)) * 255.0) & 0xFF);
+            boolean isCirculating = loopPump != null && "CIRCULATING".equalsIgnoreCase(loopPump.getLoopStateName());
+            bundledSignal[7] = (byte) (isCirculating ? 255 : 0);
         } else {
             int ch = bundledMode - 2;
             if (ch >= 0 && ch < 16) {
@@ -451,6 +570,15 @@ public class TileEntityLoopInstrument extends TileEntity
         if (nbt.hasKey("gas")) {
             this.currentGasFraction = nbt.getDouble("gas");
         }
+        if (nbt.hasKey("wear")) {
+            this.currentImpellerWearPercent = nbt.getDouble("wear");
+        }
+        if (nbt.hasKey("fill")) {
+            this.currentFillPercent = nbt.getDouble("fill");
+        }
+        if (nbt.hasKey("resLiters")) {
+            this.currentReservoirLiters = nbt.getLong("resLiters");
+        }
         updateOutputs();
     }
 
@@ -466,6 +594,9 @@ public class TileEntityLoopInstrument extends TileEntity
         nbt.setDouble("flow", currentFlowRateM3s);
         nbt.setDouble("pressure", currentPressureBar);
         nbt.setDouble("gas", currentGasFraction);
+        nbt.setDouble("wear", currentImpellerWearPercent);
+        nbt.setDouble("fill", currentFillPercent);
+        nbt.setLong("resLiters", currentReservoirLiters);
     }
 
     // --- Network Synchronization ---

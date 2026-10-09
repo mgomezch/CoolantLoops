@@ -30,4 +30,9 @@ public interface ICoolantLoopDevice {
      * @param segment            Local loop segment containing fluid entering this device
      */
     void processThermalExchange(double coolantFlowRateM3s, double dt, CoolantFluidProperty fluid, LoopSegment segment);
+
+    /**
+     * Associates the managing coolant loop pump with this device.
+     */
+    default void setLoopPump(ICoolantLoopPump pump) {}
 }

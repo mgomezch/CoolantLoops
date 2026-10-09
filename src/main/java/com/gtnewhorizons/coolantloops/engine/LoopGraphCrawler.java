@@ -1103,6 +1103,9 @@ public class LoopGraphCrawler {
                 }
                 visitedPipeAndDevicePositions.add(devCoord);
 
+                if (pump != null) {
+                    device.setLoopPump(pump);
+                }
                 if (!devices.contains(device)) {
                     devices.add(device);
                 }

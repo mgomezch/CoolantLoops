@@ -526,6 +526,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         mLoopDevices = result.devices;
         for (ICoolantLoopDevice dev : mLoopDevices) {
+            dev.setLoopPump(this);
             if (dev instanceof MTEPressurizedHeatExchanger || dev instanceof ICoolantPassageHatch
                 || dev instanceof MTEPressurizedDegasser) {
                 requiredFill += 1000L;
@@ -598,6 +599,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         IGregTechTileEntity baseTE = getBaseMetaTileEntity();
         if (baseTE == null) {
             return true;
+        }
+
+        for (ICoolantLoopDevice dev : mLoopDevices) {
+            dev.setLoopPump(this);
         }
 
         // Draw electrical power if allowed to work (soft hammer / redstone control)
@@ -1204,6 +1209,76 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public void setFillRateLitersPerTick(long litersPerTick) {
         this.mFillRateLitersPerTick = litersPerTick;
+    }
+
+    @Override
+    public double getFillFraction() {
+        if (mRequiredFillLiters > 0) {
+            return Math.min(1.0, (double) mCurrentFillLiters / mRequiredFillLiters);
+        }
+        return mLoopFormed ? 1.0 : 0.0;
+    }
+
+    @Override
+    public String getLoopStateName() {
+        return mLoopState != null ? mLoopState.name() : "STOPPED";
+    }
+
+    @Override
+    public double getMaxFlowRateLitersPerSecond() {
+        return mEngine != null ? mEngine.getMaxFlowRateLitersPerSecond() : 0.0;
+    }
+
+    @Override
+    public double getPeakLoopPressureBar() {
+        return mEngine != null ? mEngine.getPeakLoopPressureBar() : 1.0;
+    }
+
+    @Override
+    public double getPeakLoopTempCelsius() {
+        return mEngine != null ? mEngine.getPeakLoopTempCelsius() : 20.0;
+    }
+
+    @Override
+    public boolean hasRotor() {
+        return getRotor() != null;
+    }
+
+    @Override
+    public int getRotorDamage() {
+        ItemStack rotor = getRotor();
+        return rotor != null ? rotor.getItemDamage() : 0;
+    }
+
+    @Override
+    public int getRotorMaxDamage() {
+        ItemStack rotor = getRotor();
+        return rotor != null ? rotor.getMaxDamage() : 0;
+    }
+
+    @Override
+    public double getRotorDurabilityPercent() {
+        ItemStack rotor = getRotor();
+        if (rotor != null && rotor.getMaxDamage() > 0) {
+            return Math.max(0.0, 100.0 * (1.0 - (double) rotor.getItemDamage() / rotor.getMaxDamage()));
+        }
+        return 0.0;
+    }
+
+    @Override
+    public long getPowerConsumptionEU() {
+        if (mLoopState == LoopState.CIRCULATING && mEngine != null && mEngine.isPumpPowered()) {
+            long voltage = getMaxInputVoltage();
+            long amps = (mEnergyHatches != null && mEnergyHatches.size() >= 2) ? 4 : 2;
+            long eu = voltage * amps;
+            return eu > 0 ? eu : 512;
+        }
+        return 0L;
+    }
+
+    @Override
+    public long getReservoirCapacityLiters() {
+        return mReservoir != null ? mReservoir.getTotalTankCapacityLiters() : 0L;
     }
 
     @Override

@@ -21,6 +21,7 @@ import com.gtnewhorizons.coolantloops.common.opencomputers.LoopInstrumentEnviron
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument.TrackedMetric;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
+import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 import com.gtnewhorizons.modularui.api.screen.ModularWindow;
 import com.gtnewhorizons.modularui.api.screen.UIBuildContext;
@@ -136,10 +137,19 @@ class PressurizedInstrumentationComputerTest {
         assertEquals(TrackedMetric.DISSOLVED_GAS, te.getTrackedMetric());
 
         te.cycleMetric(1);
+        assertEquals(TrackedMetric.IMPELLER_WEAR, te.getTrackedMetric());
+
+        te.cycleMetric(1);
+        assertEquals(TrackedMetric.FILL_LEVEL, te.getTrackedMetric());
+
+        te.cycleMetric(1);
+        assertEquals(TrackedMetric.RESERVOIR_LEVEL, te.getTrackedMetric());
+
+        te.cycleMetric(1);
         assertEquals(TrackedMetric.FLOW_RATE, te.getTrackedMetric(), "Should wrap back to FLOW_RATE");
 
         te.cycleMetric(-1);
-        assertEquals(TrackedMetric.DISSOLVED_GAS, te.getTrackedMetric(), "Shift-cycle should reverse");
+        assertEquals(TrackedMetric.RESERVOIR_LEVEL, te.getTrackedMetric(), "Shift-cycle should reverse");
     }
 
     @Test
@@ -191,6 +201,9 @@ class PressurizedInstrumentationComputerTest {
         // 3. Multi mode (mode 1)
         te.setBundledMode(TileEntityLoopInstrument.BUNDLED_MODE_MULTI);
         seg.setDissolvedGasFraction(0.40);
+        te.setCurrentImpellerWearPercent(20.0);
+        te.setCurrentFillPercent(80.0);
+        te.setCurrentReservoirLiters(500000L);
         te.processThermalExchange(5.0 * seg.getArea(), 1.0, CoolantFluidProperty.WATER, seg); // 5 m/s velocity
         te.setCurrentPressureBar(50.0);
 
@@ -204,6 +217,14 @@ class PressurizedInstrumentationComputerTest {
         assertEquals((byte) 128, multi[2]);
         // Ch3: Gas (0.40 * 255 = 102)
         assertEquals((byte) 102, multi[3]);
+        // Ch4: Wear (0.20 * 255 = 51)
+        assertEquals((byte) 51, multi[4]);
+        // Ch5: Fill (0.80 * 255 = 204)
+        assertEquals((byte) 204, multi[5]);
+        // Ch6: Reservoir (500,000 / 1,000,000 = 0.5 * 255 = 127.5 -> 128)
+        assertEquals((byte) 128, multi[6]);
+        // Ch7: State (0 when unformed/stopped)
+        assertEquals((byte) 0, multi[7]);
 
         // 4. Specific dye channel mode (e.g. Red = channel 14 -> mode 16)
         te.setBundledMode(16); // Channel 14
@@ -357,5 +378,142 @@ class PressurizedInstrumentationComputerTest {
 
         assertTrue(block.rotateBlock(mockWorld, 0, 0, 0, ForgeDirection.UP));
         assertEquals(ForgeDirection.SOUTH, te.getFacing());
+    }
+
+    @Test
+    void testNewMetricsRedstoneAndFineOutput() {
+        TileEntityLoopInstrument te = new TileEntityLoopInstrument();
+
+        // Wear test: 50%
+        te.setTrackedMetric(TrackedMetric.IMPELLER_WEAR);
+        te.setCurrentImpellerWearPercent(50.0);
+        assertEquals(7, te.getRedstoneOutput()); // 50% of 15 = 7.5 -> 7
+        assertEquals(127, te.getFineOutputStrength()); // 50% of 255 = 127.5 -> 127
+
+        // Fill level test: 100%
+        te.setTrackedMetric(TrackedMetric.FILL_LEVEL);
+        te.setCurrentFillPercent(100.0);
+        assertEquals(15, te.getRedstoneOutput());
+        assertEquals(255, te.getFineOutputStrength());
+
+        // Reservoir level test: 250,000 L of 1,000,000 L
+        te.setTrackedMetric(TrackedMetric.RESERVOIR_LEVEL);
+        te.setCurrentReservoirLiters(250000L);
+        assertEquals(3, te.getRedstoneOutput()); // 0.25 * 15 = 3.75 -> 3
+        assertEquals(63, te.getFineOutputStrength()); // 0.25 * 255 = 63.75 -> 63
+    }
+
+    @Test
+    void testOpenComputersTelemetryWithPump() {
+        DriverLoopInstrument driver = new DriverLoopInstrument();
+        World mockWorld = Mockito.mock(World.class);
+        TileEntityLoopInstrument te = new TileEntityLoopInstrument();
+        te.setFacing(ForgeDirection.NORTH);
+
+        ICoolantLoopPump mockPump = Mockito.mock(ICoolantLoopPump.class);
+        Mockito.when(mockPump.isLoopFormed())
+            .thenReturn(true);
+        Mockito.when(mockPump.getLoopStateName())
+            .thenReturn("CIRCULATING");
+        Mockito.when(mockPump.getLoopStatus())
+            .thenReturn("Circulating normally");
+        Mockito.when(mockPump.getTotalCoolantLiters())
+            .thenReturn(85000L);
+        Mockito.when(mockPump.getReservoirCapacityLiters())
+            .thenReturn(100000L);
+        Mockito.when(mockPump.getCurrentFillLiters())
+            .thenReturn(15000L);
+        Mockito.when(mockPump.getRequiredFillLiters())
+            .thenReturn(15000L);
+        Mockito.when(mockPump.getFillFraction())
+            .thenReturn(1.0);
+        Mockito.when(mockPump.hasRotor())
+            .thenReturn(true);
+        Mockito.when(mockPump.getRotorEfficiency())
+            .thenReturn(0.85);
+        Mockito.when(mockPump.getRotorDamage())
+            .thenReturn(200);
+        Mockito.when(mockPump.getRotorMaxDamage())
+            .thenReturn(10000);
+        Mockito.when(mockPump.getRotorDurabilityPercent())
+            .thenReturn(98.0);
+        Mockito.when(mockPump.getRotorDamageAccumulator())
+            .thenReturn(0.5);
+        Mockito.when(mockPump.getPowerConsumptionEU())
+            .thenReturn(2048L);
+        Mockito.when(mockPump.getMaxFlowRateLitersPerSecond())
+            .thenReturn(1200.0);
+        Mockito.when(mockPump.getPeakLoopPressureBar())
+            .thenReturn(15.2);
+        Mockito.when(mockPump.getPeakLoopTempCelsius())
+            .thenReturn(320.0);
+        Map<String, Long> gases = new java.util.LinkedHashMap<>();
+        gases.put("Tritium", 150L);
+        gases.put("Oxygen", 75L);
+        Mockito.when(mockPump.getDissolvedGases())
+            .thenReturn(gases);
+
+        te.setLoopPump(mockPump);
+        Mockito.when(mockWorld.getTileEntity(1, 2, 3))
+            .thenReturn(te);
+
+        ManagedEnvironment env = driver.createEnvironment(mockWorld, 1, 2, 3, ForgeDirection.UP);
+        assertNotNull(env);
+        assertTrue(env instanceof LoopInstrumentEnvironment);
+        LoopInstrumentEnvironment ocEnv = (LoopInstrumentEnvironment) env;
+
+        Context ctx = Mockito.mock(Context.class);
+        Arguments args = Mockito.mock(Arguments.class);
+
+        // 1. getPumpStatus
+        Object[] pumpRes = ocEnv.getPumpStatus(ctx, args);
+        assertNotNull(pumpRes);
+        Map<?, ?> pumpMap = (Map<?, ?>) pumpRes[0];
+        assertEquals(Boolean.TRUE, pumpMap.get("connected"));
+        assertEquals(Boolean.TRUE, pumpMap.get("formed"));
+        assertEquals("CIRCULATING", pumpMap.get("state"));
+        assertEquals(2048L, pumpMap.get("powerEU"));
+
+        // 2. getImpellerStatus
+        Object[] impRes = ocEnv.getImpellerStatus(ctx, args);
+        assertNotNull(impRes);
+        Map<?, ?> impMap = (Map<?, ?>) impRes[0];
+        assertEquals(Boolean.TRUE, impMap.get("hasImpeller"));
+        assertEquals(0.85, (Double) impMap.get("efficiency"), 1e-4);
+        assertEquals(200, impMap.get("damage"));
+        assertEquals(98.0, (Double) impMap.get("durabilityPercent"), 1e-4);
+
+        // 3. getFluidInventory
+        Object[] invRes = ocEnv.getFluidInventory(ctx, args);
+        assertNotNull(invRes);
+        Map<?, ?> invMap = (Map<?, ?>) invRes[0];
+        assertEquals(15000L, invMap.get("currentFillLiters"));
+        assertEquals(85000L, invMap.get("totalCoolantLiters"));
+
+        // 4. getDissolvedGases
+        Object[] gasRes = ocEnv.getDissolvedGases(ctx, args);
+        assertNotNull(gasRes);
+        Map<?, ?> gasMap = (Map<?, ?>) gasRes[0];
+        assertEquals(150L, gasMap.get("Tritium"));
+        assertEquals(75L, gasMap.get("Oxygen"));
+
+        // 5. Individual getters
+        assertEquals(0.0, (Double) ocEnv.getFlowRate(ctx, args)[0], 1e-4);
+        assertEquals(20.0, (Double) ocEnv.getTemperature(ctx, args)[0], 1e-4);
+        assertEquals(1.0, (Double) ocEnv.getPressure(ctx, args)[0], 1e-4);
+        assertEquals(2.0, (Double) ocEnv.getImpellerWear(ctx, args)[0], 1e-4); // 200/10000 = 2%
+        assertEquals(100.0, (Double) ocEnv.getFillLevel(ctx, args)[0], 1e-4); // 1.0 = 100%
+        assertEquals(85000L, ocEnv.getReservoirLevel(ctx, args)[0]);
+
+        // 6. getLoopTelemetry full map check
+        Object[] telemRes = ocEnv.getLoopTelemetry(ctx, args);
+        assertNotNull(telemRes);
+        Map<?, ?> telemMap = (Map<?, ?>) telemRes[0];
+        assertEquals(Boolean.TRUE, telemMap.get("loopConnected"));
+        assertEquals("CIRCULATING", telemMap.get("loopState"));
+        assertEquals(2048L, telemMap.get("powerEU"));
+        assertEquals(2.0, (Double) telemMap.get("impellerWearPercent"), 1e-4);
+        assertEquals(100.0, (Double) telemMap.get("fillPercent"), 1e-4);
+        assertEquals(85000L, telemMap.get("totalCoolantLiters"));
     }
 }

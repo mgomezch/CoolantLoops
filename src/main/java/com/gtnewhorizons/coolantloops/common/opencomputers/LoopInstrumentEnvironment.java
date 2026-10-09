@@ -1,11 +1,14 @@
 package com.gtnewhorizons.coolantloops.common.opencomputers;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument;
+import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
+import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 
 import li.cil.oc.api.Network;
 import li.cil.oc.api.driver.NamedBlock;
@@ -45,7 +48,7 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
     }
 
     @Callback(
-        doc = "function():table -- Returns full telemetry data of the coolant loop and instrumentation computer.",
+        doc = "function():table -- Returns full telemetry data of the coolant loop, pump, impeller, and instrumentation computer.",
         direct = true)
     public Object[] getLoopTelemetry(Context context, Arguments args) {
         Map<String, Object> data = new LinkedHashMap<>();
@@ -67,7 +70,200 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             "facing",
             instrument.getFacing()
                 .name());
+        data.put("impellerWearPercent", instrument.getCurrentImpellerWearPercent());
+        data.put("fillPercent", instrument.getCurrentFillPercent());
+        data.put("reservoirLiters", instrument.getCurrentReservoirLiters());
+
+        ICoolantLoopPump pump = instrument.getLoopPump();
+        if (pump != null) {
+            data.put("loopConnected", true);
+            data.put("loopFormed", pump.isLoopFormed());
+            data.put("loopState", pump.getLoopStateName());
+            data.put("loopStatus", pump.getLoopStatus());
+            data.put("dischargeHatchDisabled", pump.isDischargeHatchDisabled());
+            data.put("tankMaterial", pump.getTankMaterial() != null ? pump.getTankMaterial().mDefaultLocalName : "");
+            CoolantFluidProperty prop = pump.getCoolantFluidProperty();
+            data.put("fluidName", prop != null ? prop.getFluidName() : "");
+            data.put("currentFillLiters", pump.getCurrentFillLiters());
+            data.put("requiredFillLiters", pump.getRequiredFillLiters());
+            data.put("fillFraction", pump.getFillFraction());
+            data.put("totalCoolantLiters", pump.getTotalCoolantLiters());
+            data.put("reservoirCapacityLiters", pump.getReservoirCapacityLiters());
+            data.put("maxFlowRateLPerSec", pump.getMaxFlowRateLitersPerSecond());
+            data.put("peakPressureBar", pump.getPeakLoopPressureBar());
+            data.put("peakTempCelsius", pump.getPeakLoopTempCelsius());
+            data.put("powerConsumptionEU", pump.getPowerConsumptionEU());
+            data.put("powerEU", pump.getPowerConsumptionEU());
+
+            // Impeller info
+            data.put("hasImpeller", pump.hasRotor());
+            data.put("impellerEfficiency", pump.getRotorEfficiency());
+            data.put("impellerDamage", pump.getRotorDamage());
+            data.put("impellerMaxDamage", pump.getRotorMaxDamage());
+            data.put("impellerDurabilityPercent", pump.getRotorDurabilityPercent());
+            data.put("impellerDamageAccumulator", pump.getRotorDamageAccumulator());
+
+            // Dissolved gases map
+            data.put("dissolvedGases", new LinkedHashMap<>(pump.getDissolvedGases()));
+        } else {
+            data.put("loopConnected", false);
+            data.put("loopFormed", false);
+            data.put("loopState", "STOPPED");
+            data.put("loopStatus", "No coolant loop pump connected");
+            data.put("dischargeHatchDisabled", false);
+            data.put("tankMaterial", "");
+            data.put("fluidName", "");
+            data.put("currentFillLiters", 0L);
+            data.put("requiredFillLiters", 0L);
+            data.put("fillFraction", 0.0);
+            data.put("totalCoolantLiters", instrument.getCurrentReservoirLiters());
+            data.put("reservoirCapacityLiters", 0L);
+            data.put("maxFlowRateLPerSec", 0.0);
+            data.put("peakPressureBar", instrument.getCurrentPressureBar());
+            data.put("peakTempCelsius", instrument.getDeviceTemperatureCelsius());
+            data.put("powerConsumptionEU", 0L);
+            data.put("powerEU", 0L);
+            data.put("hasImpeller", false);
+            data.put("impellerEfficiency", 0.0);
+            data.put("impellerDamage", 0);
+            data.put("impellerMaxDamage", 0);
+            data.put("impellerDurabilityPercent", 0.0);
+            data.put("impellerDamageAccumulator", 0.0);
+            data.put("dissolvedGases", Collections.emptyMap());
+        }
+
         return new Object[] { data };
+    }
+
+    @Callback(
+        doc = "function():table -- Returns pump status, operating state, power, and material info.",
+        direct = true)
+    public Object[] getPumpStatus(Context context, Arguments args) {
+        Map<String, Object> status = new LinkedHashMap<>();
+        ICoolantLoopPump pump = instrument.getLoopPump();
+        if (pump != null) {
+            status.put("connected", true);
+            status.put("formed", pump.isLoopFormed());
+            status.put("state", pump.getLoopStateName());
+            status.put("status", pump.getLoopStatus());
+            status.put("powerEU", pump.getPowerConsumptionEU());
+            status.put("dischargeDisabled", pump.isDischargeHatchDisabled());
+            status.put("tankMaterial", pump.getTankMaterial() != null ? pump.getTankMaterial().mDefaultLocalName : "");
+            CoolantFluidProperty prop = pump.getCoolantFluidProperty();
+            status.put("fluidName", prop != null ? prop.getFluidName() : "");
+            status.put("peakPressureBar", pump.getPeakLoopPressureBar());
+            status.put("peakTempCelsius", pump.getPeakLoopTempCelsius());
+            status.put("maxFlowRateLPerSec", pump.getMaxFlowRateLitersPerSecond());
+        } else {
+            status.put("connected", false);
+            status.put("formed", false);
+            status.put("state", "STOPPED");
+            status.put("status", "No coolant loop pump connected");
+            status.put("powerEU", 0L);
+            status.put("dischargeDisabled", false);
+            status.put("tankMaterial", "");
+            status.put("fluidName", "");
+            status.put("peakPressureBar", instrument.getCurrentPressureBar());
+            status.put("peakTempCelsius", instrument.getDeviceTemperatureCelsius());
+            status.put("maxFlowRateLPerSec", 0.0);
+        }
+        return new Object[] { status };
+    }
+
+    @Callback(
+        doc = "function():table -- Returns impeller / rotor presence, wear, durability, and efficiency.",
+        direct = true)
+    public Object[] getImpellerStatus(Context context, Arguments args) {
+        Map<String, Object> status = new LinkedHashMap<>();
+        ICoolantLoopPump pump = instrument.getLoopPump();
+        if (pump != null) {
+            status.put("hasImpeller", pump.hasRotor());
+            status.put("efficiency", pump.getRotorEfficiency());
+            status.put("damage", pump.getRotorDamage());
+            status.put("maxDamage", pump.getRotorMaxDamage());
+            status.put("wearPercent", instrument.getCurrentImpellerWearPercent());
+            status.put("durabilityPercent", pump.getRotorDurabilityPercent());
+            status.put("damageAccumulator", pump.getRotorDamageAccumulator());
+        } else {
+            status.put("hasImpeller", false);
+            status.put("efficiency", 0.0);
+            status.put("damage", 0);
+            status.put("maxDamage", 0);
+            status.put("wearPercent", instrument.getCurrentImpellerWearPercent());
+            status.put("durabilityPercent", 0.0);
+            status.put("damageAccumulator", 0.0);
+        }
+        return new Object[] { status };
+    }
+
+    @Callback(doc = "function():table -- Returns coolant fluid inventory in loop and reservoir.", direct = true)
+    public Object[] getFluidInventory(Context context, Arguments args) {
+        Map<String, Object> inv = new LinkedHashMap<>();
+        ICoolantLoopPump pump = instrument.getLoopPump();
+        if (pump != null) {
+            CoolantFluidProperty prop = pump.getCoolantFluidProperty();
+            inv.put("fluidName", prop != null ? prop.getFluidName() : "");
+            inv.put("currentFillLiters", pump.getCurrentFillLiters());
+            inv.put("requiredFillLiters", pump.getRequiredFillLiters());
+            inv.put("fillFraction", pump.getFillFraction());
+            inv.put("fillPercent", instrument.getCurrentFillPercent());
+            inv.put("totalCoolantLiters", pump.getTotalCoolantLiters());
+            inv.put("reservoirCapacityLiters", pump.getReservoirCapacityLiters());
+        } else {
+            inv.put("fluidName", "");
+            inv.put("currentFillLiters", 0L);
+            inv.put("requiredFillLiters", 0L);
+            inv.put("fillFraction", 0.0);
+            inv.put("fillPercent", instrument.getCurrentFillPercent());
+            inv.put("totalCoolantLiters", instrument.getCurrentReservoirLiters());
+            inv.put("reservoirCapacityLiters", 0L);
+        }
+        return new Object[] { inv };
+    }
+
+    @Callback(
+        doc = "function():table, number -- Returns table of dissolved gas species (in liters) and total volume fraction.",
+        direct = true)
+    public Object[] getDissolvedGases(Context context, Arguments args) {
+        ICoolantLoopPump pump = instrument.getLoopPump();
+        Map<String, Long> gases = pump != null ? new LinkedHashMap<>(pump.getDissolvedGases()) : Collections.emptyMap();
+        double fraction = instrument.getCurrentGasFraction();
+        return new Object[] { gases, fraction };
+    }
+
+    @Callback(doc = "function():number -- Returns flow rate in L/s.", direct = true)
+    public Object[] getFlowRate(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentFlowRateLitersPerSecond() };
+    }
+
+    @Callback(doc = "function():number -- Returns measured temperature in Celsius.", direct = true)
+    public Object[] getTemperature(Context context, Arguments args) {
+        return new Object[] { instrument.getDeviceTemperatureCelsius() };
+    }
+
+    @Callback(doc = "function():number -- Returns measured pressure in bar.", direct = true)
+    public Object[] getPressure(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentPressureBar() };
+    }
+
+    @Callback(doc = "function():number -- Returns dissolved gas fraction (0.0 to 1.0).", direct = true)
+    public Object[] getDissolvedGasFraction(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentGasFraction() };
+    }
+
+    @Callback(doc = "function():number -- Returns impeller wear percentage (0.0 to 100.0%).", direct = true)
+    public Object[] getImpellerWear(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentImpellerWearPercent() };
+    }
+
+    @Callback(doc = "function():number -- Returns loop fill percentage (0.0 to 100.0%).", direct = true)
+    public Object[] getFillLevel(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentFillPercent() };
+    }
+
+    @Callback(doc = "function():number -- Returns remaining reservoir fluid volume in liters.", direct = true)
+    public Object[] getReservoirLevel(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentReservoirLiters() };
     }
 
     @Callback(doc = "function():string -- Returns currently tracked loop metric name.", direct = true)

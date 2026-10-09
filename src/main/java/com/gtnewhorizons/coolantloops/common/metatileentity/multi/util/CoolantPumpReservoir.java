@@ -51,6 +51,50 @@ public class CoolantPumpReservoir {
         this.simulatedTankCapacityLiters = simulatedTankCapacityLiters;
     }
 
+    public long getTotalTankCapacityLiters() {
+        if (simulatedTankCapacityLiters > 0) {
+            return simulatedTankCapacityLiters;
+        }
+        IGregTechTileEntity baseTE = pump.getBaseMetaTileEntity();
+        if (baseTE != null && baseTE.getWorld() != null) {
+            World world = baseTE.getWorld();
+            int x0 = baseTE.getXCoord();
+            int y0 = baseTE.getYCoord();
+            int z0 = baseTE.getZCoord();
+            ForgeDirection front = baseTE.getFrontFacing();
+            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
+                : ForgeDirection.SOUTH;
+            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
+                ? front.getRotation(ForgeDirection.UP)
+                : ForgeDirection.WEST;
+            for (int localX = 0; localX < pump.getWidth(); localX++) {
+                for (int localZ = 0; localZ < pump.getWidth(); localZ++) {
+                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
+                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
+                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
+                        int y = y0 + yOffset;
+                        TileEntity tile = world.getTileEntity(bx, y, bz);
+                        if (tile instanceof TileTankBase) {
+                            TileTankBase tankTile = (TileTankBase) tile;
+                            TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
+                            if (master != null && master.getTank() != null) {
+                                return master.getTank()
+                                    .getCapacity();
+                            }
+                        }
+                        if (tile instanceof IFluidHandler) {
+                            FluidTankInfo[] infos = ((IFluidHandler) tile).getTankInfo(ForgeDirection.DOWN);
+                            if (infos != null && infos.length > 0 && infos[0] != null) {
+                                return infos[0].capacity;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return 0L;
+    }
+
     public static Materials getRailcraftTankMaterial(TileEntity te) {
         if (te == null) return null;
         if (te instanceof TileTankBase) {
