@@ -37,6 +37,7 @@ import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.GTValues;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -103,6 +104,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     // Reservoir management
     protected final CoolantPumpReservoir mReservoir = new CoolantPumpReservoir(this);
     protected boolean mHasEverBeenEnabled = false;
+    protected boolean mPowerFailed = false;
+
+    public boolean isPowerFailed() {
+        return mPowerFailed;
+    }
+
+    @Override
+    public void onEnableWorking() {
+        super.onEnableWorking();
+        mPowerFailed = false;
+    }
 
     public boolean isMachineFormed() {
         return mMachine;
@@ -599,8 +611,89 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
     }
 
+    public List<MTEHatchEnergy> getValidEnergyHatches() {
+        List<MTEHatchEnergy> list = new ArrayList<>();
+        if (mEnergyHatches != null) {
+            for (MTEHatchEnergy hatch : mEnergyHatches) {
+                if (hatch != null && (hatch.isValid() || hatch.getBaseMetaTileEntity() != null)) {
+                    list.add(hatch);
+                }
+            }
+        }
+        return list;
+    }
+
+    public long getRequiredPowerDrawEU() {
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (hatches.isEmpty()) {
+            return 512L;
+        }
+        if (hatches.size() == 1) {
+            int tier = Math.max(0, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
+            return GTValues.V[tier];
+        }
+        int maxTier = 0;
+        for (MTEHatchEnergy h : hatches) {
+            if (h.mTier > maxTier) {
+                maxTier = h.mTier;
+            }
+        }
+        maxTier = Math.max(0, Math.min(maxTier, GTValues.V.length - 1));
+        return 4L * GTValues.V[maxTier];
+    }
+
+    public boolean triggerPowerfail() {
+        mPowerFailed = true;
+        disableWorking();
+        IGregTechTileEntity baseTE = getBaseMetaTileEntity();
+        if (baseTE != null) {
+            baseTE.disableWorking();
+            baseTE.setActive(false);
+        }
+        mLoopState = LoopState.STOPPED;
+        mEngine.setPumpPowered(false);
+        mEngine.setPumpMechanicalPowerWatts(0.0);
+        mEngine.setBraking(false);
+        mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.unpowered");
+        mEngine.step(0.05);
+        return true;
+    }
+
     public boolean drainEnergy(long aEU) {
-        if (drainEnergyInput(aEU)) return true;
+        if (aEU <= 0) return true;
+
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (!hatches.isEmpty()) {
+            long totalStored = 0L;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    totalStored += bte.getStoredEU();
+                }
+            }
+
+            if (totalStored < aEU) {
+                return false;
+            }
+
+            long remaining = aEU;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    long stored = bte.getStoredEU();
+                    if (stored > 0) {
+                        long toDrain = Math.min(stored, remaining);
+                        bte.decreaseStoredEnergyUnits(toDrain, false);
+                        remaining -= toDrain;
+                        if (remaining <= 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return remaining <= 0;
+        }
+
         if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() >= aEU) {
             return getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
         }
@@ -628,10 +721,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         // Draw electrical power if allowed to work (soft hammer / redstone control)
         boolean isWorking = isAllowedToWork();
         if (!isWorking) {
+            if (baseTE != null) {
+                baseTE.setActive(false);
+            }
             mEngine.setPumpPowered(false);
             mEngine.setPumpMechanicalPowerWatts(0.0);
             mEngine.setBraking(false);
-            if (mLoopState == LoopState.FILLING) {
+            if (mPowerFailed) {
+                mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.unpowered");
+            } else if (mLoopState == LoopState.FILLING) {
                 mLoopStatus = CoolantLocalization
                     .format("coolantloops.pump.status.filling_paused", mCurrentFillLiters, mRequiredFillLiters);
             } else if (mLoopState == LoopState.DECELERATING || mLoopState == LoopState.DRAINING) {
@@ -802,26 +900,24 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         // Check if high-pressure output hatch is disabled by machine controller cover
         boolean dischargeDisabled = isDischargeHatchDisabled();
         if (dischargeDisabled) {
-            checkMaintenance();
-            double effFactor = getEfficiencyFactor();
-            long availableEU = 0;
-            if (mEnergyHatches != null && !mEnergyHatches.isEmpty()) {
-                long voltage = getMaxInputVoltage();
-                long amps = mEnergyHatches.size() >= 2 ? 4 : 2;
-                availableEU = voltage * amps;
-            }
-            if (availableEU == 0) availableEU = 512;
-            boolean powered = drainEnergy(availableEU);
-            double mechanicalWatts = powered ? (availableEU * 80.0 * mRotorEfficiency * effFactor) : 0.0;
-            if (powered) {
-                degradeRotor(availableEU);
-            }
-
             double flowRate = mEngine.getVolumetricFlowRate();
             if (flowRate > 1e-5) {
                 // Phase A: Active deceleration down to zero
+                checkMaintenance();
+                double effFactor = getEfficiencyFactor();
+                long requiredEU = getRequiredPowerDrawEU();
+                boolean powered = drainEnergy(requiredEU);
+                if (!powered) {
+                    return triggerPowerfail();
+                }
+                if (baseTE != null) {
+                    baseTE.setActive(true);
+                }
+                double mechanicalWatts = requiredEU * 80.0 * mRotorEfficiency * effFactor;
+                degradeRotor(requiredEU);
+
                 mLoopState = LoopState.DECELERATING;
-                mEngine.setPumpPowered(powered);
+                mEngine.setPumpPowered(true);
                 mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
                 mEngine.setBraking(true);
 
@@ -853,6 +949,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 return true;
             } else {
                 // Phase B: Flow is zero, return fluid in loop back to reservoir
+                if (baseTE != null) {
+                    baseTE.setActive(false);
+                }
                 mEngine.setVolumetricFlowRate(0.0);
                 mEngine.setBraking(false);
                 mEngine.setPumpPowered(false);
@@ -900,6 +999,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         // Initial Loop Filling Phase (when hatch is enabled)
         if (mLoopState == LoopState.EMPTY || mLoopState == LoopState.DRAINING
             || mCurrentFillLiters < mRequiredFillLiters) {
+            long requiredEU = getRequiredPowerDrawEU();
+            if (!drainEnergy(requiredEU)) {
+                return triggerPowerfail();
+            }
+            if (baseTE != null) {
+                baseTE.setActive(true);
+            }
+            degradeRotor(requiredEU);
+
             mLoopState = LoopState.FILLING;
             // No flow acceleration, power or convective heat transfer during filling
             mEngine.setPumpPowered(false);
@@ -942,67 +1050,61 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         // Active Circulation Phase
         checkMaintenance();
         double effFactor = getEfficiencyFactor();
-        long availableEU = 0;
-        if (mEnergyHatches != null && !mEnergyHatches.isEmpty()) {
-            long voltage = getMaxInputVoltage();
-            long amps = mEnergyHatches.size() >= 2 ? 4 : 2;
-            availableEU = voltage * amps;
+        long requiredEU = getRequiredPowerDrawEU();
+        boolean hasPower = drainEnergy(requiredEU);
+        if (!hasPower) {
+            return triggerPowerfail();
         }
-        if (availableEU == 0) availableEU = 512;
-        boolean hasPower = drainEnergy(availableEU);
-        if (hasPower) {
-            // Refuse to accelerate flow if molten fluid is below declared GregTech melting point
-            if (isMolten) {
-                double minLoopTemp = mEngine.getMinLoopTempCelsius();
-                double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
-                    reservoirFluid != null ? reservoirFluid.getFluid() : null,
-                    reservoirFluid,
-                    currentProp);
-                if (minLoopTemp < declaredMelting) {
-                    if (mEngine.getVolumetricFlowRate() > 1e-5) {
-                        mEngine.setRuptured(true);
-                        mEngine.setFailureReason(
-                            CoolantLocalization.format(
-                                "coolantloops.pump.status.catastrophic_solidification",
-                                minLoopTemp,
-                                declaredMelting,
-                                currentProp != null ? currentProp.getFluidName() : "molten fluid"));
-                        triggerCatastrophicExplosion(mEngine.getFailureReason());
-                        return false;
+        if (baseTE != null) {
+            baseTE.setActive(true);
+        }
+
+        // Refuse to accelerate flow if molten fluid is below declared GregTech melting point
+        if (isMolten) {
+            double minLoopTemp = mEngine.getMinLoopTempCelsius();
+            double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(
+                reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                reservoirFluid,
+                currentProp);
+            if (minLoopTemp < declaredMelting) {
+                if (mEngine.getVolumetricFlowRate() > 1e-5) {
+                    mEngine.setRuptured(true);
+                    mEngine.setFailureReason(
+                        CoolantLocalization.format(
+                            "coolantloops.pump.status.catastrophic_solidification",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                    triggerCatastrophicExplosion(mEngine.getFailureReason());
+                    return false;
+                } else {
+                    double biomeTemp = getBiomeTemperatureCelsius();
+                    mLoopState = LoopState.STOPPED;
+                    mEngine.setPumpPowered(false);
+                    mEngine.setPumpMechanicalPowerWatts(0.0);
+                    if (biomeTemp < declaredMelting) {
+                        mLoopStatus = CoolantLocalization.format(
+                            "coolantloops.pump.status.refuse_solidify",
+                            biomeTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     } else {
-                        double biomeTemp = getBiomeTemperatureCelsius();
-                        mLoopState = LoopState.STOPPED;
-                        mEngine.setPumpPowered(false);
-                        mEngine.setPumpMechanicalPowerWatts(0.0);
-                        if (biomeTemp < declaredMelting) {
-                            mLoopStatus = CoolantLocalization.format(
-                                "coolantloops.pump.status.refuse_solidify",
-                                biomeTemp,
-                                declaredMelting,
-                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                        } else {
-                            mLoopStatus = CoolantLocalization.format(
-                                "coolantloops.pump.status.refuse_solidify_coolant",
-                                minLoopTemp,
-                                declaredMelting,
-                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                        }
-                        return true;
+                        mLoopStatus = CoolantLocalization.format(
+                            "coolantloops.pump.status.refuse_solidify_coolant",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     }
+                    return true;
                 }
             }
-
-            mLoopState = LoopState.CIRCULATING;
-            mEngine.setPumpPowered(true);
-            double mechanicalWatts = availableEU * 80.0 * mRotorEfficiency * effFactor;
-            mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
-            degradeRotor(availableEU);
-        } else {
-            mLoopState = LoopState.STOPPED;
-            mEngine.setPumpPowered(false);
-            mEngine.setPumpMechanicalPowerWatts(0.0);
-            mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.unpowered");
         }
+
+        mLoopState = LoopState.CIRCULATING;
+        mEngine.setPumpPowered(true);
+        double mechanicalWatts = requiredEU * 80.0 * mRotorEfficiency * effFactor;
+        mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
+        degradeRotor(requiredEU);
 
         // Synchronize dissolved gas fraction across engine and all segments
         double gasFrac = getDissolvedGasFraction();
@@ -1039,7 +1141,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     @Override
     public boolean onRunningTick(ItemStack aStack) {
-        return stepCoolantLoop();
+        return true;
     }
 
     /**
@@ -1601,6 +1703,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         aNBT.setLong("mCurrentFillLiters", mCurrentFillLiters);
         aNBT.setLong("mRequiredFillLiters", mRequiredFillLiters);
         aNBT.setDouble("mRotorDamageAccumulator", mRotorDamageAccumulator);
+        aNBT.setBoolean("mPowerFailed", mPowerFailed);
         if (mTankMaterial != null && mTankMaterial.mName != null) {
             aNBT.setString("mTankMaterial", mTankMaterial.mName);
         }
@@ -1626,6 +1729,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         if (aNBT.hasKey("mRotorDamageAccumulator")) {
             mRotorDamageAccumulator = aNBT.getDouble("mRotorDamageAccumulator");
+        }
+        if (aNBT.hasKey("mPowerFailed")) {
+            mPowerFailed = aNBT.getBoolean("mPowerFailed");
         }
         if (aNBT.hasKey("mTankMaterial")) {
             Materials mat = Materials.get(aNBT.getString("mTankMaterial"));

@@ -12,8 +12,12 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
+import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
+import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.enums.Materials;
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 
 /**
  * Unit tests verifying:
@@ -622,5 +626,199 @@ public class CoolantPumpStructureTest {
         assertFalse(
             pumpNether.getLoopStatus()
                 .contains("below declared GregTech melting point"));
+    }
+
+    private MTEHatchEnergy createMockEnergyHatch(int tier, long[] storedEUHolder) {
+        MTEHatchEnergy hatch = new MTEHatchEnergy("test_hatch_" + tier, tier, new String[0], null);
+        IGregTechTileEntity baseTE = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(baseTE.getStoredEU())
+            .thenAnswer(inv -> storedEUHolder[0]);
+        Mockito.when(baseTE.decreaseStoredEnergyUnits(Mockito.anyLong(), Mockito.anyBoolean()))
+            .thenAnswer(inv -> {
+                long toDecrease = (Long) inv.getArguments()[0];
+                if (storedEUHolder[0] >= toDecrease) {
+                    storedEUHolder[0] -= toDecrease;
+                    return true;
+                }
+                return false;
+            });
+        hatch.setBaseMetaTileEntity(baseTE);
+        return hatch;
+    }
+
+    private MTECoolantPump createOperatingPumpWithBase(boolean[] allowedToWorkHolder) {
+        MTECoolantPump pump = new MTECoolantPump("test_pump");
+        IGregTechTileEntity mockPumpBase = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenAnswer(inv -> allowedToWorkHolder[0]);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
+        Mockito.doAnswer(inv -> {
+            allowedToWorkHolder[0] = false;
+            return null;
+        })
+            .when(mockPumpBase)
+            .disableWorking();
+        Mockito.doAnswer(inv -> {
+            allowedToWorkHolder[0] = true;
+            return null;
+        })
+            .when(mockPumpBase)
+            .enableWorking();
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+
+        net.minecraft.item.Item mockTool = Mockito.mock(net.minecraft.item.Item.class);
+        ItemStack mockRotor = Mockito.mock(ItemStack.class);
+        Mockito.when(mockRotor.getItem())
+            .thenReturn(mockTool);
+        Mockito.when(mockRotor.getItemDamage())
+            .thenReturn(0);
+        Mockito.when(mockRotor.getMaxDamage())
+            .thenReturn(1000);
+        pump.setRotorStack(mockRotor);
+
+        LoopSegment seg = new LoopSegment("seg_test", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 20.0);
+        pump.getEngine()
+            .addSegment(seg);
+        pump.getEngine()
+            .setFluid(CoolantFluidProperty.DISTILLED_WATER);
+        pump.setRequiredFillLiters(1000L);
+        pump.setCurrentFillLiters(1000L);
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+        return pump;
+    }
+
+    @Test
+    public void testSingleEnergyHatchPowerDrawAndPowerfailShutdown() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // 1 EV Hatch (tier = 4 -> 2048 EU/t, 1A)
+        long[] hatchEU = new long[] { 10000L };
+        MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatchEU);
+        pump.mEnergyHatches.add(evHatch);
+
+        assertEquals(2048L, pump.getRequiredPowerDrawEU());
+
+        // Step tick: has 10,000 EU >= 2048 EU
+        assertTrue(pump.stepCoolantLoop());
+        assertEquals(10000L - 2048L, hatchEU[0]);
+        assertTrue(pump.isAllowedToWork());
+        assertFalse(pump.isPowerFailed());
+        assertEquals(MTECoolantPump.LoopState.CIRCULATING, pump.getLoopState());
+
+        // Drain until insufficient EU (< 2048)
+        hatchEU[0] = 1000L;
+        assertTrue(pump.stepCoolantLoop());
+
+        // Verify powerfail
+        assertFalse(pump.isAllowedToWork());
+        assertFalse(pumpAllowed[0]);
+        assertTrue(pump.isPowerFailed());
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+        assertEquals(1000L, hatchEU[0]); // Atomic: not partially drained!
+        assertEquals("Pump unpowered (No EU in Energy Hatch)", pump.getLoopStatus());
+
+        // Restore power to hatch (10,000 EU)
+        hatchEU[0] = 10000L;
+
+        // Step tick: MUST NOT automatically restart!
+        assertTrue(pump.stepCoolantLoop());
+        assertFalse(pump.isAllowedToWork());
+        assertTrue(pump.isPowerFailed());
+        assertEquals(10000L, hatchEU[0]); // No power drawn while stopped!
+
+        // Player manually restarts the pump (e.g. soft mallet / GUI button)
+        pump.getBaseMetaTileEntity()
+            .enableWorking();
+        pump.onEnableWorking();
+        assertTrue(pump.isAllowedToWork());
+        assertFalse(pump.isPowerFailed());
+
+        // Now pump runs and draws power again
+        assertTrue(pump.stepCoolantLoop());
+        assertEquals(10000L - 2048L, hatchEU[0]);
+        assertTrue(pump.isAllowedToWork());
+        assertEquals(MTECoolantPump.LoopState.CIRCULATING, pump.getLoopState());
+    }
+
+    @Test
+    public void testTwoEnergyHatchesPowerDrawAndAtomicDraining() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // 2 EV Hatches (tier 4 -> 4A at 2048V = 8192 EU/t)
+        long[] hatch1EU = new long[] { 5000L };
+        long[] hatch2EU = new long[] { 5000L };
+        MTEHatchEnergy evHatch1 = createMockEnergyHatch(4, hatch1EU);
+        MTEHatchEnergy evHatch2 = createMockEnergyHatch(4, hatch2EU);
+        pump.mEnergyHatches.add(evHatch1);
+        pump.mEnergyHatches.add(evHatch2);
+
+        assertEquals(8192L, pump.getRequiredPowerDrawEU());
+
+        // Combined = 10,000 EU >= 8192 EU -> draws 5000 from hatch1 and 3192 from hatch2
+        assertTrue(pump.stepCoolantLoop());
+        assertEquals(0L, hatch1EU[0]);
+        assertEquals(1808L, hatch2EU[0]);
+        assertTrue(pump.isAllowedToWork());
+
+        // Now combined = 4000 + 4000 = 8000 EU < 8192 EU
+        hatch1EU[0] = 4000L;
+        hatch2EU[0] = 4000L;
+        assertTrue(pump.stepCoolantLoop());
+
+        // Must powerfail and must NOT partially drain either hatch
+        assertFalse(pump.isAllowedToWork());
+        assertTrue(pump.isPowerFailed());
+        assertEquals(4000L, hatch1EU[0]);
+        assertEquals(4000L, hatch2EU[0]);
+    }
+
+    @Test
+    public void testMixedTierEnergyHatchesPowerDraw() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // 1 HV hatch (tier = 3, 512V) + 1 IV hatch (tier = 5, 8192V)
+        // User rule: 4 amps at higher tier voltage = 4 * 8192 = 32768 EU/t
+        long[] hatchHvEU = new long[] { 20000L };
+        long[] hatchIvEU = new long[] { 20000L };
+        MTEHatchEnergy hvHatch = createMockEnergyHatch(3, hatchHvEU);
+        MTEHatchEnergy ivHatch = createMockEnergyHatch(5, hatchIvEU);
+        pump.mEnergyHatches.add(hvHatch);
+        pump.mEnergyHatches.add(ivHatch);
+
+        assertEquals(32768L, pump.getRequiredPowerDrawEU());
+
+        // Combined = 40000 EU >= 32768 EU
+        assertTrue(pump.stepCoolantLoop());
+        assertTrue(pump.isAllowedToWork());
+        assertEquals(0L, hatchHvEU[0]);
+        assertEquals(7232L, hatchIvEU[0]);
+    }
+
+    @Test
+    public void testFillingPhaseRequiresPowerAndFailsWithoutIt() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // 1 EV Hatch with 0 EU
+        long[] hatchEU = new long[] { 0L };
+        MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatchEU);
+        pump.mEnergyHatches.add(evHatch);
+
+        // Loop is un-filled
+        pump.setRequiredFillLiters(10000L);
+        pump.setCurrentFillLiters(0L);
+        pump.setLoopState(MTECoolantPump.LoopState.FILLING);
+
+        assertTrue(pump.stepCoolantLoop());
+
+        // Must powerfail during filling phase
+        assertFalse(pump.isAllowedToWork());
+        assertTrue(pump.isPowerFailed());
+        assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
     }
 }
