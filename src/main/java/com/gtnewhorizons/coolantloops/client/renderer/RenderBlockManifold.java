@@ -48,6 +48,44 @@ public class RenderBlockManifold implements ISimpleBlockRenderingHandler {
         }
 
         TileEntityManifold manifold = (TileEntityManifold) te;
+        if (gregtech.GTMod.GT.isClientSide() && gregtech.GTMod.clientProxy()
+            .shouldHideThings()) {
+            final float t = 0.0625F;
+            final float min = (1.0F - t) / 2.0F;
+            final float max = 1.0F - min;
+
+            // Center small hub
+            renderer.setRenderBounds(min, min, min, max, max, max);
+            renderer.renderStandardBlock(block, x, y, z);
+
+            // Thin wire branches to connected sides
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST)) {
+                renderer.setRenderBounds(0.0F, min, min, min, max, max);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST)) {
+                renderer.setRenderBounds(max, min, min, 1.0F, max, max);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.DOWN)) {
+                renderer.setRenderBounds(min, 0.0F, min, max, min, max);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.UP)) {
+                renderer.setRenderBounds(min, max, min, max, 1.0F, max);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH)) {
+                renderer.setRenderBounds(min, min, 0.0F, max, max, min);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH)) {
+                renderer.setRenderBounds(min, min, max, max, max, 1.0F);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+            return true;
+        }
+
         List<AxisAlignedBB> boxes = manifold.getComponentBoundingBoxes(0, 0, 0);
         for (AxisAlignedBB box : boxes) {
             renderer.setRenderBounds(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);

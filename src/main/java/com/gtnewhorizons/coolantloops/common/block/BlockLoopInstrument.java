@@ -153,6 +153,9 @@ public class BlockLoopInstrument extends BlockContainer {
 
     public static boolean isWrench(ItemStack stack) {
         if (stack == null) return false;
+        if (gregtech.api.util.GTUtility.isStackInList(stack, gregtech.api.GregTechAPI.sWrenchList)) {
+            return true;
+        }
         for (int id : OreDictionary.getOreIDs(stack)) {
             String name = OreDictionary.getOreName(id);
             if ("craftingToolWrench".equals(name) || "wrench".equals(name)) {

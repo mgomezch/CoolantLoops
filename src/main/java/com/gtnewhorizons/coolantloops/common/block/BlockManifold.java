@@ -99,9 +99,20 @@ public class BlockManifold extends BlockContainer {
         }
     }
 
+    public boolean shouldForceFullBlockBB() {
+        return gregtech.GTMod.GT.isClientSide() && gregtech.GTMod.clientProxy()
+            .forceFullBlockBB();
+    }
+
     @Override
     public void addCollisionBoxesToList(World world, int x, int y, int z, AxisAlignedBB mask, List list,
         Entity entity) {
+        if (shouldForceFullBlockBB()) {
+            AxisAlignedBB fullBox = AxisAlignedBB.getBoundingBox(x, y, z, x + 1, y + 1, z + 1);
+            if (mask.intersectsWith(fullBox)) {
+                list.add(fullBox);
+            }
+        }
         TileEntity te = world.getTileEntity(x, y, z);
         if (te instanceof TileEntityManifold manifold) {
             List<AxisAlignedBB> boxes = manifold.getComponentBoundingBoxes(x, y, z);
@@ -117,18 +128,28 @@ public class BlockManifold extends BlockContainer {
 
     @Override
     public AxisAlignedBB getCollisionBoundingBoxFromPool(World world, int x, int y, int z) {
+        if (shouldForceFullBlockBB()) {
+            return AxisAlignedBB.getBoundingBox(x, y, z, x + 1, y + 1, z + 1);
+        }
         setBlockBoundsBasedOnState(world, x, y, z);
         return super.getCollisionBoundingBoxFromPool(world, x, y, z);
     }
 
     @Override
     public AxisAlignedBB getSelectedBoundingBoxFromPool(World world, int x, int y, int z) {
+        if (shouldForceFullBlockBB()) {
+            return AxisAlignedBB.getBoundingBox(x, y, z, x + 1, y + 1, z + 1);
+        }
         setBlockBoundsBasedOnState(world, x, y, z);
         return super.getSelectedBoundingBoxFromPool(world, x, y, z);
     }
 
     @Override
     public void setBlockBoundsBasedOnState(IBlockAccess world, int x, int y, int z) {
+        if (shouldForceFullBlockBB()) {
+            setBlockBounds(0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F);
+            return;
+        }
         TileEntity te = world.getTileEntity(x, y, z);
         if (te instanceof TileEntityManifold manifold) {
             AxisAlignedBB union = manifold.getUnionBoundingBox();

@@ -23,6 +23,9 @@ import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
+import gregtech.api.interfaces.metatileentity.IConnectable;
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+
 /**
  * Manifold TileEntity.
  * A 3D pipe-like junction object with an orientable "connect-to-other-manifold-blocks" plane
@@ -30,7 +33,7 @@ import com.gtnewhorizons.coolantloops.engine.LoopSegment;
  * Adjacent manifold blocks must share the same plane orientation and explicit mutual connection
  * to form a single manifold group.
  */
-public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice, IFluidHandler {
+public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice, IFluidHandler, IConnectable {
 
     private ForgeDirection facing = ForgeDirection.NORTH; // Normal facing defining the plane
     private byte connections = (byte) 0x3F; // Bitmask for 6 directions (bits 0..5), default all connected
@@ -181,7 +184,7 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     }
 
     /**
-     * Toggles connection on the given side and, if an adjacent manifold is present,
+     * Toggles connection on the given side and, if an adjacent manifold or connectable pipe is present,
      * updates the reciprocal connection on that neighbor as well.
      */
     public boolean toggleConnectionWithNeighbor(ForgeDirection dir) {
@@ -189,11 +192,41 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         if (worldObj != null) {
             TileEntity neighbor = worldObj
                 .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (neighbor instanceof TileEntityManifold) {
-                ((TileEntityManifold) neighbor).setConnected(dir.getOpposite(), newState);
-            }
+            ForgeDirection opp = dir.getOpposite();
+            if (neighbor instanceof IConnectable connectable) {
+                if (newState) {
+                    connectable.connect(opp);
+                } else {
+                    connectable.disconnect(opp);
+                }
+            } else if (neighbor instanceof IGregTechTileEntity gte
+                && gte.getMetaTileEntity() instanceof IConnectable connectable) {
+                    if (newState) {
+                        connectable.connect(opp);
+                    } else {
+                        connectable.disconnect(opp);
+                    }
+                }
         }
         return newState;
+    }
+
+    // --- IConnectable Implementation ---
+
+    @Override
+    public int connect(ForgeDirection side) {
+        setConnected(side, true);
+        return 1;
+    }
+
+    @Override
+    public void disconnect(ForgeDirection side) {
+        setConnected(side, false);
+    }
+
+    @Override
+    public boolean isConnectedAtSide(ForgeDirection side) {
+        return isConnected(side);
     }
 
     // --- 3D Bounding Boxes for Selection and Collisions ---

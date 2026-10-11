@@ -213,9 +213,89 @@ public class CoolantPipeVisualTest {
         assertTrue(
             pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.SOUTH, inst),
             "Pipe must connect to instrument's non-facing side");
-        // Pipe is to the WEST of instrument, querying towards EAST
+    }
+
+    @Test
+    public void testSolderingIronThinBezel() {
+        // When holding a soldering iron, pipe thickness is 0.0625F (1/16th block)
+        float b = MTECoolantPipe.getBezelSize(0.0625F);
+        assertEquals(0.0F, b, 1e-6, "Bezel size must be 0 for thin wire/soldering iron mode");
+    }
+
+    @Test
+    public void testManifoldIConnectableImplementation() {
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold manifold = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+
         assertTrue(
-            pipe.canConnect(net.minecraftforge.common.util.ForgeDirection.EAST, inst),
-            "Pipe must connect to instrument's non-facing side");
+            manifold instanceof gregtech.api.interfaces.metatileentity.IConnectable,
+            "TileEntityManifold must implement IConnectable");
+
+        gregtech.api.interfaces.metatileentity.IConnectable connectable = manifold;
+        connectable.disconnect(net.minecraftforge.common.util.ForgeDirection.WEST);
+        assertFalse(connectable.isConnectedAtSide(net.minecraftforge.common.util.ForgeDirection.WEST));
+        assertFalse(manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST));
+
+        int result = connectable.connect(net.minecraftforge.common.util.ForgeDirection.WEST);
+        assertTrue(result > 0);
+        assertTrue(connectable.isConnectedAtSide(net.minecraftforge.common.util.ForgeDirection.WEST));
+        assertTrue(manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST));
+    }
+
+    @Test
+    public void testManifoldReciprocalNeighborConnection() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m1 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m1.xCoord = 10;
+        m1.yCoord = 64;
+        m1.zCoord = 10;
+        m1.setWorldObj(mockWorld);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m2 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m2.xCoord = 11;
+        m2.yCoord = 64;
+        m2.zCoord = 10;
+        m2.setWorldObj(mockWorld);
+
+        Mockito.when(mockWorld.getTileEntity(11, 64, 10))
+            .thenReturn(m2);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 10))
+            .thenReturn(m1);
+
+        // Initially both connected
+        assertTrue(m1.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST));
+        assertTrue(m2.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST));
+
+        // Toggle EAST on m1: both m1 EAST and m2 WEST should disconnect
+        boolean newState = m1.toggleConnectionWithNeighbor(net.minecraftforge.common.util.ForgeDirection.EAST);
+        assertFalse(newState);
+        assertFalse(m1.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST));
+        assertFalse(m2.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST));
+
+        // Toggle again: both should reconnect
+        newState = m1.toggleConnectionWithNeighbor(net.minecraftforge.common.util.ForgeDirection.EAST);
+        assertTrue(newState);
+        assertTrue(m1.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST));
+        assertTrue(m2.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST));
+    }
+
+    @Test
+    public void testBlockManifoldHitboxExpansion() {
+        com.gtnewhorizons.coolantloops.common.block.BlockManifold block = new com.gtnewhorizons.coolantloops.common.block.BlockManifold() {
+
+            @Override
+            public boolean shouldForceFullBlockBB() {
+                return true;
+            }
+        };
+
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        AxisAlignedBB box = block.getSelectedBoundingBoxFromPool(mockWorld, 10, 20, 30);
+        assertEquals(10.0, box.minX, 1e-6);
+        assertEquals(20.0, box.minY, 1e-6);
+        assertEquals(30.0, box.minZ, 1e-6);
+        assertEquals(11.0, box.maxX, 1e-6);
+        assertEquals(21.0, box.maxY, 1e-6);
+        assertEquals(31.0, box.maxZ, 1e-6);
     }
 }

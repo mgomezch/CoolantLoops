@@ -170,6 +170,7 @@ public class MTECoolantPipe extends MTEFluidPipe {
      * Calculates the corner cut-out/bezel dimension proportional to pipe thickness.
      */
     public static float getBezelSize(float thickness) {
+        if (thickness <= 0.0625F) return 0.0F;
         return Math.max(0.02F, Math.min(0.0625F, thickness * 0.125F));
     }
 
@@ -261,6 +262,17 @@ public class MTECoolantPipe extends MTEFluidPipe {
         final ITexture[] sideTexture = textures[0];
         final ITexture[] endTexture = textures[1];
 
+        if (b <= 0.0F) {
+            renderBlocks.setRenderBounds(0.0F, pipeMin, pipeMin, 1.0F, pipeMax, pipeMax);
+            ctx.renderNegativeZFacing(sideTexture);
+            ctx.renderPositiveZFacing(sideTexture);
+            ctx.renderNegativeYFacing(sideTexture);
+            ctx.renderPositiveYFacing(sideTexture);
+            ctx.renderNegativeXFacing(endTexture);
+            ctx.renderPositiveXFacing(endTexture);
+            return true;
+        }
+
         // Render straight X segment with beveled corners in inventory
         renderBeveledSegmentX(
             ctx,
@@ -311,6 +323,107 @@ public class MTECoolantPipe extends MTEFluidPipe {
         final ITexture[] textureEast = rte.getTextureUncovered(EAST);
 
         final RenderBlocks renderBlocks = ctx.getRenderBlocks();
+
+        if (b <= 0.0F) {
+            switch (aConnections) {
+                case NO_CONNECTION -> {
+                    renderBlocks.setRenderBounds(pipeMin, pipeMin, pipeMin, pipeMax, pipeMax, pipeMax);
+                    ctx.renderNegativeYFacing(textureDown);
+                    ctx.renderPositiveYFacing(textureUp);
+                    ctx.renderNegativeZFacing(textureNorth);
+                    ctx.renderPositiveZFacing(textureSouth);
+                    ctx.renderNegativeXFacing(textureWest);
+                    ctx.renderPositiveXFacing(textureEast);
+                }
+                case CONNECTED_EAST | CONNECTED_WEST -> {
+                    renderBlocks.setRenderBounds(0.0F, pipeMin, pipeMin, 1.0F, pipeMax, pipeMax);
+                    ctx.renderNegativeYFacing(textureDown);
+                    ctx.renderPositiveYFacing(textureUp);
+                    ctx.renderNegativeZFacing(textureNorth);
+                    ctx.renderPositiveZFacing(textureSouth);
+                    ctx.renderNegativeXFacing(textureWest);
+                    ctx.renderPositiveXFacing(textureEast);
+                }
+                case CONNECTED_DOWN | CONNECTED_UP -> {
+                    renderBlocks.setRenderBounds(pipeMin, 0.0F, pipeMin, pipeMax, 1.0F, pipeMax);
+                    ctx.renderNegativeZFacing(textureNorth);
+                    ctx.renderPositiveZFacing(textureSouth);
+                    ctx.renderNegativeXFacing(textureWest);
+                    ctx.renderPositiveXFacing(textureEast);
+                    ctx.renderNegativeYFacing(textureDown);
+                    ctx.renderPositiveYFacing(textureUp);
+                }
+                case CONNECTED_NORTH | CONNECTED_SOUTH -> {
+                    renderBlocks.setRenderBounds(pipeMin, pipeMin, 0.0F, pipeMax, pipeMax, 1.0F);
+                    ctx.renderNegativeYFacing(textureDown);
+                    ctx.renderPositiveYFacing(textureUp);
+                    ctx.renderNegativeXFacing(textureWest);
+                    ctx.renderPositiveXFacing(textureEast);
+                    ctx.renderNegativeZFacing(textureNorth);
+                    ctx.renderPositiveZFacing(textureSouth);
+                }
+                default -> {
+                    renderBlocks.setRenderBounds(pipeMin, pipeMin, pipeMin, pipeMax, pipeMax, pipeMax);
+                    if ((aConnections & CONNECTED_DOWN) == 0) ctx.renderNegativeYFacing(textureDown);
+                    if ((aConnections & CONNECTED_UP) == 0) ctx.renderPositiveYFacing(textureUp);
+                    if ((aConnections & CONNECTED_NORTH) == 0) ctx.renderNegativeZFacing(textureNorth);
+                    if ((aConnections & CONNECTED_SOUTH) == 0) ctx.renderPositiveZFacing(textureSouth);
+                    if ((aConnections & CONNECTED_WEST) == 0) ctx.renderNegativeXFacing(textureWest);
+                    if ((aConnections & CONNECTED_EAST) == 0) ctx.renderPositiveXFacing(textureEast);
+
+                    if ((aConnections & CONNECTED_WEST) != 0) {
+                        renderBlocks.setRenderBounds(0.0F, pipeMin, pipeMin, pipeMin, pipeMax, pipeMax);
+                        ctx.renderNegativeYFacing(textureDown);
+                        ctx.renderPositiveYFacing(textureUp);
+                        ctx.renderNegativeZFacing(textureNorth);
+                        ctx.renderPositiveZFacing(textureSouth);
+                        ctx.renderNegativeXFacing(textureWest);
+                    }
+                    if ((aConnections & CONNECTED_EAST) != 0) {
+                        renderBlocks.setRenderBounds(pipeMax, pipeMin, pipeMin, 1.0F, pipeMax, pipeMax);
+                        ctx.renderNegativeYFacing(textureDown);
+                        ctx.renderPositiveYFacing(textureUp);
+                        ctx.renderNegativeZFacing(textureNorth);
+                        ctx.renderPositiveZFacing(textureSouth);
+                        ctx.renderPositiveXFacing(textureEast);
+                    }
+                    if ((aConnections & CONNECTED_DOWN) != 0) {
+                        renderBlocks.setRenderBounds(pipeMin, 0.0F, pipeMin, pipeMax, pipeMin, pipeMax);
+                        ctx.renderNegativeZFacing(textureNorth);
+                        ctx.renderPositiveZFacing(textureSouth);
+                        ctx.renderNegativeXFacing(textureWest);
+                        ctx.renderPositiveXFacing(textureEast);
+                        ctx.renderNegativeYFacing(textureDown);
+                    }
+                    if ((aConnections & CONNECTED_UP) != 0) {
+                        renderBlocks.setRenderBounds(pipeMin, pipeMax, pipeMin, pipeMax, 1.0F, pipeMax);
+                        ctx.renderNegativeZFacing(textureNorth);
+                        ctx.renderPositiveZFacing(textureSouth);
+                        ctx.renderNegativeXFacing(textureWest);
+                        ctx.renderPositiveXFacing(textureEast);
+                        ctx.renderPositiveYFacing(textureUp);
+                    }
+                    if ((aConnections & CONNECTED_NORTH) != 0) {
+                        renderBlocks.setRenderBounds(pipeMin, pipeMin, 0.0F, pipeMax, pipeMax, pipeMin);
+                        ctx.renderNegativeYFacing(textureDown);
+                        ctx.renderPositiveYFacing(textureUp);
+                        ctx.renderNegativeXFacing(textureWest);
+                        ctx.renderPositiveXFacing(textureEast);
+                        ctx.renderNegativeZFacing(textureNorth);
+                    }
+                    if ((aConnections & CONNECTED_SOUTH) != 0) {
+                        renderBlocks.setRenderBounds(pipeMin, pipeMin, pipeMax, pipeMax, pipeMax, 1.0F);
+                        ctx.renderNegativeYFacing(textureDown);
+                        ctx.renderPositiveYFacing(textureUp);
+                        ctx.renderNegativeXFacing(textureWest);
+                        ctx.renderPositiveXFacing(textureEast);
+                        ctx.renderPositiveZFacing(textureSouth);
+                    }
+                }
+            }
+            renderCovers(ctx, renderBlocks, rte, aConnections, thickness, pipeMin, pipeMax);
+            return true;
+        }
 
         switch (aConnections) {
             case NO_CONNECTION -> {
