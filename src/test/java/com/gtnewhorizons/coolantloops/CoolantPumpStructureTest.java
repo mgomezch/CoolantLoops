@@ -47,6 +47,22 @@ public class CoolantPumpStructureTest {
         try {
             net.minecraft.init.Bootstrap.func_151354_b();
         } catch (Throwable ignored) {}
+
+        try {
+            java.lang.reflect.Field mcHome = cpw.mods.fml.relauncher.FMLInjectionData.class
+                .getDeclaredField("minecraftHome");
+            mcHome.setAccessible(true);
+            mcHome.set(null, new java.io.File("."));
+        } catch (Throwable ignored) {}
+
+        try {
+            if (gregtech.GTMod.proxy == null) {
+                gregtech.GTMod.proxy = Mockito.mock(gregtech.common.GTProxy.class);
+            }
+            if (gregtech.GTMod.proxy.powerfailTracker == null) {
+                gregtech.GTMod.proxy.powerfailTracker = Mockito.mock(gregtech.common.data.GTPowerfailTracker.class);
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Test
@@ -326,7 +342,9 @@ public class CoolantPumpStructureTest {
         assertFalse(
             pump.getLoopStatus()
                 .contains("below declared GregTech melting point"));
-        assertEquals("Pump unpowered (No EU in Energy Hatch)", pump.getLoopStatus());
+        assertEquals(
+            gregtech.api.util.shutdown.ShutDownReasonRegistry.POWER_LOSS.getDisplayString(),
+            pump.getLoopStatus());
 
         // 3. Circulating molten coolant below melting point causes catastrophic explosion / rupture!
         com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine engine = new com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine(
@@ -653,6 +671,25 @@ public class CoolantPumpStructureTest {
             .thenAnswer(inv -> allowedToWorkHolder[0]);
         Mockito.when(mockPumpBase.isServerSide())
             .thenReturn(true);
+        boolean[] shutdownHolder = new boolean[] { false };
+        gregtech.api.util.shutdown.ShutDownReason[] shutdownReasonHolder = new gregtech.api.util.shutdown.ShutDownReason[] {
+            gregtech.api.util.shutdown.ShutDownReasonRegistry.NONE };
+        Mockito.doAnswer(inv -> {
+            shutdownHolder[0] = inv.getArgument(0);
+            return null;
+        })
+            .when(mockPumpBase)
+            .setShutdownStatus(Mockito.anyBoolean());
+        Mockito.when(mockPumpBase.wasShutdown())
+            .thenAnswer(inv -> shutdownHolder[0]);
+        Mockito.doAnswer(inv -> {
+            shutdownReasonHolder[0] = inv.getArgument(0);
+            return null;
+        })
+            .when(mockPumpBase)
+            .setShutDownReason(Mockito.any());
+        Mockito.when(mockPumpBase.getLastShutDownReason())
+            .thenAnswer(inv -> shutdownReasonHolder[0]);
         Mockito.doAnswer(inv -> {
             allowedToWorkHolder[0] = false;
             return null;
@@ -661,6 +698,8 @@ public class CoolantPumpStructureTest {
             .disableWorking();
         Mockito.doAnswer(inv -> {
             allowedToWorkHolder[0] = true;
+            shutdownHolder[0] = false;
+            shutdownReasonHolder[0] = gregtech.api.util.shutdown.ShutDownReasonRegistry.NONE;
             return null;
         })
             .when(mockPumpBase)
@@ -718,7 +757,9 @@ public class CoolantPumpStructureTest {
         assertTrue(pump.isPowerFailed());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
         assertEquals(1000L, hatchEU[0]); // Atomic: not partially drained!
-        assertEquals("Pump unpowered (No EU in Energy Hatch)", pump.getLoopStatus());
+        assertEquals(
+            gregtech.api.util.shutdown.ShutDownReasonRegistry.POWER_LOSS.getDisplayString(),
+            pump.getLoopStatus());
 
         // Restore power to hatch (10,000 EU)
         hatchEU[0] = 10000L;

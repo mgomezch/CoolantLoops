@@ -1,6 +1,8 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import net.minecraft.item.ItemStack;
@@ -16,13 +18,17 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
+import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
+import com.gtnewhorizons.modularui.api.widget.IWidgetBuilder;
+import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.GTValues;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -36,6 +42,8 @@ import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.shutdown.ShutDownReasonRegistry;
+import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
 /**
  * Pressurized Degasser Multiblock.
@@ -278,6 +286,103 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         return true;
     }
 
+    @Override
+    protected MTEMultiBlockBaseGui<?> getGui() {
+        return new CoolantLoopMachineGui<>(this);
+    }
+
+    @Override
+    public boolean supportsSingleRecipeLocking() {
+        return false;
+    }
+
+    @Override
+    public ButtonWidget createLockToSingleRecipeButton(IWidgetBuilder<?> builder) {
+        return (ButtonWidget) new ButtonWidget().setSize(0, 0)
+            .setEnabled(false);
+    }
+
+    public List<MTEHatchEnergy> getValidEnergyHatches() {
+        List<MTEHatchEnergy> list = new ArrayList<>();
+        if (mEnergyHatches != null) {
+            for (MTEHatchEnergy hatch : mEnergyHatches) {
+                if (hatch != null && (hatch.isValid() || hatch.getBaseMetaTileEntity() != null)) {
+                    list.add(hatch);
+                }
+            }
+        }
+        return list;
+    }
+
+    public long getRequiredPowerDrawEU() {
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (hatches.isEmpty()) {
+            return 512L;
+        }
+        if (hatches.size() == 1) {
+            int tier = Math.max(0, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
+            return GTValues.V[tier];
+        }
+        int maxTier = 0;
+        for (MTEHatchEnergy h : hatches) {
+            if (h.mTier > maxTier) {
+                maxTier = h.mTier;
+            }
+        }
+        maxTier = Math.max(0, Math.min(maxTier, GTValues.V.length - 1));
+        return 2L * hatches.size() * GTValues.V[maxTier];
+    }
+
+    public boolean triggerPowerfail() {
+        mLastDrainedEU = 0L;
+        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(false);
+        }
+        return false;
+    }
+
+    public boolean drainEnergy(long aEU) {
+        if (aEU <= 0) return true;
+
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (!hatches.isEmpty()) {
+            long totalStored = 0L;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    totalStored += bte.getStoredEU();
+                }
+            }
+
+            if (totalStored < aEU) {
+                return false;
+            }
+
+            long remaining = aEU;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    long stored = bte.getStoredEU();
+                    if (stored > 0) {
+                        long toDrain = Math.min(stored, remaining);
+                        bte.decreaseStoredEnergyUnits(toDrain, false);
+                        remaining -= toDrain;
+                        if (remaining <= 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return remaining <= 0;
+        }
+
+        if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() >= aEU) {
+            return getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
+        }
+        return false;
+    }
+
     /**
      * Executes one time step of degassing based on power consumption, flow rate, and dissolved gas concentration.
      */
@@ -286,79 +391,36 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         // If turned off, allows flow through without consuming energy or degassing
         if (!isAllowedToWork() || mPrimaryInlet == null || mPrimaryOutlet == null || mConnectedPump == null) {
             mLastDrainedEU = 0L;
+            if (getBaseMetaTileEntity() != null) {
+                getBaseMetaTileEntity().setActive(false);
+            }
             return true;
         }
 
         double effFactor = getEfficiencyFactor();
         if (effFactor <= 0.0) {
+            mLastDrainedEU = 0L;
             return true; // No degassing possible with 0 efficiency
         }
 
-        // 1. Calculate target energy based on single-amp overclocking mechanics
-        int numEnergyHatches = mEnergyHatches.size();
-        if (numEnergyHatches == 0) {
+        long requiredEU = getRequiredPowerDrawEU();
+        if (requiredEU <= 0L) {
             mLastDrainedEU = 0L;
             return true;
         }
 
-        long targetEU = 0L;
-        if (numEnergyHatches == 1) {
-            // Single hatch consumes 1 amp
-            targetEU = mEnergyHatches.get(0)
-                .maxEUInput();
-        } else {
-            // Multiple hatches consume 2 amps per hatch (usual GT multiblock overclock logic)
-            for (MTEHatchEnergy h : mEnergyHatches) {
-                if (h != null && h.isValid()) {
-                    targetEU += h.maxEUInput() * 2L;
-                }
-            }
+        if (!drainEnergy(requiredEU)) {
+            return triggerPowerfail();
         }
 
-        if (targetEU <= 0L) {
-            mLastDrainedEU = 0L;
-            return true;
-        }
-
-        // 2. Consume energy from hatches
-        long availableEU = 0L;
-        for (MTEHatchEnergy hatch : mEnergyHatches) {
-            if (hatch != null && hatch.isValid()) {
-                IGregTechTileEntity bte = hatch.getBaseMetaTileEntity();
-                if (bte != null) {
-                    availableEU += bte.getStoredEU();
-                }
-            }
-        }
-
-        long toDrain = Math.min(targetEU, availableEU);
-        long drainedEU = 0L;
-        if (toDrain > 0L) {
-            long remaining = toDrain;
-            for (MTEHatchEnergy hatch : mEnergyHatches) {
-                if (hatch != null && hatch.isValid()) {
-                    IGregTechTileEntity bte = hatch.getBaseMetaTileEntity();
-                    if (bte != null) {
-                        long canDrain = Math.min(bte.getStoredEU(), remaining);
-                        if (canDrain > 0L) {
-                            bte.decreaseStoredEnergyUnits(canDrain, false);
-                            drainedEU += canDrain;
-                            remaining -= canDrain;
-                            if (remaining <= 0L) break;
-                        }
-                    }
-                }
-            }
-        }
-
-        mLastDrainedEU = drainedEU;
-        if (drainedEU <= 0L) {
-            return true; // No energy available to degas
+        mLastDrainedEU = requiredEU;
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(true);
         }
 
         // 3. Degassing rate limits:
         // A. Energy limit: up to 1 liter of extracted gas per second for every 8 EU/t consumed
-        double maxGasEnergyPerSec = (double) drainedEU / 8.0;
+        double maxGasEnergyPerSec = (double) mLastDrainedEU / 8.0;
         double maxGasEnergyThisTick = maxGasEnergyPerSec * dt;
 
         // B. Mass transfer limit: 25% of dissolved gas volume that conceptually crosses the degasser this second

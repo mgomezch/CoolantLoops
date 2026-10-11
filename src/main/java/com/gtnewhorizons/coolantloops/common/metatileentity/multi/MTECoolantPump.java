@@ -18,6 +18,7 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructa
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
+import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
@@ -35,6 +36,8 @@ import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
 import com.gtnewhorizons.coolantloops.engine.ICoolantPassageHatch;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
+import com.gtnewhorizons.modularui.api.widget.IWidgetBuilder;
+import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
@@ -51,7 +54,9 @@ import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.TurbineStatCalculator;
+import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.common.blocks.BlockFrameBox;
+import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
 /**
  * Multiblock Coolant Loop Pump.
@@ -107,6 +112,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     protected boolean mPowerFailed = false;
 
     public boolean isPowerFailed() {
+        if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().wasShutdown()) {
+            return getBaseMetaTileEntity().getLastShutDownReason() == ShutDownReasonRegistry.POWER_LOSS;
+        }
         return mPowerFailed;
     }
 
@@ -644,17 +652,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public boolean triggerPowerfail() {
         mPowerFailed = true;
-        disableWorking();
-        IGregTechTileEntity baseTE = getBaseMetaTileEntity();
-        if (baseTE != null) {
-            baseTE.disableWorking();
-            baseTE.setActive(false);
+        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(false);
         }
         mLoopState = LoopState.STOPPED;
         mEngine.setPumpPowered(false);
         mEngine.setPumpMechanicalPowerWatts(0.0);
         mEngine.setBraking(false);
-        mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.unpowered");
+        mLoopStatus = ShutDownReasonRegistry.POWER_LOSS.getDisplayString();
         mEngine.step(0.05);
         return true;
     }
@@ -727,8 +733,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             mEngine.setPumpPowered(false);
             mEngine.setPumpMechanicalPowerWatts(0.0);
             mEngine.setBraking(false);
-            if (mPowerFailed) {
-                mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.unpowered");
+            if (isPowerFailed()) {
+                mLoopStatus = ShutDownReasonRegistry.POWER_LOSS.getDisplayString();
+            } else if (baseTE != null && baseTE.wasShutdown() && baseTE.getLastShutDownReason() != null) {
+                mLoopStatus = baseTE.getLastShutDownReason()
+                    .getDisplayString();
             } else if (mLoopState == LoopState.FILLING) {
                 mLoopStatus = CoolantLocalization
                     .format("coolantloops.pump.status.filling_paused", mCurrentFillLiters, mRequiredFillLiters);
@@ -1560,6 +1569,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     public boolean checkRecipe(ItemStack aStack) {
         return true; // Continuously operates in onRunningTick
+    }
+
+    @Override
+    protected MTEMultiBlockBaseGui<?> getGui() {
+        return new CoolantLoopMachineGui<>(this);
+    }
+
+    @Override
+    public boolean supportsSingleRecipeLocking() {
+        return false;
+    }
+
+    @Override
+    public ButtonWidget createLockToSingleRecipeButton(IWidgetBuilder<?> builder) {
+        return (ButtonWidget) new ButtonWidget().setSize(0, 0)
+            .setEnabled(false);
     }
 
     /**

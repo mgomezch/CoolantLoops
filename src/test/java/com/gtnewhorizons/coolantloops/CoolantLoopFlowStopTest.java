@@ -69,6 +69,9 @@ public class CoolantLoopFlowStopTest {
             if (gregtech.GTMod.proxy == null) {
                 gregtech.GTMod.proxy = Mockito.mock(gregtech.common.GTProxy.class);
             }
+            if (gregtech.GTMod.proxy.powerfailTracker == null) {
+                gregtech.GTMod.proxy.powerfailTracker = Mockito.mock(gregtech.common.data.GTPowerfailTracker.class);
+            }
         } catch (Throwable ignored) {}
 
         try {
@@ -360,9 +363,9 @@ public class CoolantLoopFlowStopTest {
             1e-6,
             "Flow rate must remain 0 when pump is unpowered");
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
-        assertTrue(
-            pump.getLoopStatus()
-                .contains("Pump unpowered"),
-            "Status must indicate pump is unpowered");
+        assertEquals(
+            gregtech.api.util.shutdown.ShutDownReasonRegistry.POWER_LOSS.getDisplayString(),
+            pump.getLoopStatus(),
+            "Status must indicate power loss via standard GT5U ShutDownReason display string");
     }
 }

@@ -1,6 +1,7 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.StatCollector;
@@ -14,13 +15,17 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
+import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.engine.ConvectiveHeatTransferModel;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
+import com.gtnewhorizons.modularui.api.widget.IWidgetBuilder;
+import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.GTValues;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -35,6 +40,8 @@ import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.shutdown.ShutDownReasonRegistry;
+import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 
 /**
  * Pressurized Heat Exchanger Multiblock.
@@ -186,10 +193,94 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         }
     }
 
+    public List<MTEHatchEnergy> getValidEnergyHatches() {
+        List<MTEHatchEnergy> list = new ArrayList<>();
+        if (mEnergyHatches != null) {
+            for (MTEHatchEnergy hatch : mEnergyHatches) {
+                if (hatch != null && (hatch.isValid() || hatch.getBaseMetaTileEntity() != null)) {
+                    list.add(hatch);
+                }
+            }
+        }
+        return list;
+    }
+
+    public long getRequiredPowerDrawEU() {
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (hatches.isEmpty()) {
+            return 512L;
+        }
+        if (hatches.size() == 1) {
+            int tier = Math.max(0, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
+            return GTValues.V[tier];
+        }
+        int maxTier = 0;
+        for (MTEHatchEnergy h : hatches) {
+            if (h.mTier > maxTier) {
+                maxTier = h.mTier;
+            }
+        }
+        maxTier = Math.max(0, Math.min(maxTier, GTValues.V.length - 1));
+        return 4L * GTValues.V[maxTier];
+    }
+
+    public boolean triggerPowerfail() {
+        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(false);
+        }
+        mLastHeatTransferredWatts = 0.0;
+        return false;
+    }
+
+    public boolean drainEnergy(long aEU) {
+        if (aEU <= 0) return true;
+
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (!hatches.isEmpty()) {
+            long totalStored = 0L;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    totalStored += bte.getStoredEU();
+                }
+            }
+
+            if (totalStored < aEU) {
+                return false;
+            }
+
+            long remaining = aEU;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    long stored = bte.getStoredEU();
+                    if (stored > 0) {
+                        long toDrain = Math.min(stored, remaining);
+                        bte.decreaseStoredEnergyUnits(toDrain, false);
+                        remaining -= toDrain;
+                        if (remaining <= 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return remaining <= 0;
+        }
+
+        if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() >= aEU) {
+            return getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
+        }
+        return false;
+    }
+
     public boolean stepHeatExchange() {
         checkMaintenance();
         if (!isAllowedToWork() || mPrimaryInlet == null || mPrimaryOutlet == null) {
             mLastHeatTransferredWatts = 0.0;
+            if (getBaseMetaTileEntity() != null) {
+                getBaseMetaTileEntity().setActive(false);
+            }
             return true;
         }
 
@@ -197,6 +288,14 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         if (effFactor <= 0.0) {
             mLastHeatTransferredWatts = 0.0;
             return true;
+        }
+
+        long requiredEU = getRequiredPowerDrawEU();
+        if (!drainEnergy(requiredEU)) {
+            return triggerPowerfail();
+        }
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(true);
         }
 
         // Check if secondary water is available
@@ -319,6 +418,22 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     @Override
     public boolean checkRecipe(ItemStack aStack) {
         return true;
+    }
+
+    @Override
+    protected MTEMultiBlockBaseGui<?> getGui() {
+        return new CoolantLoopMachineGui<>(this);
+    }
+
+    @Override
+    public boolean supportsSingleRecipeLocking() {
+        return false;
+    }
+
+    @Override
+    public ButtonWidget createLockToSingleRecipeButton(IWidgetBuilder<?> builder) {
+        return (ButtonWidget) new ButtonWidget().setSize(0, 0)
+            .setEnabled(false);
     }
 
     public boolean addMaintenanceOrEnergyHatch(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
