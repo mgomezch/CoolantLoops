@@ -239,8 +239,10 @@ class CoolantLoopEngineTest {
         double seriesDrop = s1.computePressureDrop(testQ, CoolantFluidProperty.WATER)
             + s2.computePressureDrop(testQ, CoolantFluidProperty.WATER);
 
-        double p1Drop = p1.computePressureDrop(testQ * p1.getFlowFraction(), CoolantFluidProperty.WATER) * p1.getFlowFraction();
-        double p2Drop = p2.computePressureDrop(testQ * p2.getFlowFraction(), CoolantFluidProperty.WATER) * p2.getFlowFraction();
+        double p1Drop = p1.computePressureDrop(testQ * p1.getFlowFraction(), CoolantFluidProperty.WATER)
+            * p1.getFlowFraction();
+        double p2Drop = p2.computePressureDrop(testQ * p2.getFlowFraction(), CoolantFluidProperty.WATER)
+            * p2.getFlowFraction();
         double parallelDrop = p1Drop + p2Drop;
 
         // Parallel pressure drop with 2 branches must be significantly lower than series addition

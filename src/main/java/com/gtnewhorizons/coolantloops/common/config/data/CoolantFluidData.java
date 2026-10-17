@@ -186,22 +186,22 @@ public class CoolantFluidData {
     }
 
     private Map<String, FluidPropertyEntry> fluids = new LinkedHashMap<>();
-    private List<String> liquidNuclearFuels = new ArrayList<>(java.util.Arrays.asList(
-        "liquidfuel",
-        "liquid_fuel",
-        "nuclearfuel",
-        "uraniumhexafluoride",
-        "uraniumtetrafluoride",
-        "thoriumbasedliquidfuel",
-        "uraniumbasedliquidfuel",
-        "plutoniumbasedliquidfuel",
-        "naquadahbasedliquidfuel",
-        "liquid_naquadah_fuel",
-        "depletedthoriumbasedliquidfuel",
-        "depleteduraniumbasedliquidfuel",
-        "depletedplutoniumbasedliquidfuel",
-        "depletednaquadahbasedliquidfuel"
-    ));
+    private List<String> liquidNuclearFuels = new ArrayList<>(
+        java.util.Arrays.asList(
+            "liquidfuel",
+            "liquid_fuel",
+            "nuclearfuel",
+            "uraniumhexafluoride",
+            "uraniumtetrafluoride",
+            "thoriumbasedliquidfuel",
+            "uraniumbasedliquidfuel",
+            "plutoniumbasedliquidfuel",
+            "naquadahbasedliquidfuel",
+            "liquid_naquadah_fuel",
+            "depletedthoriumbasedliquidfuel",
+            "depleteduraniumbasedliquidfuel",
+            "depletedplutoniumbasedliquidfuel",
+            "depletednaquadahbasedliquidfuel"));
 
     public Map<String, FluidPropertyEntry> getFluids() {
         return fluids;
@@ -221,9 +221,12 @@ public class CoolantFluidData {
 
     public boolean isLiquidNuclearFuel(String name) {
         if (name == null) return false;
-        String clean = name.trim().toLowerCase();
+        String clean = name.trim()
+            .toLowerCase();
         for (String fuel : liquidNuclearFuels) {
-            if (fuel != null && clean.equals(fuel.trim().toLowerCase())) {
+            if (fuel != null && clean.equals(
+                fuel.trim()
+                    .toLowerCase())) {
                 return true;
             }
         }

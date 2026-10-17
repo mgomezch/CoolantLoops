@@ -377,7 +377,8 @@ public class CoolantLoopEngine {
                 LoopSegment prev = (i == 0) ? segments.get(segments.size() - 1) : segments.get(i - 1);
                 incomingTemp = prev.getCurrentTemperatureCelsius();
             } else if (upstreams.size() == 1) {
-                incomingTemp = upstreams.get(0).getCurrentTemperatureCelsius();
+                incomingTemp = upstreams.get(0)
+                    .getCurrentTemperatureCelsius();
             } else {
                 // Flow-weighted blending of multiple incoming branches
                 double totalWeightedTemp = 0.0;
@@ -387,7 +388,8 @@ public class CoolantLoopEngine {
                     totalWeightedTemp += up.getCurrentTemperatureCelsius() * w;
                     totalWeight += w;
                 }
-                incomingTemp = totalWeight > 0.0 ? (totalWeightedTemp / totalWeight) : curr.getCurrentTemperatureCelsius();
+                incomingTemp = totalWeight > 0.0 ? (totalWeightedTemp / totalWeight)
+                    : curr.getCurrentTemperatureCelsius();
             }
 
             double blendedTemp = curr.getCurrentTemperatureCelsius() * (1.0 - replaceFraction)

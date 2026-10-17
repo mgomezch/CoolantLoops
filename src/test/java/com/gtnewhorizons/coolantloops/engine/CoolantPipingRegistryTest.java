@@ -20,9 +20,11 @@ class CoolantPipingRegistryTest {
         assertTrue(
             CoolantPipingRegistry.getMaxPressureBar("CastIron") < CoolantPipingRegistry.getMaxPressureBar("Steel"));
         assertTrue(
-            CoolantPipingRegistry.getMaxPressureBar("Steel") < CoolantPipingRegistry.getMaxPressureBar("StainlessSteel"));
+            CoolantPipingRegistry.getMaxPressureBar("Steel")
+                < CoolantPipingRegistry.getMaxPressureBar("StainlessSteel"));
         assertTrue(
-            CoolantPipingRegistry.getMaxPressureBar("StainlessSteel") < CoolantPipingRegistry.getMaxPressureBar("Titanium"));
+            CoolantPipingRegistry.getMaxPressureBar("StainlessSteel")
+                < CoolantPipingRegistry.getMaxPressureBar("Titanium"));
         assertTrue(
             CoolantPipingRegistry.getMaxPressureBar("Titanium")
                 < CoolantPipingRegistry.getMaxPressureBar("TungstenSteel"));
@@ -30,8 +32,7 @@ class CoolantPipingRegistryTest {
             CoolantPipingRegistry.getMaxPressureBar("TungstenSteel")
                 < CoolantPipingRegistry.getMaxPressureBar("Osmium"));
         assertTrue(
-            CoolantPipingRegistry.getMaxPressureBar("Osmium")
-                < CoolantPipingRegistry.getMaxPressureBar("Neutronium"));
+            CoolantPipingRegistry.getMaxPressureBar("Osmium") < CoolantPipingRegistry.getMaxPressureBar("Neutronium"));
 
         assertEquals(16.0, CoolantPipingRegistry.getMaxPressureBar("CastIron"), 0.1);
         assertEquals(35.0, CoolantPipingRegistry.getMaxPressureBar("Steel"), 0.1);

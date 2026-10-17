@@ -141,7 +141,8 @@ public class CoolantPumpReservoir {
                 }
             } catch (Throwable ignored) {}
         }
-        String name = te.getClass().getSimpleName();
+        String name = te.getClass()
+            .getSimpleName();
         switch (name) {
             case "TileTankSteel":
             case "TileSteelTank":

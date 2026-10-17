@@ -26,9 +26,12 @@ public class CoolantDeviceData {
 
         public boolean isAllowedSecondaryFluid(String fluidName) {
             if (fluidName == null) return false;
-            String clean = fluidName.trim().toLowerCase();
+            String clean = fluidName.trim()
+                .toLowerCase();
             for (String allowed : allowedSecondaryFluids) {
-                if (allowed != null && clean.equals(allowed.trim().toLowerCase())) {
+                if (allowed != null && clean.equals(
+                    allowed.trim()
+                        .toLowerCase())) {
                     return true;
                 }
             }

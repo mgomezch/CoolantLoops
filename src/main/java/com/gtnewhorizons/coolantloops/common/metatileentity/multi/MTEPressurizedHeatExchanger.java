@@ -65,6 +65,10 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     protected double mMinorLossK = 1.2; // Heat exchanger core resistance
     protected double mLastHeatTransferredWatts = 0.0;
     protected ConvectiveHeatTransferModel mConvectiveModel = ConvectiveHeatTransferModel.DEFAULT;
+    protected LoopSegment mBoundSegment = null;
+    protected CoolantFluidProperty mLoopFluid = null;
+    protected double mLastCoolantFlowRateM3s = 0.0;
+    protected long mLastStepTick = -1;
 
     public MTEPressurizedHeatExchanger(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -291,6 +295,15 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     public boolean stepHeatExchange() {
+        IGregTechTileEntity te = getBaseMetaTileEntity();
+        long currentTick = (te != null) ? te.getTimer() : -1;
+        if (te != null && te.getWorld() != null && currentTick >= 0) {
+            if (mLastStepTick == currentTick) {
+                return true;
+            }
+            mLastStepTick = currentTick;
+        }
+
         checkMaintenance();
         if (!isAllowedToWork() || mPrimaryInlet == null || mPrimaryOutlet == null) {
             mLastHeatTransferredWatts = 0.0;
@@ -318,13 +331,14 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         ArrayList<FluidStack> inputFluids = getStoredFluids();
         FluidStack waterInput = null;
         CoolantDeviceData.PHEData pheConfig = (CoolantLoopDataRegistry.getDeviceData() != null)
-            ? CoolantLoopDataRegistry.getDeviceData().getPhe()
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getPhe()
             : null;
         for (FluidStack fs : inputFluids) {
             if (fs != null && fs.getFluid() != null) {
-                String fluidName = fs.getFluid().getName();
-                boolean allowed = (pheConfig != null)
-                    ? pheConfig.isAllowedSecondaryFluid(fluidName)
+                String fluidName = fs.getFluid()
+                    .getName();
+                boolean allowed = (pheConfig != null) ? pheConfig.isAllowedSecondaryFluid(fluidName)
                     : (fluidName.equalsIgnoreCase("ic2distilledwater") || fluidName.equalsIgnoreCase("distilledwater"));
                 if (allowed) {
                     waterInput = fs;
@@ -333,95 +347,122 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
             }
         }
 
-        if (waterInput == null || waterInput.amount <= 0) {
+        if (waterInput == null || waterInput.amount <= 0 || mCurrentCoolantTemp <= 100.0) {
             mLastHeatTransferredWatts = 0.0;
             return true;
         }
 
-        // Secondary boiling calculation if primary coolant >= 100 C
-        double ambientTemp = (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getWorld() != null)
-            ? MTECoolantPump.calculateAmbientTemperature(
-                getBaseMetaTileEntity().getWorld(),
-                getBaseMetaTileEntity().getXCoord(),
-                getBaseMetaTileEntity().getYCoord(),
-                getBaseMetaTileEntity().getZCoord())
-            : 20.0;
-        if (mCurrentCoolantTemp > 100.0) {
-            // Delta T available above boiling point
-            double deltaT = mCurrentCoolantTemp - 100.0;
-            // Q_dot = h(v) * A * deltaT * effFactor
-            double qWatts = mConvectiveModel.computeHeatTransferRate(2.0, mExchangeArea, mCurrentCoolantTemp, 100.0)
-                * effFactor;
-            mLastHeatTransferredWatts = qWatts;
+        // Secondary boiling calculation if primary coolant > 100 C
+        // Velocity across internal tube bundle
+        double velocity = 2.0;
+        if (mBoundSegment != null && mBoundSegment.getArea() > 0) {
+            velocity = Math.abs(mLastCoolantFlowRateM3s) / mBoundSegment.getArea();
+        }
 
-            // Latent heat of vaporization for water
-            double latentHeatJoulePerMl = (CoolantLoopDataRegistry.getDeviceData() != null)
-                ? CoolantLoopDataRegistry.getDeviceData()
-                    .getPhe().latentHeatJoulePerLiter / 1000.0
-                : 2260.0;
-            // Q_Joules_per_tick = qWatts * 0.05s
-            double joulesPerTick = qWatts * 0.05;
-            int waterToBoil = (int) Math.min(waterInput.amount, joulesPerTick / latentHeatJoulePerMl);
+        // Q_dot = h(v) * A * deltaT * effFactor (Watts)
+        double qWatts = mConvectiveModel.computeHeatTransferRate(velocity, mExchangeArea, mCurrentCoolantTemp, 100.0)
+            * effFactor;
 
-            if (waterToBoil > 0) {
-                // Drain water
-                for (MTEHatchInput hatch : mInputHatches) {
-                    FluidStack drained = hatch.drain(waterToBoil, true);
+        // Effective fluid mass and heat capacity passing through the exchanger this tick
+        double dt = 0.05; // 1 tick = 0.05 seconds
+        double sweptVolume = Math.abs(mLastCoolantFlowRateM3s) * dt;
+        double segVolume = (mBoundSegment != null) ? mBoundSegment.getVolume() : 0.007854;
+        double effectiveVolume = Math.max(segVolume, sweptVolume);
+
+        double fluidDensity = (mLoopFluid != null) ? mLoopFluid.getDensity() : 1000.0;
+        double fluidSpecificHeat = (mLoopFluid != null) ? mLoopFluid.getSpecificHeat() : 4184.0;
+        double fluidHeatCapacity = effectiveVolume * fluidDensity * fluidSpecificHeat; // Joules / K
+
+        // Maximum sensible heat removable before reaching secondary boiling temperature (100 C)
+        double maxSensibleHeatJoules = (fluidHeatCapacity > 0)
+            ? fluidHeatCapacity * Math.max(0.0, mCurrentCoolantTemp - 100.0)
+            : 0.0;
+
+        // Convective heat transfer limit in this tick
+        double convHeatJoules = qWatts * dt;
+
+        // Available heat this tick
+        double transferHeatLimitJoules = Math.min(convHeatJoules, maxSensibleHeatJoules);
+
+        // Latent heat of vaporization for secondary water (Joules / mL = Joules / g)
+        double latentHeatJoulePerMl = (CoolantLoopDataRegistry.getDeviceData() != null)
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getPhe().latentHeatJoulePerLiter / 1000.0
+            : 2260.0;
+
+        int maxWaterToBoil = (latentHeatJoulePerMl > 0) ? (int) (transferHeatLimitJoules / latentHeatJoulePerMl) : 0;
+
+        int waterToBoil = Math.min(waterInput.amount, maxWaterToBoil);
+
+        if (waterToBoil > 0) {
+            // Drain allowed secondary water
+            int actualWaterDrained = 0;
+            for (MTEHatchInput hatch : mInputHatches) {
+                if (hatch != null && hatch.getFluid() != null
+                    && hatch.getFluid()
+                        .getFluid() == waterInput.getFluid()) {
+                    int needed = waterToBoil - actualWaterDrained;
+                    FluidStack drained = hatch.drain(needed, true);
                     if (drained != null && drained.amount > 0) {
-                        waterToBoil = drained.amount;
-                        break;
+                        actualWaterDrained += drained.amount;
+                        if (actualWaterDrained >= waterToBoil) {
+                            break;
+                        }
                     }
                 }
-
-                double supercritThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
-                    ? CoolantLoopDataRegistry.getDeviceData()
-                        .getPhe().supercriticalTempThreshold
-                    : 700.0;
-                double superheatedThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
-                    ? CoolantLoopDataRegistry.getDeviceData()
-                        .getPhe().superheatedTempThreshold
-                    : 300.0;
-                int expansion = (CoolantLoopDataRegistry.getDeviceData() != null)
-                    ? CoolantLoopDataRegistry.getDeviceData()
-                        .getPhe().steamExpansionRatio
-                    : 160;
-
-                // 1 L Water -> steam depending on coolant temperature
-                String steamName = "steam";
-                if (mCurrentCoolantTemp >= supercritThresh) {
-                    steamName = "supercriticalsteam";
-                } else if (mCurrentCoolantTemp >= superheatedThresh) {
-                    steamName = "ic2superheatedsteam";
-                }
-                int steamProduced = waterToBoil * expansion;
-                Fluid steamFluid = FluidRegistry.getFluid(steamName);
-                if (steamFluid == null && steamName.equals("supercriticalsteam")) {
-                    steamFluid = FluidRegistry.getFluid("supercriticalSteam");
-                }
-                if (steamFluid == null) {
-                    steamFluid = FluidRegistry.getFluid("steam");
-                }
-                if (steamFluid != null) {
-                    FluidStack steamStack = new FluidStack(steamFluid, steamProduced);
-                    addOutput(steamStack);
-                    for (MTEHatchOutput outHatch : mOutputHatches) {
-                        outHatch.fill(steamStack, true);
-                    }
-                }
-
-                // Cool primary coolant
-                double coolFactor = (CoolantLoopDataRegistry.getDeviceData() != null)
-                    ? CoolantLoopDataRegistry.getDeviceData()
-                        .getPhe().coolingFactor
-                    : 0.5;
-                double maxDrop = (CoolantLoopDataRegistry.getDeviceData() != null)
-                    ? CoolantLoopDataRegistry.getDeviceData()
-                        .getPhe().maxTempDropPerTick
-                    : 40.0;
-                double tempDrop = Math.min(deltaT * coolFactor, maxDrop);
-                mCurrentCoolantTemp = Math.max(ambientTemp, mCurrentCoolantTemp - tempDrop);
-                mPrimaryOutlet.setCurrentTemperatureCelsius(mCurrentCoolantTemp);
             }
+            waterToBoil = actualWaterDrained;
+        }
+
+        if (waterToBoil > 0) {
+            double supercritThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
+                ? CoolantLoopDataRegistry.getDeviceData()
+                    .getPhe().supercriticalTempThreshold
+                : 700.0;
+            double superheatedThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
+                ? CoolantLoopDataRegistry.getDeviceData()
+                    .getPhe().superheatedTempThreshold
+                : 300.0;
+            int expansion = (CoolantLoopDataRegistry.getDeviceData() != null) ? CoolantLoopDataRegistry.getDeviceData()
+                .getPhe().steamExpansionRatio : 160;
+
+            // 1 L Water -> steam depending on coolant temperature
+            String steamName = "steam";
+            if (mCurrentCoolantTemp >= supercritThresh) {
+                steamName = "supercriticalsteam";
+            } else if (mCurrentCoolantTemp >= superheatedThresh) {
+                steamName = "ic2superheatedsteam";
+            }
+            int steamProduced = waterToBoil * expansion;
+            Fluid steamFluid = FluidRegistry.getFluid(steamName);
+            if (steamFluid == null && steamName.equals("supercriticalsteam")) {
+                steamFluid = FluidRegistry.getFluid("supercriticalSteam");
+            }
+            if (steamFluid == null) {
+                steamFluid = FluidRegistry.getFluid("steam");
+            }
+            if (steamFluid != null) {
+                FluidStack steamStack = new FluidStack(steamFluid, steamProduced);
+                addOutput(steamStack);
+            }
+
+            // Energy-conserving cooling of primary coolant
+            double actualHeatRemovedJoules = waterToBoil * latentHeatJoulePerMl;
+            mLastHeatTransferredWatts = actualHeatRemovedJoules / dt;
+
+            if (fluidHeatCapacity > 0) {
+                double tempDrop = actualHeatRemovedJoules / fluidHeatCapacity;
+                double newTemp = Math.max(100.0, mCurrentCoolantTemp - tempDrop);
+                mCurrentCoolantTemp = newTemp;
+                if (mBoundSegment != null) {
+                    mBoundSegment.setCurrentTemperatureCelsius(newTemp);
+                }
+                if (mPrimaryOutlet != null) {
+                    mPrimaryOutlet.setCurrentTemperatureCelsius(newTemp);
+                }
+            }
+        } else {
+            mLastHeatTransferredWatts = 0.0;
         }
 
         return true;
@@ -456,8 +497,50 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     @Override
     public void processThermalExchange(double coolantFlowRateM3s, double dt, CoolantFluidProperty fluid,
         LoopSegment segment) {
+        this.mBoundSegment = segment;
+        this.mLoopFluid = fluid;
+        this.mLastCoolantFlowRateM3s = coolantFlowRateM3s;
         if (segment != null) {
             this.mCurrentCoolantTemp = segment.getCurrentTemperatureCelsius();
+        }
+        stepHeatExchange();
+    }
+
+    public LoopSegment getBoundSegment() {
+        return mBoundSegment;
+    }
+
+    public void setBoundSegment(LoopSegment segment) {
+        this.mBoundSegment = segment;
+        if (segment != null) {
+            this.mCurrentCoolantTemp = segment.getCurrentTemperatureCelsius();
+        }
+    }
+
+    public CoolantFluidProperty getLoopFluid() {
+        return mLoopFluid;
+    }
+
+    public void setLoopFluid(CoolantFluidProperty fluid) {
+        this.mLoopFluid = fluid;
+    }
+
+    public double getLastCoolantFlowRateM3s() {
+        return mLastCoolantFlowRateM3s;
+    }
+
+    public void setLastCoolantFlowRateM3s(double flowRate) {
+        this.mLastCoolantFlowRateM3s = flowRate;
+    }
+
+    public double getLastHeatTransferredWatts() {
+        return mLastHeatTransferredWatts;
+    }
+
+    public void setCurrentCoolantTemp(double temp) {
+        this.mCurrentCoolantTemp = temp;
+        if (mBoundSegment != null) {
+            mBoundSegment.setCurrentTemperatureCelsius(temp);
         }
     }
 

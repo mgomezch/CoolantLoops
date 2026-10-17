@@ -17,7 +17,8 @@ public class CoolantPhysicsData {
 
     // Pump and hydraulic parameters
     private double unpoweredImpellerK = 8.0; // Drag loss coefficient when pump motor is disengaged
-    private double maxPumpHeadPressurePa = Double.POSITIVE_INFINITY; // Maximum stall head pressure (Pa), uncapped by default
+    private double maxPumpHeadPressurePa = Double.POSITIVE_INFINITY; // Maximum stall head pressure (Pa), uncapped by
+                                                                     // default
     private double pumpMechanicalPowerPerEU = 80.0; // Mechanical power output (Watts) per EU drawn
     private long fillRateLitersPerTick = 1000L; // Loop filling rate from reservoir tank in L/tick
     private double defaultAmbientTemp = 20.0; // Fallback ambient temperature (deg C)

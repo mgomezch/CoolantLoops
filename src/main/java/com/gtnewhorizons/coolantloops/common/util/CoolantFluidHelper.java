@@ -55,16 +55,24 @@ public final class CoolantFluidHelper {
     public static boolean isLiquidNuclearFuel(String name) {
         if (name == null) return false;
         if (CoolantLoopDataRegistry.getFluidData() != null) {
-            return CoolantLoopDataRegistry.getFluidData().isLiquidNuclearFuel(name);
+            return CoolantLoopDataRegistry.getFluidData()
+                .isLiquidNuclearFuel(name);
         }
-        String clean = name.trim().toLowerCase();
-        return clean.equals("liquidfuel") || clean.equals("liquid_fuel") || clean.equals("nuclearfuel")
-            || clean.equals("uraniumhexafluoride") || clean.equals("uraniumtetrafluoride")
-            || clean.equals("thoriumbasedliquidfuel") || clean.equals("uraniumbasedliquidfuel")
-            || clean.equals("plutoniumbasedliquidfuel") || clean.equals("naquadahbasedliquidfuel")
+        String clean = name.trim()
+            .toLowerCase();
+        return clean.equals("liquidfuel") || clean.equals("liquid_fuel")
+            || clean.equals("nuclearfuel")
+            || clean.equals("uraniumhexafluoride")
+            || clean.equals("uraniumtetrafluoride")
+            || clean.equals("thoriumbasedliquidfuel")
+            || clean.equals("uraniumbasedliquidfuel")
+            || clean.equals("plutoniumbasedliquidfuel")
+            || clean.equals("naquadahbasedliquidfuel")
             || clean.equals("liquid_naquadah_fuel")
-            || clean.equals("depletedthoriumbasedliquidfuel") || clean.equals("depleteduraniumbasedliquidfuel")
-            || clean.equals("depletedplutoniumbasedliquidfuel") || clean.equals("depletednaquadahbasedliquidfuel");
+            || clean.equals("depletedthoriumbasedliquidfuel")
+            || clean.equals("depleteduraniumbasedliquidfuel")
+            || clean.equals("depletedplutoniumbasedliquidfuel")
+            || clean.equals("depletednaquadahbasedliquidfuel");
     }
 
     public static boolean isLiquidNuclearFuel(Fluid fluid, FluidStack stack) {
@@ -128,7 +136,9 @@ public final class CoolantFluidHelper {
             }
         }
         if (stack != null && stack.getFluid() != null) {
-            CoolantFluidProperty p = CoolantFluidProperty.get(stack.getFluid().getName());
+            CoolantFluidProperty p = CoolantFluidProperty.get(
+                stack.getFluid()
+                    .getName());
             if (p != null) {
                 return p.isMolten();
             }

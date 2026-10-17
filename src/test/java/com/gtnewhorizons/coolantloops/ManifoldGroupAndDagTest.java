@@ -373,7 +373,8 @@ public class ManifoldGroupAndDagTest {
     private LoopSegment findSegment(List<LoopSegment> segments, String id) {
         if (segments == null) return null;
         for (LoopSegment s : segments) {
-            if (s.getId().equals(id)) {
+            if (s.getId()
+                .equals(id)) {
                 return s;
             }
         }
@@ -464,8 +465,8 @@ public class ManifoldGroupAndDagTest {
         map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH);
 
         LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
-        CrawlSession session = crawler.startSession(
-            10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
+        CrawlSession session = crawler
+            .startSession(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
 
         // Step 1: 3 steps
         boolean done = session.step(3);
@@ -501,8 +502,14 @@ public class ManifoldGroupAndDagTest {
         // Session configured with maxTicks = 2 and step limit 1 per tick
         CrawlSession session = new CrawlSession(
             map.world,
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
+            10,
+            10,
+            10,
+            ForgeDirection.EAST,
+            10,
+            10,
+            8,
+            ForgeDirection.NORTH,
             "pump:10:10:10",
             null,
             null,
@@ -547,8 +554,14 @@ public class ManifoldGroupAndDagTest {
         // Session configured with maxSteps = 4
         CrawlSession session = new CrawlSession(
             map.world,
-            10, 10, 10, ForgeDirection.EAST,
-            10, 10, 8, ForgeDirection.NORTH,
+            10,
+            10,
+            10,
+            ForgeDirection.EAST,
+            10,
+            10,
+            8,
+            ForgeDirection.NORTH,
             "pump:10:10:10",
             null,
             null,

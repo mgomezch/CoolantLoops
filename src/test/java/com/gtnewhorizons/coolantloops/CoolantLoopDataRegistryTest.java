@@ -115,10 +115,22 @@ public class CoolantLoopDataRegistryTest {
         assertTrue(
             pipes.getAllowedMaterials()
                 .contains("titanium"));
-        assertFalse(pipes.getMaterialPressureRatingsBar().containsKey("wood"), "Non-coolant pipe materials must not exist");
-        assertFalse(pipes.getMaterialPressureRatingsBar().containsKey("copper"), "Non-coolant pipe materials must not exist");
-        assertFalse(pipes.getMaterialPressureRatingsBar().containsKey("bronze"), "Non-coolant pipe materials must not exist");
-        assertFalse(pipes.getMaterialPressureRatingsBar().containsKey("naquadah"), "Non-coolant pipe materials must not exist");
+        assertFalse(
+            pipes.getMaterialPressureRatingsBar()
+                .containsKey("wood"),
+            "Non-coolant pipe materials must not exist");
+        assertFalse(
+            pipes.getMaterialPressureRatingsBar()
+                .containsKey("copper"),
+            "Non-coolant pipe materials must not exist");
+        assertFalse(
+            pipes.getMaterialPressureRatingsBar()
+                .containsKey("bronze"),
+            "Non-coolant pipe materials must not exist");
+        assertFalse(
+            pipes.getMaterialPressureRatingsBar()
+                .containsKey("naquadah"),
+            "Non-coolant pipe materials must not exist");
 
         // Verify default devices
         CoolantDeviceData devices = CoolantLoopDataRegistry.getDeviceData();
@@ -276,7 +288,8 @@ public class CoolantLoopDataRegistryTest {
         File configDir = tempDir.toFile();
         CoolantLoopDataRegistry.init(configDir);
 
-        CoolantDeviceData.PHEData phe = CoolantLoopDataRegistry.getDeviceData().getPhe();
+        CoolantDeviceData.PHEData phe = CoolantLoopDataRegistry.getDeviceData()
+            .getPhe();
         assertNotNull(phe);
 
         // By default, distilled water variants are allowed
@@ -291,8 +304,7 @@ public class CoolantLoopDataRegistryTest {
 
         // Now customize devices.yaml to allow plain water as well
         File loopDir = new File(configDir, "coolantloops");
-        String customDevices = "phe:\n"
-            + "  allowedSecondaryFluids:\n"
+        String customDevices = "phe:\n" + "  allowedSecondaryFluids:\n"
             + "    - \"ic2distilledwater\"\n"
             + "    - \"water\"\n"
             + "    - \"minecraft:water\"\n";
@@ -300,8 +312,11 @@ public class CoolantLoopDataRegistryTest {
 
         // Re-init from directory
         CoolantLoopDataRegistry.init(configDir);
-        CoolantDeviceData.PHEData customPhe = CoolantLoopDataRegistry.getDeviceData().getPhe();
-        assertTrue(customPhe.isAllowedSecondaryFluid("water"), "Admin configured water must now be allowed without code changes");
+        CoolantDeviceData.PHEData customPhe = CoolantLoopDataRegistry.getDeviceData()
+            .getPhe();
+        assertTrue(
+            customPhe.isAllowedSecondaryFluid("water"),
+            "Admin configured water must now be allowed without code changes");
         assertTrue(customPhe.isAllowedSecondaryFluid("minecraft:water"));
     }
 
@@ -328,7 +343,9 @@ public class CoolantLoopDataRegistryTest {
         // Material compatibility must use configured materialFamilies
         assertTrue(CoolantPipingRegistry.areMaterialsEqual("iron", "castiron"));
         assertTrue(CoolantPipingRegistry.areMaterialsEqual("castiron", "wroughtiron"));
-        assertFalse(CoolantPipingRegistry.areMaterialsEqual("steel", "stainlesssteel"), "Steel and stainless steel are distinct");
+        assertFalse(
+            CoolantPipingRegistry.areMaterialsEqual("steel", "stainlesssteel"),
+            "Steel and stainless steel are distinct");
         assertFalse(CoolantPipingRegistry.areMaterialsEqual("iron", "steel"), "Iron and steel are distinct");
     }
 
@@ -341,17 +358,19 @@ public class CoolantLoopDataRegistryTest {
         assertTrue(fluidData.isLiquidNuclearFuel("uraniumbasedliquidfuel"));
         assertTrue(fluidData.isLiquidNuclearFuel("depleteduraniumbasedliquidfuel"));
         assertTrue(fluidData.isLiquidNuclearFuel("thoriumbasedliquidfuel"));
-        assertFalse(fluidData.isLiquidNuclearFuel("custom_thorium_blend"), "Unregistered fluid is not liquid nuclear fuel");
+        assertFalse(
+            fluidData.isLiquidNuclearFuel("custom_thorium_blend"),
+            "Unregistered fluid is not liquid nuclear fuel");
 
         // Add custom fuel in fluids.yaml
         File loopDir = new File(configDir, "coolantloops");
-        String customFluids = "liquidNuclearFuels:\n"
-            + "  - \"custom_thorium_blend\"\n"
-            + "  - \"liquidfuel\"\n";
+        String customFluids = "liquidNuclearFuels:\n" + "  - \"custom_thorium_blend\"\n" + "  - \"liquidfuel\"\n";
         Files.write(new File(loopDir, "fluids.yaml").toPath(), customFluids.getBytes());
 
         CoolantLoopDataRegistry.init(configDir);
-        assertTrue(CoolantLoopDataRegistry.getFluidData().isLiquidNuclearFuel("custom_thorium_blend"),
+        assertTrue(
+            CoolantLoopDataRegistry.getFluidData()
+                .isLiquidNuclearFuel("custom_thorium_blend"),
             "Custom liquid fuel added in YAML must be recognized without code changes");
     }
 }

@@ -155,7 +155,8 @@ public class CoolantPipingRegistry {
     public static boolean areMaterialsEqual(String m1, String m2) {
         if (m1 == null || m2 == null) return false;
         if (CoolantLoopDataRegistry.getPipeData() != null) {
-            return CoolantLoopDataRegistry.getPipeData().areMaterialsEqual(m1, m2);
+            return CoolantLoopDataRegistry.getPipeData()
+                .areMaterialsEqual(m1, m2);
         }
         String n1 = m1.toLowerCase()
             .replace(" ", "")

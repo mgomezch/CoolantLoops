@@ -656,7 +656,8 @@ public class LoopGraphCrawler {
                         while (!mfQueue.isEmpty()) {
                             BlockPosCoord p = mfQueue.poll();
                             TileEntity pte = world.getTileEntity(p.x, p.y, p.z);
-                            TileEntityManifold pmf = (pte instanceof TileEntityManifold) ? (TileEntityManifold) pte : null;
+                            TileEntityManifold pmf = (pte instanceof TileEntityManifold) ? (TileEntityManifold) pte
+                                : null;
                             if (pmf == null) continue;
 
                             for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
@@ -708,7 +709,8 @@ public class LoopGraphCrawler {
                         // Validate external connections across every block in the manifold group
                         for (BlockPosCoord mPos : groupCoords) {
                             TileEntity mteRaw = world.getTileEntity(mPos.x, mPos.y, mPos.z);
-                            TileEntityManifold mTile = (mteRaw instanceof TileEntityManifold) ? (TileEntityManifold) mteRaw
+                            TileEntityManifold mTile = (mteRaw instanceof TileEntityManifold)
+                                ? (TileEntityManifold) mteRaw
                                 : null;
 
                             for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
@@ -858,7 +860,8 @@ public class LoopGraphCrawler {
                     BaseMetaPipeEntity bmpe = (BaseMetaPipeEntity) te;
                     if (!(bmpe.getMetaTileEntity() instanceof MTECoolantPipe)) {
                         finishWithFailure(
-                            CoolantLocalization.format("coolantloops.crawler.not_coolant_pipe", step.x, step.y, step.z));
+                            CoolantLocalization
+                                .format("coolantloops.crawler.not_coolant_pipe", step.x, step.y, step.z));
                         return true;
                     }
                     MTECoolantPipe pipe = (MTECoolantPipe) bmpe.getMetaTileEntity();
@@ -888,7 +891,8 @@ public class LoopGraphCrawler {
                     if (detectedLoopMaterial == null) {
                         detectedLoopMaterial = pipeMat;
                     } else if (!areMaterialsEqual(pipeMat, detectedLoopMaterial)) {
-                        if (expectedTankMaterial != null && areMaterialsEqual(detectedLoopMaterial, expectedTankMaterial)) {
+                        if (expectedTankMaterial != null
+                            && areMaterialsEqual(detectedLoopMaterial, expectedTankMaterial)) {
                             finishWithFailure(
                                 CoolantLocalization.format(
                                     "coolantloops.crawler.pipe_mat_tank_mismatch",
@@ -1200,13 +1204,15 @@ public class LoopGraphCrawler {
                         ICoolantPassageHatch passage = (ICoolantPassageHatch) mte;
                         if (!passage.isPassageInlet()) {
                             finishWithFailure(
-                                CoolantLocalization.format("coolantloops.crawler.passage_outlet", step.x, step.y, step.z));
+                                CoolantLocalization
+                                    .format("coolantloops.crawler.passage_outlet", step.x, step.y, step.z));
                             return true;
                         }
                         IGregTechTileEntity outTE = passage.getOppositeHatchTile();
                         if (outTE == null) {
                             finishWithFailure(
-                                CoolantLocalization.format("coolantloops.crawler.passage_no_pair", step.x, step.y, step.z));
+                                CoolantLocalization
+                                    .format("coolantloops.crawler.passage_no_pair", step.x, step.y, step.z));
                             return true;
                         }
                         if (pump != null) {
@@ -1356,7 +1362,8 @@ public class LoopGraphCrawler {
         private double getNodeFlowSizeWeight(String nodeId, Map<String, LoopSegment> segmentMap) {
             List<LoopSegment> segs = getSegmentsForNode(nodeId, segmentMap);
             if (segs.isEmpty()) return 1.0;
-            return segs.get(0).getFlowSizeWeight();
+            return segs.get(0)
+                .getFlowSizeWeight();
         }
 
         private void distributeFlowAndWireUpstreams() {
@@ -1725,8 +1732,8 @@ public class LoopGraphCrawler {
         return ForgeDirection.UNKNOWN;
     }
 
-    public static ForgeDirection findNextDirection(World world, ForgeDirection incomingSide, int x, int y, int z, int targetX,
-        int targetY, int targetZ, Set<BlockPosCoord> visited) {
+    public static ForgeDirection findNextDirection(World world, ForgeDirection incomingSide, int x, int y, int z,
+        int targetX, int targetY, int targetZ, Set<BlockPosCoord> visited) {
         // 1. Check if the target suction port is adjacent in any valid forward direction!
         for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
             if (dir == incomingSide) continue;

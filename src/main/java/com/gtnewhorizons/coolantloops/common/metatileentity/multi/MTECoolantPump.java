@@ -204,7 +204,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return mLoopDevices;
     }
 
-
     public MTECoolantPump(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
     }
@@ -629,8 +628,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             mLoopFormed = false;
             mLoopState = LoopState.EMPTY;
             mCurrentFillLiters = 0L;
-            String reason = (result != null && result.failureReason != null)
-                ? result.failureReason
+            String reason = (result != null && result.failureReason != null) ? result.failureReason
                 : CoolantLocalization.get("coolantloops.crawler.no_suction_path");
             if (reason.equals(CoolantLocalization.get("coolantloops.crawler.loop_too_large"))) {
                 mLoopStatus = reason;
@@ -647,7 +645,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         long requiredFill = 0L;
         for (LoopSegment s : result.segments) {
             mEngine.addSegment(s);
-            if (s.getId().startsWith("pipe_")) {
+            if (s.getId()
+                .startsWith("pipe_")) {
                 requiredFill += s.getCapacityLiters();
             }
         }
@@ -655,7 +654,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         for (ICoolantLoopDevice dev : mLoopDevices) {
             dev.setLoopPump(this);
             if (dev instanceof MTEPressurizedHeatExchanger || dev instanceof ICoolantPassageHatch
-                || dev instanceof MTEPressurizedDegasser || dev instanceof MTECoolantBath) {
+                || dev instanceof MTEPressurizedDegasser
+                || dev instanceof MTECoolantBath) {
                 requiredFill += 1000L;
             } else if (dev instanceof TileEntityLoopInstrument) {
                 requiredFill += 10L;
@@ -764,7 +764,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             for (ICoolantLoopDevice dev : mLoopDevices) {
                 LoopSegment seg = null;
                 for (LoopSegment s : mEngine.getSegments()) {
-                    if (s.getId().equals(dev.getDeviceId())) {
+                    if (s.getId()
+                        .equals(dev.getDeviceId())) {
                         seg = s;
                         break;
                     }
