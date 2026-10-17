@@ -25,7 +25,16 @@ public class TileEntityCreativeHeatReservoir extends TileEntity implements ICool
     private double minorLossK = 0.5; // Flow resistance coefficient
     private ConvectiveHeatTransferModel convectiveModel = ConvectiveHeatTransferModel.DEFAULT;
 
-    public TileEntityCreativeHeatReservoir() {}
+    public TileEntityCreativeHeatReservoir() {
+        if (com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.getDeviceData() != null) {
+            this.heatTransferArea = com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.getDeviceData()
+                .getReservoir().exchangeArea;
+        }
+        if (com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.getConvectiveModel() != null) {
+            this.convectiveModel = com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry
+                .getConvectiveModel();
+        }
+    }
 
     @Override
     public String getDeviceId() {

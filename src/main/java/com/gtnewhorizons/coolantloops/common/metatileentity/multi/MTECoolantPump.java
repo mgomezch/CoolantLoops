@@ -18,6 +18,7 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructa
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
@@ -104,12 +105,32 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     protected LoopState mLoopState = LoopState.EMPTY;
     protected long mCurrentFillLiters = 0L;
     protected long mRequiredFillLiters = 0L;
-    protected long mFillRateLitersPerTick = 1000L;
+    protected long mFillRateLitersPerTick = (CoolantLoopDataRegistry.getPhysicsData() != null)
+        ? CoolantLoopDataRegistry.getPhysicsData()
+            .getFillRateLitersPerTick()
+        : 1000L;
 
     // Reservoir management
     protected final CoolantPumpReservoir mReservoir = new CoolantPumpReservoir(this);
     protected boolean mHasEverBeenEnabled = false;
     protected boolean mPowerFailed = false;
+
+    // Multi-tick loop crawling state
+    protected long mLastCrawlStartTime = -1L;
+    protected long mLastCrawlCompleteTime = -1L;
+    protected LoopGraphCrawler.CrawlSession mActiveCrawl = null;
+
+    public long getLastCrawlStartTime() {
+        return mLastCrawlStartTime;
+    }
+
+    public long getLastCrawlCompleteTime() {
+        return mLastCrawlCompleteTime;
+    }
+
+    public LoopGraphCrawler.CrawlSession getActiveCrawl() {
+        return mActiveCrawl;
+    }
 
     public boolean isPowerFailed() {
         if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().wasShutdown()) {
@@ -172,6 +193,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void setSimulatedCoolantLiters(long liters) {
         mReservoir.setSimulatedCoolantLiters(liters);
     }
+
+    public void addLoopDevice(ICoolantLoopDevice dev) {
+        if (dev != null && !mLoopDevices.contains(dev)) {
+            mLoopDevices.add(dev);
+        }
+    }
+
+    public List<ICoolantLoopDevice> getLoopDevices() {
+        return mLoopDevices;
+    }
+
 
     public MTECoolantPump(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -404,6 +436,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         checkMaintenance();
         mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.formed");
+        if (mActiveCrawl != null && !mActiveCrawl.isDone()) {
+            return false;
+        }
         boolean loopFormed = crawlLoopGraph();
         if (!loopFormed) {
             return false;
@@ -513,6 +548,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     /**
      * Re-crawls the connected piping circuit from the discharge hatch back to suction.
      */
+    /**
+     * Re-crawls the connected piping circuit from the discharge hatch back to suction.
+     */
     public boolean crawlLoopGraph() {
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te == null || te.getWorld() == null) {
@@ -520,6 +558,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
 
         if (mDischargeHatch == null || mSuctionHatch == null) {
+            mActiveCrawl = null;
             mLoopFormed = false;
             mLoopState = LoopState.EMPTY;
             mCurrentFillLiters = 0L;
@@ -530,8 +569,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         IGregTechTileEntity discTE = mDischargeHatch.getBaseMetaTileEntity();
         IGregTechTileEntity sucTE = mSuctionHatch.getBaseMetaTileEntity();
 
-        LoopGraphCrawler crawler = new LoopGraphCrawler(te.getWorld(), 1000);
-        LoopGraphCrawler.CrawlResult result = crawler.crawl(
+        if (discTE == null || sucTE == null) {
+            mActiveCrawl = null;
+            mLoopFormed = false;
+            return false;
+        }
+
+        mLastCrawlStartTime = (te != null) ? te.getTimer() : System.currentTimeMillis();
+        LoopGraphCrawler crawler = new LoopGraphCrawler(te.getWorld(), LoopGraphCrawler.DEFAULT_MAX_STEPS);
+        mActiveCrawl = crawler.startSession(
             discTE.getXCoord(),
             discTE.getYCoord(),
             discTE.getZCoord(),
@@ -544,11 +590,53 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             this,
             mTankMaterial);
 
-        if (!result.isSuccess) {
+        mActiveCrawl.step(LoopGraphCrawler.STEPS_PER_TICK);
+
+        if (mActiveCrawl.isDone()) {
+            mLastCrawlCompleteTime = (te != null) ? te.getTimer() : System.currentTimeMillis();
+            LoopGraphCrawler.CrawlResult result = mActiveCrawl.getResult();
+            mActiveCrawl = null;
+            return applyCrawlResult(result);
+        } else {
+            mLoopFormed = false;
+            mLoopStatus = CoolantLocalization.format(
+                "coolantloops.pump.status.crawling",
+                mActiveCrawl.getStepCount(),
+                mActiveCrawl.getTicksElapsed());
+            return false;
+        }
+    }
+
+    public void stepActiveCrawl() {
+        if (mActiveCrawl == null) return;
+        mActiveCrawl.step(LoopGraphCrawler.STEPS_PER_TICK);
+        if (mActiveCrawl.isDone()) {
+            IGregTechTileEntity te = getBaseMetaTileEntity();
+            mLastCrawlCompleteTime = (te != null) ? te.getTimer() : System.currentTimeMillis();
+            LoopGraphCrawler.CrawlResult result = mActiveCrawl.getResult();
+            mActiveCrawl = null;
+            applyCrawlResult(result);
+        } else {
+            mLoopStatus = CoolantLocalization.format(
+                "coolantloops.pump.status.crawling",
+                mActiveCrawl.getStepCount(),
+                mActiveCrawl.getTicksElapsed());
+        }
+    }
+
+    public boolean applyCrawlResult(LoopGraphCrawler.CrawlResult result) {
+        if (result == null || !result.isSuccess) {
             mLoopFormed = false;
             mLoopState = LoopState.EMPTY;
             mCurrentFillLiters = 0L;
-            mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.loop_disconnect", result.failureReason);
+            String reason = (result != null && result.failureReason != null)
+                ? result.failureReason
+                : CoolantLocalization.get("coolantloops.crawler.no_suction_path");
+            if (reason.equals(CoolantLocalization.get("coolantloops.crawler.loop_too_large"))) {
+                mLoopStatus = reason;
+            } else {
+                mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.loop_disconnect", reason);
+            }
             return false;
         }
 
@@ -559,8 +647,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         long requiredFill = 0L;
         for (LoopSegment s : result.segments) {
             mEngine.addSegment(s);
-            if (s.getId()
-                .startsWith("pipe_")) {
+            if (s.getId().startsWith("pipe_")) {
                 requiredFill += s.getCapacityLiters();
             }
         }
@@ -568,7 +655,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         for (ICoolantLoopDevice dev : mLoopDevices) {
             dev.setLoopPump(this);
             if (dev instanceof MTEPressurizedHeatExchanger || dev instanceof ICoolantPassageHatch
-                || dev instanceof MTEPressurizedDegasser) {
+                || dev instanceof MTEPressurizedDegasser || dev instanceof MTECoolantBath) {
                 requiredFill += 1000L;
             } else if (dev instanceof TileEntityLoopInstrument) {
                 requiredFill += 10L;
@@ -580,7 +667,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         mRequiredFillLiters = requiredFill;
         mLoopFormed = true;
-        fixAllIssues();
         mHasEverBeenEnabled = true;
 
         if (getBaseMetaTileEntity() != null && !getBaseMetaTileEntity().isAllowedToWork()) {
@@ -615,6 +701,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void onPostTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
         super.onPostTick(aBaseMetaTileEntity, aTick);
         if (aBaseMetaTileEntity != null && aBaseMetaTileEntity.isServerSide()) {
+            if (mActiveCrawl != null) {
+                stepActiveCrawl();
+            }
             stepCoolantLoop();
         }
     }
@@ -662,7 +751,27 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setBraking(false);
         mLoopStatus = ShutDownReasonRegistry.POWER_LOSS.getDisplayString();
         mEngine.step(0.05);
+        processCoastingThermalExchange();
         return true;
+    }
+
+    /**
+     * Executes thermal exchange across in-line devices while fluid is coasting down through inertia.
+     */
+    public void processCoastingThermalExchange() {
+        double flowRate = mEngine.getVolumetricFlowRate();
+        if (flowRate > 1e-6) {
+            for (ICoolantLoopDevice dev : mLoopDevices) {
+                LoopSegment seg = null;
+                for (LoopSegment s : mEngine.getSegments()) {
+                    if (s.getId().equals(dev.getDeviceId())) {
+                        seg = s;
+                        break;
+                    }
+                }
+                dev.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), seg);
+            }
+        }
     }
 
     public boolean drainEnergy(long aEU) {
@@ -749,6 +858,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     .format("coolantloops.pump.status.disabled_coasting", mEngine.getVolumetricFlowRate() * 1000.0);
             }
             mEngine.step(0.05); // Fluid inertia coast-down
+            processCoastingThermalExchange();
             return true; // Pauses/stops cleanly without explosion!
         }
 
@@ -759,6 +869,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 failOnLiquidNuclearFuel(
                     reservoirFluid.getFluid()
                         .getName());
+                mEngine.step(0.05);
+                processCoastingThermalExchange();
                 return true;
             }
             if (isPlainRegularWater(reservoirFluid)) {
@@ -768,6 +880,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.setBraking(false);
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_water");
                 mEngine.step(0.05);
+                processCoastingThermalExchange();
                 return true;
             }
             if (isGaseousFluid(reservoirFluid)) {
@@ -780,6 +893,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     reservoirFluid.getFluid()
                         .getName());
                 mEngine.step(0.05);
+                processCoastingThermalExchange();
                 return true;
             }
             if (isLava(reservoirFluid)) {
@@ -791,6 +905,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setBraking(false);
                     mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_lava");
                     mEngine.step(0.05);
+                    processCoastingThermalExchange();
                     return true;
                 }
             }
@@ -801,6 +916,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 failOnLiquidNuclearFuel(
                     mEngine.getFluid()
                         .getFluidName());
+                mEngine.step(0.05);
+                processCoastingThermalExchange();
                 return true;
             }
             if (mEngine.getFluid()
@@ -811,6 +928,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.setBraking(false);
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_water");
                 mEngine.step(0.05);
+                processCoastingThermalExchange();
                 return true;
             }
             if (mEngine.getFluid()
@@ -823,6 +941,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setBraking(false);
                     mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_lava");
                     mEngine.step(0.05);
+                    processCoastingThermalExchange();
                     return true;
                 }
             }
@@ -880,6 +999,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         declaredMelting,
                         currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     mEngine.step(0.05);
+                    processCoastingThermalExchange();
                     return true;
                 }
             }
@@ -893,6 +1013,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             mEngine.setBraking(false);
             mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.missing_rotor");
             mEngine.step(0.05); // Fluid inertia coast-down
+            processCoastingThermalExchange();
             return true;
         }
 
@@ -903,6 +1024,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (RotorThermalHelper.isMelted(th)) {
             failOnImpellerMelting(pumpFluidTemp, rotorMat);
             mEngine.step(0.05);
+            processCoastingThermalExchange();
             return true;
         }
 
@@ -922,7 +1044,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 if (baseTE != null) {
                     baseTE.setActive(true);
                 }
-                double mechanicalWatts = requiredEU * 80.0 * mRotorEfficiency * effFactor;
+                double wattsPerEu = (CoolantLoopDataRegistry.getPhysicsData() != null)
+                    ? CoolantLoopDataRegistry.getPhysicsData()
+                        .getPumpMechanicalPowerPerEU()
+                    : 80.0;
+                double mechanicalWatts = requiredEU * wattsPerEu * mRotorEfficiency * effFactor;
                 degradeRotor(requiredEU);
 
                 mLoopState = LoopState.DECELERATING;
@@ -1111,7 +1237,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         mLoopState = LoopState.CIRCULATING;
         mEngine.setPumpPowered(true);
-        double mechanicalWatts = requiredEU * 80.0 * mRotorEfficiency * effFactor;
+        double wattsPerEu = (CoolantLoopDataRegistry.getPhysicsData() != null)
+            ? CoolantLoopDataRegistry.getPhysicsData()
+                .getPumpMechanicalPowerPerEU()
+            : 80.0;
+        double mechanicalWatts = requiredEU * wattsPerEu * mRotorEfficiency * effFactor;
         mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
         degradeRotor(requiredEU);
 
@@ -1335,7 +1465,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setPumpPowered(false);
         mEngine.setPumpMechanicalPowerWatts(0.0);
         mEngine.setBraking(false);
-        mEngine.setVolumetricFlowRate(0.0);
+        // Do NOT abruptly zero flow rate! Fluid continues circulating through inertia and slowing with drag.
         String name = fluidName != null ? fluidName : "liquid nuclear fuel";
         mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.catastrophic_fuel", name);
     }
@@ -1346,7 +1476,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setPumpPowered(false);
         mEngine.setPumpMechanicalPowerWatts(0.0);
         mEngine.setBraking(false);
-        mEngine.setVolumetricFlowRate(0.0);
+        // Do NOT abruptly zero flow rate! Fluid continues circulating through inertia and slowing with drag.
         String matName = mat != null ? RotorThermalHelper.getMaterialLocalizedName(mat) : "impeller";
         double meltC = RotorThermalHelper.getMeltingPointCelsius(mat);
         mLoopStatus = CoolantLocalization

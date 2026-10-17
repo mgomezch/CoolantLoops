@@ -222,3 +222,13 @@ coolantloops.crawler.no_suction_path=Loop broken: no path reached the pump sucti
 coolantloops.crawler.branch_not_reaching_suction=Invalid loop topology: branch at %s does not lead to pump suction port!
 coolantloops.crawler.cycle_detected=Invalid cyclic loop topology: path from manifold output loops back to its input without passing through the pump: %s
 coolantloops.crawler.cycle_generic=Invalid cyclic loop topology: cycle detected: %s
+coolantloops.crawler.bath_unformed=Coolant Bath at (%d, %d, %d) is unformed or missing a valid outlet hatch
+coolantloops.crawler.loop_too_large=Loop structure check could not complete because the loop is too large
+coolantloops.pump.status.crawling=Checking loop structure... (%d steps, tick %d/20)
+
+# Coolant Bath
+gt.multiblock.coolant_bath.machine_type=Coolant bath
+gt.multiblock.coolant_bath.desc1=Passive convective thermal treatment bath for ingots and coolant cells
+gt.multiblock.coolant_bath.desc2=Variable 3-block tall rectangular cuboid (5x7 EV, 7x9 IV, 9x11 LuV)
+gt.multiblock.coolant_bath.desc3=Operates purely by Newton's law of cooling with circulating loop coolant
+gt.multiblock.coolant_bath.desc4=Higher flow rate accelerates heat exchange; flow resistance scales with item load

@@ -18,6 +18,7 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
@@ -67,10 +68,19 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
     public MTEPressurizedDegasser(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
+        initFromConfig();
     }
 
     public MTEPressurizedDegasser(String aName) {
         super(aName);
+        initFromConfig();
+    }
+
+    private void initFromConfig() {
+        if (CoolantLoopDataRegistry.getDeviceData() != null) {
+            mMinorLossK = CoolantLoopDataRegistry.getDeviceData()
+                .getDegasser().minorLossK;
+        }
     }
 
     @Override
@@ -419,11 +429,16 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         }
 
         // 3. Degassing rate limits:
-        // A. Energy limit: up to 1 liter of extracted gas per second for every 8 EU/t consumed
-        double maxGasEnergyPerSec = (double) mLastDrainedEU / 8.0;
+        // A. Energy limit: gas extracted per second for consumed EU
+        double powerPerLiter = (CoolantLoopDataRegistry.getDeviceData() != null)
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getDegasser().gasExtractionPowerEuPerLiter
+            : 8.0;
+        if (powerPerLiter <= 0.0) powerPerLiter = 8.0;
+        double maxGasEnergyPerSec = (double) mLastDrainedEU / powerPerLiter;
         double maxGasEnergyThisTick = maxGasEnergyPerSec * dt;
 
-        // B. Mass transfer limit: 25% of dissolved gas volume that conceptually crosses the degasser this second
+        // B. Mass transfer limit: fraction of dissolved gas volume crossing the degasser
         double flowRateLs = coolantFlowRateM3s * 1000.0;
         if (flowRateLs <= 0.0) {
             return true; // No fluid crossing the degasser
@@ -440,6 +455,11 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             return true;
         }
 
+        double extractionEff = (CoolantLoopDataRegistry.getDeviceData() != null)
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getDegasser().gasExtractionEfficiency
+            : 0.25;
+
         // Process each dissolved gas species
         for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
             String gasName = entry.getKey();
@@ -448,7 +468,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
             double cGas = (double) gasLiters / (double) loopVolume;
             double vCrossing = cGas * qTick;
-            double maxGasMassThisTick = 0.25 * vCrossing;
+            double maxGasMassThisTick = extractionEff * vCrossing;
 
             double toExtract = Math.min(maxGasEnergyThisTick, maxGasMassThisTick) * effFactor;
             if (toExtract <= 0.0) continue;

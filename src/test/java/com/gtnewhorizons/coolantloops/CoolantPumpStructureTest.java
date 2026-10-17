@@ -8,11 +8,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Collections;
+
 import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
+import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.enums.Materials;
@@ -861,5 +865,161 @@ public class CoolantPumpStructureTest {
         assertFalse(pump.isAllowedToWork());
         assertTrue(pump.isPowerFailed());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
+    }
+
+    @Test
+    public void testPumpCrawlTimeTrackingAndNoAutoMaintenanceFix() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // Initial crawl timestamps
+        assertEquals(-1L, pump.getLastCrawlStartTime());
+        assertEquals(-1L, pump.getLastCrawlCompleteTime());
+
+        // Simulate damage / maintenance issues on the multiblock
+        pump.mWrench = false;
+        pump.mScrewdriver = false;
+        pump.mSoftMallet = false;
+        pump.mHardHammer = false;
+        pump.mCrowbar = false;
+        pump.mSolderingTool = false;
+
+        // Apply a successful CrawlResult
+        LoopSegment testSeg = new LoopSegment("pipe_test", 10.0, 0.1, 0.00005, 0.5, 100.0, 1000.0, 20.0);
+        CrawlResult successResult = CrawlResult.success(
+            Collections.singletonList(testSeg),
+            Collections.emptyList(),
+            Collections.emptySet(),
+            500.0,
+            Materials.Steel,
+            Collections.emptyList());
+
+        boolean applied = pump.applyCrawlResult(successResult);
+        assertTrue(applied, "Applying valid crawl result must succeed");
+        assertTrue(pump.isLoopFormed(), "Loop must be formed");
+
+        // CRITICAL: Maintenance issues must NOT be auto-fixed by re-crawling!
+        assertFalse(pump.mWrench, "mWrench issue must remain unfixed");
+        assertFalse(pump.mScrewdriver, "mScrewdriver issue must remain unfixed");
+        assertFalse(pump.mSoftMallet, "mSoftMallet issue must remain unfixed");
+        assertFalse(pump.mHardHammer, "mHardHammer issue must remain unfixed");
+        assertFalse(pump.mCrowbar, "mCrowbar issue must remain unfixed");
+        assertFalse(pump.mSolderingTool, "mSolderingTool issue must remain unfixed");
+    }
+
+    @Test
+    public void testPumpLoopTooLargeStatusMessage() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        CrawlResult failResult = CrawlResult.fail("Loop structure check could not complete because the loop is too large");
+        boolean applied = pump.applyCrawlResult(failResult);
+        assertFalse(applied, "Applying failed crawl result must return false");
+        assertFalse(pump.isLoopFormed(), "Loop must not be formed");
+        assertEquals(
+            "Loop structure check could not complete because the loop is too large",
+            pump.getLoopStatus(),
+            "Controller status must state the exact error message");
+    }
+
+    @Test
+    public void testPumpSoftMalletTurnoffCoastsWithDragAndExchangesHeat() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // Set initial volumetric flow rate to 0.05 m^3/s (50 L/s)
+        pump.getEngine().setVolumetricFlowRate(0.05);
+
+        // Register a mock loop device
+        ICoolantLoopDevice mockDev = Mockito.mock(ICoolantLoopDevice.class);
+        Mockito.when(mockDev.getDeviceId()).thenReturn("seg_test");
+        pump.addLoopDevice(mockDev);
+
+        // Turn off pump via soft mallet / redstone disable
+        pumpAllowed[0] = false;
+
+        assertTrue(pump.stepCoolantLoop());
+
+        // Flow rate must NOT be abruptly 0! It must coast down via drag
+        double flow1 = pump.getEngine().getVolumetricFlowRate();
+        assertTrue(flow1 > 0.0, "Flow rate must remain positive through fluid inertia");
+        assertTrue(flow1 < 0.05, "Flow rate must decelerate from drag");
+
+        // Thermal exchange must have been executed during coasting
+        Mockito.verify(mockDev, Mockito.atLeastOnce()).processThermalExchange(
+            Mockito.eq(flow1),
+            Mockito.eq(0.05),
+            Mockito.eq(pump.getEngine().getFluid()),
+            Mockito.any());
+    }
+
+    @Test
+    public void testPumpPowerFailureCoastsWithDragAndExchangesHeat() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        // 1 EV Hatch with 0 EU stored
+        long[] hatchEU = new long[] { 0L };
+        MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatchEU);
+        pump.mEnergyHatches.add(evHatch);
+
+        // Set circulating flow rate
+        pump.getEngine().setVolumetricFlowRate(0.05);
+
+        ICoolantLoopDevice mockDev = Mockito.mock(ICoolantLoopDevice.class);
+        Mockito.when(mockDev.getDeviceId()).thenReturn("seg_test");
+        pump.addLoopDevice(mockDev);
+
+        // Step while out of power triggers powerfail
+        assertTrue(pump.stepCoolantLoop());
+        assertTrue(pump.isPowerFailed(), "Pump must powerfail on missing energy");
+
+        // Fluid must coast down, NOT stop abruptly
+        double flow = pump.getEngine().getVolumetricFlowRate();
+        assertTrue(flow > 0.0, "Fluid must coast through inertia during power failure");
+        assertTrue(flow < 0.05, "Fluid must decelerate from drag");
+
+        // Thermal exchange must continue during powerfail coasting
+        Mockito.verify(mockDev, Mockito.atLeastOnce()).processThermalExchange(
+            Mockito.eq(flow),
+            Mockito.eq(0.05),
+            Mockito.eq(pump.getEngine().getFluid()),
+            Mockito.any());
+    }
+
+    @Test
+    public void testPumpImpellerMeltingCoastsWithDragAndExchangesHeat() {
+        boolean[] pumpAllowed = new boolean[] { true };
+        MTECoolantPump pump = createOperatingPumpWithBase(pumpAllowed);
+
+        pump.getEngine().setVolumetricFlowRate(0.05);
+
+        ICoolantLoopDevice mockDev = Mockito.mock(ICoolantLoopDevice.class);
+        Mockito.when(mockDev.getDeviceId()).thenReturn("seg_test");
+        pump.addLoopDevice(mockDev);
+
+        // Trigger impeller melting
+        pump.failOnImpellerMelting(2000.0, Materials.Steel);
+
+        // Impeller is destroyed
+        assertNull(pump.getRotor(), "Impeller must be destroyed");
+        assertEquals(0.0, pump.getRotorEfficiency(), 1e-6);
+
+        // Volumetric flow rate must NOT be zeroed immediately!
+        double flowAfterMelt = pump.getEngine().getVolumetricFlowRate();
+        assertEquals(0.05, flowAfterMelt, 1e-6, "Melting must not abruptly stop fluid momentum");
+
+        // In subsequent tick without impeller, pump coasts down with drag
+        assertTrue(pump.stepCoolantLoop());
+        double flowCoasting = pump.getEngine().getVolumetricFlowRate();
+        assertTrue(flowCoasting > 0.0, "Fluid must continue coasting");
+        assertTrue(flowCoasting < 0.05, "Fluid must slow down from drag");
+
+        // Thermal exchange must continue during coasting
+        Mockito.verify(mockDev, Mockito.atLeastOnce()).processThermalExchange(
+            Mockito.eq(flowCoasting),
+            Mockito.eq(0.05),
+            Mockito.eq(pump.getEngine().getFluid()),
+            Mockito.any());
     }
 }

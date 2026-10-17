@@ -22,10 +22,25 @@ public class CoolantLoops {
     @Mod.Instance(MODID)
     public static CoolantLoops instance;
 
+    public static cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper network;
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         LOG.info("Pre-initializing Coolant Loops thermodynamic engine...");
+        com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.init(event.getModConfigurationDirectory());
         com.gtnewhorizons.coolantloops.common.block.ModBlocks.init();
+
+        network = cpw.mods.fml.common.network.NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
+        network.registerMessage(
+            com.gtnewhorizons.coolantloops.network.PacketSyncCoolantBath.Handler.class,
+            com.gtnewhorizons.coolantloops.network.PacketSyncCoolantBath.class,
+            0,
+            cpw.mods.fml.relauncher.Side.CLIENT);
+        network.registerMessage(
+            com.gtnewhorizons.coolantloops.network.PacketEjectCoolantBathSlot.Handler.class,
+            com.gtnewhorizons.coolantloops.network.PacketEjectCoolantBathSlot.class,
+            1,
+            cpw.mods.fml.relauncher.Side.SERVER);
     }
 
     @Mod.EventHandler
@@ -47,6 +62,8 @@ public class CoolantLoops {
                 .register(manifoldHighlight);
             net.minecraftforge.common.MinecraftForge.EVENT_BUS
                 .register(new com.gtnewhorizons.coolantloops.client.tooltip.RotorTooltipEventHandler());
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS
+                .register(new com.gtnewhorizons.coolantloops.client.renderer.CoolantBathRenderer());
         }
     }
 

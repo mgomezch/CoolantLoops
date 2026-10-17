@@ -17,6 +17,8 @@ import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlSession;
+import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
@@ -91,10 +93,10 @@ public class ManifoldGroupAndDagTest {
             return mf;
         }
 
-        public BaseMetaPipeEntity putPipe(int x, int y, int z, ForgeDirection... connectedSides) {
+        public BaseMetaPipeEntity putPipe(int x, int y, int z, float thickness, ForgeDirection... connectedSides) {
             MTECoolantPipe pipe = new MTECoolantPipe(
                 "pipe_" + x + "_" + y + "_" + z,
-                0.5f,
+                thickness,
                 Materials.Steel,
                 1000,
                 1000,
@@ -111,6 +113,10 @@ public class ManifoldGroupAndDagTest {
             bmpe.mConnections = conns;
             put(x, y, z, bmpe);
             return bmpe;
+        }
+
+        public BaseMetaPipeEntity putPipe(int x, int y, int z, ForgeDirection... connectedSides) {
+            return putPipe(x, y, z, 0.5f, connectedSides);
         }
     }
 
@@ -362,5 +368,200 @@ public class ManifoldGroupAndDagTest {
         assertEquals(ForgeDirection.EAST, split1.getOutputSide());
         assertEquals(ForgeDirection.WEST, merge1.getInputSide());
         assertEquals(ForgeDirection.EAST, merge1.getOutputSide());
+    }
+
+    private LoopSegment findSegment(List<LoopSegment> segments, String id) {
+        if (segments == null) return null;
+        for (LoopSegment s : segments) {
+            if (s.getId().equals(id)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    public void testParallelBranchProportionalFlowSplitting() {
+        WorldTileMap map = new WorldTileMap();
+
+        // 1. Pump discharge at (10, 10, 10) facing EAST, Suction at (10, 10, 8) facing NORTH
+        map.putPipe(11, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 2. Splitter Manifold Group: (12, 10, 10) and (12, 10, 11)
+        map.putManifold(12, 10, 10);
+        map.putManifold(12, 10, 11);
+
+        // 3. Branch A (Medium pipe, thickness 0.5f -> weight 1.0)
+        map.putPipe(13, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 4. Branch B (Large pipe, thickness 0.75f -> weight 2.0)
+        map.putPipe(13, 10, 11, 0.75f, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 11, 0.75f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 5. Merger Manifold Group: (15, 10, 10) and (15, 10, 11)
+        map.putManifold(15, 10, 10);
+        map.putManifold(15, 10, 11);
+
+        // 6. Return path back to suction
+        map.putPipe(16, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.NORTH);
+        map.putPipe(16, 10, 9, 0.5f, ForgeDirection.SOUTH, ForgeDirection.WEST);
+        map.putPipe(15, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(14, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(13, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(12, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(11, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(10, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.NORTH);
+
+        LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
+
+        assertTrue(result.isSuccess, "Crawl must succeed: " + result.failureReason);
+
+        // Branch A segments must receive 1/3 of total flow (weight 1.0 / (1.0 + 2.0))
+        LoopSegment segA1 = findSegment(result.segments, "pipe_13_10_10");
+        LoopSegment segA2 = findSegment(result.segments, "pipe_14_10_10");
+        assertNotNull(segA1, "Branch A1 segment must exist");
+        assertNotNull(segA2, "Branch A2 segment must exist");
+        assertEquals(1.0 / 3.0, segA1.getFlowFraction(), 1e-4, "Branch A1 must receive 1/3 flow");
+        assertEquals(1.0 / 3.0, segA2.getFlowFraction(), 1e-4, "Branch A2 must receive 1/3 flow");
+
+        // Branch B segments must receive 2/3 of total flow (weight 2.0 / (1.0 + 2.0))
+        LoopSegment segB1 = findSegment(result.segments, "pipe_13_10_11");
+        LoopSegment segB2 = findSegment(result.segments, "pipe_14_10_11");
+        assertNotNull(segB1, "Branch B1 segment must exist");
+        assertNotNull(segB2, "Branch B2 segment must exist");
+        assertEquals(2.0 / 3.0, segB1.getFlowFraction(), 1e-4, "Branch B1 must receive 2/3 flow");
+        assertEquals(2.0 / 3.0, segB2.getFlowFraction(), 1e-4, "Branch B2 must receive 2/3 flow");
+
+        // Merger manifold tiles must receive both Branch A and Branch B segments as upstreams
+        LoopSegment mergeSeg = findSegment(result.segments, "manifold_15_10_10");
+        assertNotNull(mergeSeg, "Merger segment must exist");
+        List<LoopSegment> upstreams = mergeSeg.getUpstreamSegments();
+        assertEquals(2, upstreams.size(), "Merger must have 2 upstream branches");
+        assertTrue(upstreams.contains(segA2), "Merger upstreams must include Branch A end");
+        assertTrue(upstreams.contains(segB2), "Merger upstreams must include Branch B end");
+    }
+
+    @Test
+    public void testMultiTickCrawlStepping() {
+        WorldTileMap map = new WorldTileMap();
+
+        map.putPipe(11, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putManifold(12, 10, 10);
+        map.putManifold(12, 10, 11);
+        map.putPipe(13, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(13, 10, 11, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putManifold(14, 10, 10);
+        map.putManifold(14, 10, 11);
+        map.putPipe(15, 10, 10, ForgeDirection.WEST, ForgeDirection.NORTH);
+        map.putPipe(15, 10, 9, ForgeDirection.SOUTH, ForgeDirection.WEST);
+        map.putPipe(14, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(13, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(12, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(11, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH);
+
+        LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
+        CrawlSession session = crawler.startSession(
+            10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
+
+        // Step 1: 3 steps
+        boolean done = session.step(3);
+        assertFalse(done, "Crawl must not finish in 3 steps");
+        assertFalse(session.isDone());
+        assertEquals(3, session.getStepCount());
+        assertEquals(1, session.getTicksElapsed());
+        assertNull(session.getResult());
+
+        // Step 2: 1000 steps (remaining steps)
+        done = session.step(1000);
+        assertTrue(done, "Crawl must finish when steps limit exceeds remaining frontier");
+        assertTrue(session.isDone());
+        assertEquals(2, session.getTicksElapsed());
+        assertNotNull(session.getResult());
+        assertTrue(session.getResult().isSuccess, "Crawl result must be success");
+    }
+
+    @Test
+    public void testMultiTickCrawlTimeoutMaxTicks() {
+        WorldTileMap map = new WorldTileMap();
+
+        map.putPipe(11, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(12, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(13, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 10, ForgeDirection.WEST, ForgeDirection.NORTH);
+        map.putPipe(14, 10, 9, ForgeDirection.SOUTH, ForgeDirection.WEST);
+        map.putPipe(13, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(12, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(11, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH);
+
+        // Session configured with maxTicks = 2 and step limit 1 per tick
+        CrawlSession session = new CrawlSession(
+            map.world,
+            10, 10, 10, ForgeDirection.EAST,
+            10, 10, 8, ForgeDirection.NORTH,
+            "pump:10:10:10",
+            null,
+            null,
+            1000,
+            2);
+
+        // Tick 1
+        boolean d1 = session.step(1);
+        assertFalse(d1);
+        assertEquals(1, session.getTicksElapsed());
+
+        // Tick 2
+        boolean d2 = session.step(1);
+        assertFalse(d2);
+        assertEquals(2, session.getTicksElapsed());
+
+        // Tick 3: exceeds maxTicks (2)
+        boolean d3 = session.step(1);
+        assertTrue(d3, "Crawl must terminate on tick 3 when exceeding maxTicks of 2");
+        assertTrue(session.isDone());
+        assertNotNull(session.getResult());
+        assertFalse(session.getResult().isSuccess);
+        assertEquals(
+            "Loop structure check could not complete because the loop is too large",
+            session.getResult().failureReason);
+    }
+
+    @Test
+    public void testMultiTickCrawlStepLimitExceeded() {
+        WorldTileMap map = new WorldTileMap();
+
+        map.putPipe(11, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(12, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(13, 10, 10, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 10, ForgeDirection.WEST, ForgeDirection.NORTH);
+        map.putPipe(14, 10, 9, ForgeDirection.SOUTH, ForgeDirection.WEST);
+        map.putPipe(13, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(12, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(11, 10, 9, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(10, 10, 9, ForgeDirection.EAST, ForgeDirection.NORTH);
+
+        // Session configured with maxSteps = 4
+        CrawlSession session = new CrawlSession(
+            map.world,
+            10, 10, 10, ForgeDirection.EAST,
+            10, 10, 8, ForgeDirection.NORTH,
+            "pump:10:10:10",
+            null,
+            null,
+            4,
+            20);
+
+        boolean done = session.step(100);
+        assertTrue(done, "Crawl must complete (with failure) when exceeding maxSteps");
+        assertTrue(session.isDone());
+        assertNotNull(session.getResult());
+        assertFalse(session.getResult().isSuccess);
+        assertEquals(
+            "Loop structure check could not complete because the loop is too large",
+            session.getResult().failureReason);
     }
 }

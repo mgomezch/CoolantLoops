@@ -17,11 +17,28 @@ public class CoolantFluidProperty {
     private final double thermalConductivity; // W/(m*K)
     private final double boilingPointCelsius; // deg C at 1 atm
     private final double freezingPointCelsius; // deg C at 1 atm
+    private final boolean isMolten;
+    private final double radiolysisMultiplier;
 
     private static final Map<String, CoolantFluidProperty> REGISTRY = new HashMap<>();
 
     public CoolantFluidProperty(String fluidName, double density, double dynamicViscosity, double specificHeat,
         double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius) {
+        this(
+            fluidName,
+            density,
+            dynamicViscosity,
+            specificHeat,
+            thermalConductivity,
+            boilingPointCelsius,
+            freezingPointCelsius,
+            "lava".equalsIgnoreCase(fluidName) || "molten.cheese".equalsIgnoreCase(fluidName),
+            1.0);
+    }
+
+    public CoolantFluidProperty(String fluidName, double density, double dynamicViscosity, double specificHeat,
+        double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
+        double radiolysisMultiplier) {
         this.fluidName = fluidName;
         this.density = density;
         this.dynamicViscosity = dynamicViscosity;
@@ -29,13 +46,23 @@ public class CoolantFluidProperty {
         this.thermalConductivity = thermalConductivity;
         this.boilingPointCelsius = boilingPointCelsius;
         this.freezingPointCelsius = freezingPointCelsius;
+        this.isMolten = isMolten;
+        this.radiolysisMultiplier = radiolysisMultiplier;
     }
 
     public static void register(CoolantFluidProperty property) {
-        REGISTRY.put(
-            property.getFluidName()
-                .toLowerCase(),
-            property);
+        if (property != null && property.getFluidName() != null) {
+            REGISTRY.put(
+                property.getFluidName()
+                    .toLowerCase(),
+                property);
+        }
+    }
+
+    public static void registerAlias(String alias, CoolantFluidProperty property) {
+        if (alias != null && property != null) {
+            REGISTRY.put(alias.toLowerCase(), property);
+        }
     }
 
     public static CoolantFluidProperty get(String name) {
@@ -44,24 +71,6 @@ public class CoolantFluidProperty {
         }
         String clean = name.trim()
             .toLowerCase();
-        if (clean.contains("cheese")) {
-            return MOLTEN_CHEESE;
-        }
-        if (clean.contains("distill")) {
-            return DISTILLED_WATER;
-        }
-        if (clean.contains("heavy")) {
-            return HEAVY_WATER;
-        }
-        if (clean.contains("sodium")) {
-            return SODIUM;
-        }
-        if (clean.contains("ic2coolant") || clean.contains("coolant")) {
-            return IC2_COOLANT;
-        }
-        if (clean.equals("lava") || clean.endsWith(".lava") || clean.equals("fluid.lava")) {
-            return LAVA;
-        }
         return REGISTRY.get(clean);
     }
 
@@ -141,7 +150,8 @@ public class CoolantFluidProperty {
         Double.POSITIVE_INFINITY, // Non-boiling closed liquid
         1000.0); // Lava melting point: ~1000°C
 
-    static {
+    public static void resetDefaults() {
+        REGISTRY.clear();
         register(WATER);
         register(DISTILLED_WATER);
         register(HEAVY_WATER);
@@ -149,6 +159,8 @@ public class CoolantFluidProperty {
         register(SODIUM);
         register(MOLTEN_CHEESE);
         register(LAVA);
+        REGISTRY.put("minecraft:water", WATER);
+        REGISTRY.put("fluid.water", WATER);
         REGISTRY.put("cheese", MOLTEN_CHEESE);
         REGISTRY.put("moltencheese", MOLTEN_CHEESE);
         REGISTRY.put("distilledwater", DISTILLED_WATER);
@@ -157,8 +169,34 @@ public class CoolantFluidProperty {
         REGISTRY.put("heavywater", HEAVY_WATER);
         REGISTRY.put("heavy_water", HEAVY_WATER);
         REGISTRY.put("water.heavy", HEAVY_WATER);
+        REGISTRY.put("coolant", IC2_COOLANT);
+        REGISTRY.put("fluid.sodium", SODIUM);
+        REGISTRY.put("liquid.sodium", SODIUM);
         REGISTRY.put("lava", LAVA);
         REGISTRY.put("fluid.lava", LAVA);
+        REGISTRY.put("minecraft:lava", LAVA);
+    }
+
+    public static CoolantFluidProperty getCanonical(String name) {
+        if (name == null) return null;
+        String clean = name.trim()
+            .toLowerCase()
+            .replace(" ", "")
+            .replace("_", "");
+        if (clean.equals("water") || clean.equals("minecraft:water")) return WATER;
+        if (clean.equals("ic2distilledwater") || clean.equals("distilledwater") || clean.equals("water.distilled"))
+            return DISTILLED_WATER;
+        if (clean.equals("heavywater") || clean.equals("water.heavy")) return HEAVY_WATER;
+        if (clean.equals("ic2coolant") || clean.equals("coolant")) return IC2_COOLANT;
+        if (clean.equals("sodium") || clean.equals("fluid.sodium") || clean.equals("liquid.sodium")) return SODIUM;
+        if (clean.equals("molten.cheese") || clean.equals("cheese") || clean.equals("moltencheese"))
+            return MOLTEN_CHEESE;
+        if (clean.equals("lava") || clean.equals("fluid.lava") || clean.equals("minecraft:lava")) return LAVA;
+        return null;
+    }
+
+    static {
+        resetDefaults();
     }
 
     public boolean isPlainWater() {
@@ -170,8 +208,11 @@ public class CoolantFluidProperty {
     }
 
     public boolean isMolten() {
-        return this == LAVA || (fluidName != null && fluidName.toLowerCase()
-            .contains("molten"));
+        return isMolten;
+    }
+
+    public double getRadiolysisMultiplier() {
+        return radiolysisMultiplier;
     }
 
     public double getDeclaredTemperatureCelsius() {

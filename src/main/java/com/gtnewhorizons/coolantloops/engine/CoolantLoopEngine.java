@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
+
 /**
  * 1D Closed-Loop Hydrodynamic and Thermodynamic Simulation Engine.
  *
@@ -26,7 +28,7 @@ public class CoolantLoopEngine {
     private double pumpMechanicalPowerWatts = 0.0; // Mechanical power output from motor/rotor (Watts)
     private boolean isPumpPowered = false;
     private double unpoweredImpellerK = 8.0; // High minor loss coefficient when motor is disengaged
-    private double maxPumpHeadPressurePa = 25.0 * 1e5; // Maximum stall head (e.g. 25 bar)
+    private double maxPumpHeadPressurePa = Double.POSITIVE_INFINITY; // Maximum stall head (uncapped by default)
 
     // Simulation status
     private boolean isRuptured = false;
@@ -54,6 +56,28 @@ public class CoolantLoopEngine {
 
     public CoolantLoopEngine(CoolantFluidProperty fluid) {
         this.fluid = fluid != null ? fluid : CoolantFluidProperty.DISTILLED_WATER;
+        if (CoolantLoopDataRegistry.getPhysicsData() != null) {
+            this.unpoweredImpellerK = CoolantLoopDataRegistry.getPhysicsData()
+                .getUnpoweredImpellerK();
+            this.maxPumpHeadPressurePa = CoolantLoopDataRegistry.getPhysicsData()
+                .getMaxPumpHeadPressurePa();
+        }
+    }
+
+    public double getUnpoweredImpellerK() {
+        return unpoweredImpellerK;
+    }
+
+    public void setUnpoweredImpellerK(double unpoweredImpellerK) {
+        this.unpoweredImpellerK = unpoweredImpellerK;
+    }
+
+    public double getMaxPumpHeadPressurePa() {
+        return maxPumpHeadPressurePa;
+    }
+
+    public void setMaxPumpHeadPressurePa(double maxPumpHeadPressurePa) {
+        this.maxPumpHeadPressurePa = maxPumpHeadPressurePa;
     }
 
     public void addSegment(LoopSegment segment) {
@@ -200,13 +224,13 @@ public class CoolantLoopEngine {
     }
 
     /**
-     * Total hydraulic inertia impedance I = sum(rho * L_i / A_i) in kg / m^4.
+     * Total hydraulic inertia impedance I = sum(rho * L_i / A_i * flowFraction_i) in kg / m^4.
      */
     public double computeHydraulicInertia() {
         double inertia = 0.0;
         double rho = fluid.getDensity();
         for (LoopSegment s : segments) {
-            inertia += rho * s.getLength() / s.getArea();
+            inertia += rho * (s.getLength() / s.getArea()) * s.getFlowFraction();
         }
         return Math.max(inertia, 1.0); // Prevent division by zero
     }
@@ -239,7 +263,8 @@ public class CoolantLoopEngine {
         // 2. Compute total circuit friction pressure drop: Delta P_friction(Q)
         double deltaPFriction = 0.0;
         for (LoopSegment segment : segments) {
-            deltaPFriction += segment.computePressureDrop(volumetricFlowRate, fluid);
+            double localFlow = volumetricFlowRate * segment.getFlowFraction();
+            deltaPFriction += segment.computePressureDrop(localFlow, fluid) * segment.getFlowFraction();
         }
 
         // Add unpowered impeller drag if the pump is switched off while fluid is moving
@@ -279,7 +304,8 @@ public class CoolantLoopEngine {
         peakLoopPressureBar = currentPressurePa / 1e5;
 
         for (LoopSegment segment : segments) {
-            double segDrop = segment.computePressureDrop(volumetricFlowRate, fluid);
+            double localFlow = volumetricFlowRate * segment.getFlowFraction();
+            double segDrop = segment.computePressureDrop(localFlow, fluid);
             currentPressurePa = Math.max(1.0e5, currentPressurePa - segDrop);
 
             double pressureBar = currentPressurePa / 1e5;
@@ -334,20 +360,38 @@ public class CoolantLoopEngine {
             return;
         }
 
-        double sweptVolume = volumetricFlowRate * dt;
         double[] newTemps = new double[segments.size()];
         double maxTemp = -Double.MAX_VALUE;
 
         for (int i = 0; i < segments.size(); i++) {
             LoopSegment curr = segments.get(i);
-            LoopSegment prev = (i == 0) ? segments.get(segments.size() - 1) : segments.get(i - 1);
-
+            double sweptVolume = volumetricFlowRate * curr.getFlowFraction() * dt;
             double segVolume = curr.getVolume();
             // Fraction of segment volume replaced by fluid from upstream segment
             double replaceFraction = Math.min(1.0, sweptVolume / segVolume);
 
+            double incomingTemp;
+            List<LoopSegment> upstreams = curr.getUpstreamSegments();
+            if (upstreams.isEmpty()) {
+                // Fallback for simple serial loops without graph wiring
+                LoopSegment prev = (i == 0) ? segments.get(segments.size() - 1) : segments.get(i - 1);
+                incomingTemp = prev.getCurrentTemperatureCelsius();
+            } else if (upstreams.size() == 1) {
+                incomingTemp = upstreams.get(0).getCurrentTemperatureCelsius();
+            } else {
+                // Flow-weighted blending of multiple incoming branches
+                double totalWeightedTemp = 0.0;
+                double totalWeight = 0.0;
+                for (LoopSegment up : upstreams) {
+                    double w = up.getFlowFraction();
+                    totalWeightedTemp += up.getCurrentTemperatureCelsius() * w;
+                    totalWeight += w;
+                }
+                incomingTemp = totalWeight > 0.0 ? (totalWeightedTemp / totalWeight) : curr.getCurrentTemperatureCelsius();
+            }
+
             double blendedTemp = curr.getCurrentTemperatureCelsius() * (1.0 - replaceFraction)
-                + prev.getCurrentTemperatureCelsius() * replaceFraction;
+                + incomingTemp * replaceFraction;
 
             newTemps[i] = blendedTemp;
             if (blendedTemp > maxTemp) {

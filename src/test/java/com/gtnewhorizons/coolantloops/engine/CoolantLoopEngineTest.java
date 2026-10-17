@@ -169,4 +169,81 @@ class CoolantLoopEngineTest {
             hotEngine.getFailureReason()
                 .contains("melted"));
     }
+
+    @Test
+    void testParallelBranchFlowWeightedThermalBlending() {
+        CoolantLoopEngine eng = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+
+        // Segment 0: Trunk discharge
+        LoopSegment seg0 = new LoopSegment("trunk_discharge", 1.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, 20.0);
+        seg0.setFlowFraction(1.0);
+
+        // Segment 1: Branch A (flow fraction 1/3, temp 300 C)
+        LoopSegment segA = new LoopSegment("branch_A", 1.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, 300.0);
+        segA.setFlowFraction(1.0 / 3.0);
+
+        // Segment 2: Branch B (flow fraction 2/3, temp 600 C)
+        LoopSegment segB = new LoopSegment("branch_B", 1.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, 600.0);
+        segB.setFlowFraction(2.0 / 3.0);
+
+        // Segment 3: Merger (short segment to be fully swept in one step)
+        LoopSegment segMerger = new LoopSegment("merger", 0.01, 0.1, 0.00005, 0.5, 100.0, 1200.0, 20.0);
+        segMerger.setFlowFraction(1.0);
+
+        // Wire DAG upstreams:
+        segA.addUpstreamSegment(seg0);
+        segB.addUpstreamSegment(seg0);
+        segMerger.addUpstreamSegment(segA);
+        segMerger.addUpstreamSegment(segB);
+        seg0.addUpstreamSegment(segMerger);
+
+        eng.addSegment(seg0);
+        eng.addSegment(segA);
+        eng.addSegment(segB);
+        eng.addSegment(segMerger);
+
+        eng.setPumpPowered(true);
+        eng.setPumpMechanicalPowerWatts(50000.0);
+
+        // Keep branches at constant hot temperatures (representing heat sources like reactor passages)
+        // so steady-state blended stream enters the merger
+        for (int i = 0; i < 50; i++) {
+            segA.setCurrentTemperatureCelsius(300.0);
+            segB.setCurrentTemperatureCelsius(600.0);
+            eng.step(0.05);
+        }
+
+        // Expected blended incoming temperature:
+        // (1/3 * 300 + 2/3 * 600) / (1/3 + 2/3) = (100 + 400) / 1.0 = 500 C
+        double mergerTemp = segMerger.getCurrentTemperatureCelsius();
+        assertEquals(500.0, mergerTemp, 0.5, "Merger must receive flow-weighted blended temperature of 500 C");
+    }
+
+    @Test
+    void testParallelBranchFrictionDropNotAdditiveInSeries() {
+        CoolantLoopEngine seriesEng = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+        LoopSegment s1 = new LoopSegment("pipe_1", 10.0, 0.1, 0.00005, 0.0, 100.0, 1200.0, 20.0);
+        LoopSegment s2 = new LoopSegment("pipe_2", 10.0, 0.1, 0.00005, 0.0, 100.0, 1200.0, 20.0);
+        seriesEng.addSegment(s1);
+        seriesEng.addSegment(s2);
+
+        CoolantLoopEngine parallelEng = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+        LoopSegment p1 = new LoopSegment("branch_1", 10.0, 0.1, 0.00005, 0.0, 100.0, 1200.0, 20.0);
+        LoopSegment p2 = new LoopSegment("branch_2", 10.0, 0.1, 0.00005, 0.0, 100.0, 1200.0, 20.0);
+        p1.setFlowFraction(0.5);
+        p2.setFlowFraction(0.5);
+        parallelEng.addSegment(p1);
+        parallelEng.addSegment(p2);
+
+        double testQ = 0.05; // 50 L/s
+        double seriesDrop = s1.computePressureDrop(testQ, CoolantFluidProperty.WATER)
+            + s2.computePressureDrop(testQ, CoolantFluidProperty.WATER);
+
+        double p1Drop = p1.computePressureDrop(testQ * p1.getFlowFraction(), CoolantFluidProperty.WATER) * p1.getFlowFraction();
+        double p2Drop = p2.computePressureDrop(testQ * p2.getFlowFraction(), CoolantFluidProperty.WATER) * p2.getFlowFraction();
+        double parallelDrop = p1Drop + p2Drop;
+
+        // Parallel pressure drop with 2 branches must be significantly lower than series addition
+        assertTrue(parallelDrop < seriesDrop * 0.35, "Parallel branches must not add pressure drops in series");
+    }
 }

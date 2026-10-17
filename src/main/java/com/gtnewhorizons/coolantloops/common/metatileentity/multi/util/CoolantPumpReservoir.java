@@ -141,40 +141,51 @@ public class CoolantPumpReservoir {
                 }
             } catch (Throwable ignored) {}
         }
-        String name = te.getClass()
-            .getSimpleName()
-            .toLowerCase();
-        if (name.contains("steel") && !name.contains("stainless") && !name.contains("tungsten")) {
-            return Materials.Steel;
+        String name = te.getClass().getSimpleName();
+        switch (name) {
+            case "TileTankSteel":
+            case "TileSteelTank":
+            case "SteelTank":
+                return Materials.Steel;
+            case "TileTankIron":
+            case "TileIronTank":
+            case "IronTank":
+                return Materials.CastIron;
+            case "TileTankStainlessSteel":
+            case "TileStainlessSteelTank":
+            case "StainlessSteelTank":
+                return Materials.StainlessSteel;
+            case "TileTankTitanium":
+            case "TileTitaniumTank":
+            case "TitaniumTank":
+                return Materials.Titanium;
+            case "TileTankTungstenSteel":
+            case "TileTungstenSteelTank":
+            case "TungstenSteelTank":
+                return Materials.TungstenSteel;
+            case "TileTankNeutronium":
+            case "TileNeutroniumTank":
+            case "NeutroniumTank":
+                return Materials.Neutronium;
+            case "TileTankAluminium":
+            case "TileAluminiumTank":
+            case "AluminiumTank":
+                return Materials.Aluminium;
+            case "TileTankPalladium":
+            case "TilePalladiumTank":
+            case "PalladiumTank":
+                return Materials.Palladium;
+            case "TileTankIridium":
+            case "TileIridiumTank":
+            case "IridiumTank":
+                return Materials.Iridium;
+            case "TileTankOsmium":
+            case "TileOsmiumTank":
+            case "OsmiumTank":
+                return Materials.Osmium;
+            default:
+                return null;
         }
-        if (name.contains("iron")) {
-            return Materials.CastIron;
-        }
-        if (name.contains("stainless")) {
-            return Materials.StainlessSteel;
-        }
-        if (name.contains("titanium")) {
-            return Materials.Titanium;
-        }
-        if (name.contains("tungstensteel")) {
-            return Materials.TungstenSteel;
-        }
-        if (name.contains("neutronium")) {
-            return Materials.Neutronium;
-        }
-        if (name.contains("alumin")) {
-            return Materials.Aluminium;
-        }
-        if (name.contains("palladium")) {
-            return Materials.Palladium;
-        }
-        if (name.contains("iridium")) {
-            return Materials.Iridium;
-        }
-        if (name.contains("osmium")) {
-            return Materials.Osmium;
-        }
-        return null;
     }
 
     public boolean verifyRailcraftTankAbove(IGregTechTileEntity aBaseMetaTileEntity) {

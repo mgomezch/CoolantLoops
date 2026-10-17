@@ -5,6 +5,7 @@ import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 
 import gregtech.api.enums.Materials;
@@ -18,10 +19,7 @@ public final class CoolantFluidHelper {
         String name = fluid.getName()
             .trim()
             .toLowerCase();
-        if (name.contains("distill") || name.contains("heavy")) {
-            return false;
-        }
-        return name.equals("water") || name.endsWith(".water") || name.equals("fluid.water");
+        return name.equals("water") || name.equals("minecraft:water") || name.equals("fluid.water");
     }
 
     public static boolean isPlainRegularWater(FluidStack stack) {
@@ -56,37 +54,17 @@ public final class CoolantFluidHelper {
 
     public static boolean isLiquidNuclearFuel(String name) {
         if (name == null) return false;
-        String clean = name.trim()
-            .toLowerCase();
-        if (clean.contains("liquidfuel") || clean.contains("liquid_fuel") || clean.contains("nuclearfuel")) {
-            return true;
+        if (CoolantLoopDataRegistry.getFluidData() != null) {
+            return CoolantLoopDataRegistry.getFluidData().isLiquidNuclearFuel(name);
         }
-        if (clean.contains("uraniumhexafluoride") || clean.contains("uraniumtetrafluoride")) {
-            return true;
-        }
-        if (clean.contains("thoriumbasedliquidfuel") || (clean.contains("thorium") && clean.contains("liquidfuel"))) {
-            return true;
-        }
-        if (clean.contains("uraniumbasedliquidfuel") || (clean.contains("uranium") && clean.contains("liquidfuel"))) {
-            return true;
-        }
-        if (clean.contains("plutoniumbasedliquidfuel")
-            || (clean.contains("plutonium") && clean.contains("liquidfuel"))) {
-            return true;
-        }
-        if (clean.contains("naquadahbasedliquidfuel") || (clean.contains("naquadah") && clean.contains("liquidfuel"))
-            || clean.contains("liquid_naquadah_fuel")) {
-            return true;
-        }
-        if (clean.contains("uranium") || clean.contains("plutonium")
-            || clean.contains("thorium")
-            || clean.contains("naquadah")
-            || clean.contains("naquadria")) {
-            if (clean.contains("fuel") || clean.contains("plasma")) {
-                return true;
-            }
-        }
-        return false;
+        String clean = name.trim().toLowerCase();
+        return clean.equals("liquidfuel") || clean.equals("liquid_fuel") || clean.equals("nuclearfuel")
+            || clean.equals("uraniumhexafluoride") || clean.equals("uraniumtetrafluoride")
+            || clean.equals("thoriumbasedliquidfuel") || clean.equals("uraniumbasedliquidfuel")
+            || clean.equals("plutoniumbasedliquidfuel") || clean.equals("naquadahbasedliquidfuel")
+            || clean.equals("liquid_naquadah_fuel")
+            || clean.equals("depletedthoriumbasedliquidfuel") || clean.equals("depleteduraniumbasedliquidfuel")
+            || clean.equals("depletedplutoniumbasedliquidfuel") || clean.equals("depletednaquadahbasedliquidfuel");
     }
 
     public static boolean isLiquidNuclearFuel(Fluid fluid, FluidStack stack) {
@@ -140,23 +118,20 @@ public final class CoolantFluidHelper {
         if (isLava(fluid, stack)) {
             return true;
         }
-        if (prop != null && prop.isMolten()) {
-            return true;
+        if (prop != null) {
+            return prop.isMolten();
         }
-        if (stack != null && stack.getFluid() != null
-            && stack.getFluid()
-                .getName() != null
-            && stack.getFluid()
-                .getName()
-                .toLowerCase()
-                .contains("molten")) {
-            return true;
+        if (fluid != null) {
+            CoolantFluidProperty p = CoolantFluidProperty.get(fluid.getName());
+            if (p != null) {
+                return p.isMolten();
+            }
         }
-        if (fluid != null && fluid.getName() != null
-            && fluid.getName()
-                .toLowerCase()
-                .contains("molten")) {
-            return true;
+        if (stack != null && stack.getFluid() != null) {
+            CoolantFluidProperty p = CoolantFluidProperty.get(stack.getFluid().getName());
+            if (p != null) {
+                return p.isMolten();
+            }
         }
         return false;
     }

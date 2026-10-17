@@ -15,6 +15,8 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
+import com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData;
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.engine.ConvectiveHeatTransferModel;
@@ -66,10 +68,24 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
     public MTEPressurizedHeatExchanger(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
+        initFromConfig();
     }
 
     public MTEPressurizedHeatExchanger(String aName) {
         super(aName);
+        initFromConfig();
+    }
+
+    private void initFromConfig() {
+        if (CoolantLoopDataRegistry.getDeviceData() != null) {
+            mExchangeArea = CoolantLoopDataRegistry.getDeviceData()
+                .getPhe().exchangeArea;
+            mMinorLossK = CoolantLoopDataRegistry.getDeviceData()
+                .getPhe().minorLossK;
+        }
+        if (CoolantLoopDataRegistry.getConvectiveModel() != null) {
+            mConvectiveModel = CoolantLoopDataRegistry.getConvectiveModel();
+        }
     }
 
     @Override
@@ -298,16 +314,22 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
             getBaseMetaTileEntity().setActive(true);
         }
 
-        // Check if secondary water is available
+        // Check if allowed secondary boiling fluid (e.g. distilled water) is available
         ArrayList<FluidStack> inputFluids = getStoredFluids();
         FluidStack waterInput = null;
+        CoolantDeviceData.PHEData pheConfig = (CoolantLoopDataRegistry.getDeviceData() != null)
+            ? CoolantLoopDataRegistry.getDeviceData().getPhe()
+            : null;
         for (FluidStack fs : inputFluids) {
-            if (fs != null && (fs.getFluid() == FluidRegistry.WATER || fs.getFluid()
-                .getName()
-                .toLowerCase()
-                .contains("water"))) {
-                waterInput = fs;
-                break;
+            if (fs != null && fs.getFluid() != null) {
+                String fluidName = fs.getFluid().getName();
+                boolean allowed = (pheConfig != null)
+                    ? pheConfig.isAllowedSecondaryFluid(fluidName)
+                    : (fluidName.equalsIgnoreCase("ic2distilledwater") || fluidName.equalsIgnoreCase("distilledwater"));
+                if (allowed) {
+                    waterInput = fs;
+                    break;
+                }
             }
         }
 
@@ -332,11 +354,14 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                 * effFactor;
             mLastHeatTransferredWatts = qWatts;
 
-            // 1 Liter of water requires ~2.26 MJ of latent heat to vaporize
+            // Latent heat of vaporization for water
+            double latentHeatJoulePerMl = (CoolantLoopDataRegistry.getDeviceData() != null)
+                ? CoolantLoopDataRegistry.getDeviceData()
+                    .getPhe().latentHeatJoulePerLiter / 1000.0
+                : 2260.0;
             // Q_Joules_per_tick = qWatts * 0.05s
             double joulesPerTick = qWatts * 0.05;
-            // 2,260,000 J / L -> 2260 J / mL
-            int waterToBoil = (int) Math.min(waterInput.amount, joulesPerTick / 2260.0);
+            int waterToBoil = (int) Math.min(waterInput.amount, joulesPerTick / latentHeatJoulePerMl);
 
             if (waterToBoil > 0) {
                 // Drain water
@@ -348,14 +373,27 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                     }
                 }
 
-                // 1 L Water -> 160 L Steam (Regular, Superheated, or Supercritical depending on coolant temperature)
+                double supercritThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
+                    ? CoolantLoopDataRegistry.getDeviceData()
+                        .getPhe().supercriticalTempThreshold
+                    : 700.0;
+                double superheatedThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
+                    ? CoolantLoopDataRegistry.getDeviceData()
+                        .getPhe().superheatedTempThreshold
+                    : 300.0;
+                int expansion = (CoolantLoopDataRegistry.getDeviceData() != null)
+                    ? CoolantLoopDataRegistry.getDeviceData()
+                        .getPhe().steamExpansionRatio
+                    : 160;
+
+                // 1 L Water -> steam depending on coolant temperature
                 String steamName = "steam";
-                if (mCurrentCoolantTemp >= 700.0) {
+                if (mCurrentCoolantTemp >= supercritThresh) {
                     steamName = "supercriticalsteam";
-                } else if (mCurrentCoolantTemp >= 300.0) {
+                } else if (mCurrentCoolantTemp >= superheatedThresh) {
                     steamName = "ic2superheatedsteam";
                 }
-                int steamProduced = waterToBoil * 160;
+                int steamProduced = waterToBoil * expansion;
                 Fluid steamFluid = FluidRegistry.getFluid(steamName);
                 if (steamFluid == null && steamName.equals("supercriticalsteam")) {
                     steamFluid = FluidRegistry.getFluid("supercriticalSteam");
@@ -372,7 +410,15 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                 }
 
                 // Cool primary coolant
-                double tempDrop = Math.min(deltaT * 0.5, 40.0);
+                double coolFactor = (CoolantLoopDataRegistry.getDeviceData() != null)
+                    ? CoolantLoopDataRegistry.getDeviceData()
+                        .getPhe().coolingFactor
+                    : 0.5;
+                double maxDrop = (CoolantLoopDataRegistry.getDeviceData() != null)
+                    ? CoolantLoopDataRegistry.getDeviceData()
+                        .getPhe().maxTempDropPerTick
+                    : 40.0;
+                double tempDrop = Math.min(deltaT * coolFactor, maxDrop);
                 mCurrentCoolantTemp = Math.max(ambientTemp, mCurrentCoolantTemp - tempDrop);
                 mPrimaryOutlet.setCurrentTemperatureCelsius(mCurrentCoolantTemp);
             }

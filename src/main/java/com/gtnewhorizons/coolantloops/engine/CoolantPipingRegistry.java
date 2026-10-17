@@ -3,6 +3,8 @@ package com.gtnewhorizons.coolantloops.engine;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
+
 import gregtech.api.enums.Materials;
 import gregtech.api.metatileentity.implementations.MTEFluidPipe;
 
@@ -30,23 +32,15 @@ public class CoolantPipingRegistry {
     private static final Map<String, Double> MATERIAL_PRESSURE_RATINGS_BAR = new HashMap<>();
 
     static {
-        // Pressure ratings (in bar) for standard GregTech pipe materials
-        MATERIAL_PRESSURE_RATINGS_BAR.put("wood", 2.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("potin", 6.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("copper", 8.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("bronze", 12.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("wroughtiron", 15.0);
+        // Pressure ratings (in bar) strictly for allowed coolant pipe materials
+        MATERIAL_PRESSURE_RATINGS_BAR.put("castiron", 16.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("iron", 16.0);
+        MATERIAL_PRESSURE_RATINGS_BAR.put("wroughtiron", 15.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("steel", 35.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("stainlesssteel", 70.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("titanium", 140.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("tungstensteel", 280.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("osmium", 600.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("hsse", 450.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("hssg", 400.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("hsss", 550.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("naquadah", 850.0);
-        MATERIAL_PRESSURE_RATINGS_BAR.put("naquadahalloy", 1200.0);
         MATERIAL_PRESSURE_RATINGS_BAR.put("neutronium", 3000.0);
     }
 
@@ -54,17 +48,7 @@ public class CoolantPipingRegistry {
      * Resolves the inner flow diameter (meters) from GregTech pipe thickness.
      */
     public static double getDiameterForThickness(float thickness) {
-        if (thickness <= 0.251f) {
-            return 0.05; // Tiny: 5 cm
-        } else if (thickness <= 0.376f) {
-            return 0.075; // Small: 7.5 cm
-        } else if (thickness <= 0.501f) {
-            return 0.10; // Normal: 10 cm
-        } else if (thickness <= 0.751f) {
-            return 0.15; // Large: 15 cm
-        } else {
-            return 0.20; // Huge: 20 cm
-        }
+        return CoolantLoopDataRegistry.getDiameterForThickness(thickness);
     }
 
     /**
@@ -78,10 +62,7 @@ public class CoolantPipingRegistry {
             .replace(" ", "")
             .replace("_", "")
             .replace("-", "");
-        if (MATERIAL_PRESSURE_RATINGS_BAR.containsKey(name)) {
-            return MATERIAL_PRESSURE_RATINGS_BAR.get(name);
-        }
-        return 15.0;
+        return CoolantLoopDataRegistry.getPipePressureRating(name);
     }
 
     /**
@@ -92,7 +73,13 @@ public class CoolantPipingRegistry {
             return 10.0;
         }
         double rating = getMaxPressureBar(material.mName);
-        if (rating > 15.0 || MATERIAL_PRESSURE_RATINGS_BAR.containsKey(material.mName.toLowerCase())) {
+        String clean = material.mName.toLowerCase()
+            .replace(" ", "")
+            .replace("_", "")
+            .replace("-", "");
+        if (rating > 15.0 || CoolantLoopDataRegistry.getPipeData()
+            .getMaterialPressureRatingsBar()
+            .containsKey(clean)) {
             return rating;
         }
         // Fallback: estimate based on blast furnace temperature
@@ -108,6 +95,18 @@ public class CoolantPipingRegistry {
     public static double getMaxTemperatureCelsius(MTEFluidPipe pipe) {
         if (pipe == null) {
             return 100.0;
+        }
+        if (pipe.mMaterial != null) {
+            String name = pipe.mMaterial.mName.toLowerCase()
+                .replace(" ", "")
+                .replace("_", "")
+                .replace("-", "");
+            Double yamlLimit = CoolantLoopDataRegistry.getPipeData()
+                .getMaterialTemperatureLimitsCelsius()
+                .get(name);
+            if (yamlLimit != null) {
+                return yamlLimit;
+            }
         }
         // pipe.mHeatResistance is in Kelvin in GT5
         if (pipe.mHeatResistance > 0) {
@@ -129,7 +128,8 @@ public class CoolantPipingRegistry {
         double diameter = getDiameterForThickness(pipe.mThickNess);
         double maxPressure = getMaxPressureBar(pipe.mMaterial);
         double maxTemp = getMaxTemperatureCelsius(pipe);
-        double roughness = 0.000045; // Commercial metal pipe standard roughness
+        double roughness = CoolantLoopDataRegistry.getPipeData()
+            .getDefaultRoughness();
         return new PipeProperties(diameter, roughness, maxPressure, maxTemp);
     }
 
@@ -140,18 +140,7 @@ public class CoolantPipingRegistry {
      */
     public static boolean isAllowedCoolantPipeMaterial(String materialName) {
         if (materialName == null) return false;
-        String name = materialName.toLowerCase()
-            .replace(" ", "")
-            .replace("_", "")
-            .replace("-", "");
-        return name.equals("steel") || name.equals("iron")
-            || name.equals("castiron")
-            || name.equals("wroughtiron")
-            || name.equals("stainlesssteel")
-            || name.equals("titanium")
-            || name.equals("tungstensteel")
-            || name.equals("osmium")
-            || name.equals("neutronium");
+        return CoolantLoopDataRegistry.isAllowedCoolantPipeMaterial(materialName);
     }
 
     public static boolean isAllowedCoolantPipeMaterial(Materials mat) {
@@ -165,6 +154,9 @@ public class CoolantPipingRegistry {
      */
     public static boolean areMaterialsEqual(String m1, String m2) {
         if (m1 == null || m2 == null) return false;
+        if (CoolantLoopDataRegistry.getPipeData() != null) {
+            return CoolantLoopDataRegistry.getPipeData().areMaterialsEqual(m1, m2);
+        }
         String n1 = m1.toLowerCase()
             .replace(" ", "")
             .replace("_", "")

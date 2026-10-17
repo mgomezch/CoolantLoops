@@ -1,5 +1,8 @@
 package com.gtnewhorizons.coolantloops.engine;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Represents a discrete physical pipe segment or in-line device passage
  * within a closed coolant loop.
@@ -11,11 +14,13 @@ public class LoopSegment {
     private final double diameter; // Inner diameter (m)
     private final double area; // Cross-sectional area (m^2)
     private final double roughness; // Absolute pipe wall roughness (m)
-    private final double minorLossK; // Loss coefficient K (dimensionless)
+    private double minorLossK; // Loss coefficient K (dimensionless)
     private final double maxPressureBar; // Bursting limit in bar
     private final double maxTemperatureCelsius;// Maximum safe operating temperature in deg C
 
     private double currentTemperatureCelsius; // Current temperature of coolant in this segment
+    private double flowFraction = 1.0; // Fraction of loop volumetric flow rate traversing this segment
+    private final List<LoopSegment> upstreamSegments = new ArrayList<>();
 
     public LoopSegment(String id, double length, double diameter, double roughness, double minorLossK,
         double maxPressureBar, double maxTemperatureCelsius, double initialTempCelsius) {
@@ -84,6 +89,10 @@ public class LoopSegment {
         return minorLossK;
     }
 
+    public void setMinorLossK(double minorLossK) {
+        this.minorLossK = Math.max(0.0, minorLossK);
+    }
+
     public double getMaxPressureBar() {
         return maxPressureBar;
     }
@@ -98,6 +107,38 @@ public class LoopSegment {
 
     public void setCurrentTemperatureCelsius(double temp) {
         this.currentTemperatureCelsius = temp;
+    }
+
+    public double getFlowFraction() {
+        return flowFraction;
+    }
+
+    public void setFlowFraction(double flowFraction) {
+        this.flowFraction = Math.max(0.0, flowFraction);
+    }
+
+    private double flowSizeWeight = 1.0;
+
+    public double getFlowSizeWeight() {
+        return flowSizeWeight;
+    }
+
+    public void setFlowSizeWeight(double weight) {
+        this.flowSizeWeight = Math.max(0.001, weight);
+    }
+
+    public List<LoopSegment> getUpstreamSegments() {
+        return upstreamSegments;
+    }
+
+    public void addUpstreamSegment(LoopSegment seg) {
+        if (seg != null && !upstreamSegments.contains(seg)) {
+            upstreamSegments.add(seg);
+        }
+    }
+
+    public void clearUpstreamSegments() {
+        upstreamSegments.clear();
     }
 
     private double dissolvedGasFraction = 0.0;
