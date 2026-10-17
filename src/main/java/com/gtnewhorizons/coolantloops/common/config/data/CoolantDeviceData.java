@@ -13,6 +13,54 @@ public class CoolantDeviceData {
 
     public static class PHEData {
 
+        public static class SecondaryCoolantEntry {
+
+            public String inputFluidName;
+            public double boilingPointCelsius;
+            public String outputGasName;
+            public double latentHeatJoulePerLiter;
+            public int expansionRatio;
+            public boolean isSteam;
+
+            public SecondaryCoolantEntry() {}
+
+            public SecondaryCoolantEntry(String inputFluidName, double boilingPointCelsius, String outputGasName,
+                double latentHeatJoulePerLiter, int expansionRatio, boolean isSteam) {
+                this.inputFluidName = inputFluidName;
+                this.boilingPointCelsius = boilingPointCelsius;
+                this.outputGasName = outputGasName;
+                this.latentHeatJoulePerLiter = latentHeatJoulePerLiter;
+                this.expansionRatio = expansionRatio;
+                this.isSteam = isSteam;
+            }
+
+            public Map<String, Object> toMap() {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("inputFluidName", inputFluidName);
+                map.put("boilingPointCelsius", boilingPointCelsius);
+                map.put("outputGasName", outputGasName);
+                map.put("latentHeatJoulePerLiter", latentHeatJoulePerLiter);
+                map.put("expansionRatio", expansionRatio);
+                map.put("isSteam", isSteam);
+                return map;
+            }
+
+            public static SecondaryCoolantEntry fromMap(Map<String, Object> map) {
+                SecondaryCoolantEntry e = new SecondaryCoolantEntry();
+                if (map == null) return e;
+                if (map.containsKey("inputFluidName")) e.inputFluidName = String.valueOf(map.get("inputFluidName"));
+                if (map.containsKey("boilingPointCelsius"))
+                    e.boilingPointCelsius = ((Number) map.get("boilingPointCelsius")).doubleValue();
+                if (map.containsKey("outputGasName")) e.outputGasName = String.valueOf(map.get("outputGasName"));
+                if (map.containsKey("latentHeatJoulePerLiter"))
+                    e.latentHeatJoulePerLiter = ((Number) map.get("latentHeatJoulePerLiter")).doubleValue();
+                if (map.containsKey("expansionRatio"))
+                    e.expansionRatio = ((Number) map.get("expansionRatio")).intValue();
+                if (map.containsKey("isSteam")) e.isSteam = Boolean.parseBoolean(String.valueOf(map.get("isSteam")));
+                return e;
+            }
+        }
+
         public double exchangeArea = 24.0; // 24 m^2 internal tube bundle area
         public double minorLossK = 1.2; // Heat exchanger core resistance
         public double latentHeatJoulePerLiter = 2260000.0; // Latent heat of vaporization for water
@@ -22,7 +70,37 @@ public class CoolantDeviceData {
         public double maxTempDropPerTick = 40.0; // Maximum primary temperature drop per tick
         public double coolingFactor = 0.5; // Primary temperature relaxation factor
         public List<String> allowedSecondaryFluids = new ArrayList<>(
-            Arrays.asList("ic2distilledwater", "distilledwater", "distilled_water", "water.distilled"));
+            Arrays.asList(
+                "ic2distilledwater",
+                "distilledwater",
+                "distilled_water",
+                "water.distilled",
+                "liquidnitrogen",
+                "liquid_nitrogen",
+                "liquidoxygen",
+                "liquid_oxygen",
+                "liquidair",
+                "liquid_air",
+                "liquid_helium",
+                "liquidhelium",
+                "liquid helium",
+                "bwm.liquidhelium"));
+        public List<SecondaryCoolantEntry> secondaryCoolants = new ArrayList<>(
+            Arrays.asList(
+                new SecondaryCoolantEntry("ic2distilledwater", 100.0, "steam", 2260000.0, 160, true),
+                new SecondaryCoolantEntry("distilledwater", 100.0, "steam", 2260000.0, 160, true),
+                new SecondaryCoolantEntry("distilled_water", 100.0, "steam", 2260000.0, 160, true),
+                new SecondaryCoolantEntry("water.distilled", 100.0, "steam", 2260000.0, 160, true),
+                new SecondaryCoolantEntry("liquidnitrogen", -196.0, "nitrogen", 160000.0, 160, false),
+                new SecondaryCoolantEntry("liquid_nitrogen", -196.0, "nitrogen", 160000.0, 160, false),
+                new SecondaryCoolantEntry("liquidoxygen", -183.0, "oxygen", 243000.0, 160, false),
+                new SecondaryCoolantEntry("liquid_oxygen", -183.0, "oxygen", 243000.0, 160, false),
+                new SecondaryCoolantEntry("liquidair", -194.0, "air", 174000.0, 160, false),
+                new SecondaryCoolantEntry("liquid_air", -194.0, "air", 174000.0, 160, false),
+                new SecondaryCoolantEntry("liquid_helium", -269.0, "helium", 20700.0, 160, false),
+                new SecondaryCoolantEntry("liquidhelium", -269.0, "helium", 20700.0, 160, false),
+                new SecondaryCoolantEntry("liquid helium", -269.0, "helium", 20700.0, 160, false),
+                new SecondaryCoolantEntry("bwm.liquidhelium", -269.0, "helium", 20700.0, 160, false)));
 
         public boolean isAllowedSecondaryFluid(String fluidName) {
             if (fluidName == null) return false;
@@ -35,7 +113,81 @@ public class CoolantDeviceData {
                     return true;
                 }
             }
-            return false;
+            return findSecondaryCoolant(fluidName) != null;
+        }
+
+        public SecondaryCoolantEntry findSecondaryCoolant(String fluidName) {
+            if (fluidName == null) return null;
+            String clean = fluidName.trim()
+                .toLowerCase();
+            String norm = clean.replace("_", "")
+                .replace(".", "")
+                .replace(" ", "");
+
+            // If explicitly configured in allowedSecondaryFluids, allow even plain water
+            boolean inAllowedList = false;
+            for (String allowed : allowedSecondaryFluids) {
+                if (allowed != null && clean.equals(
+                    allowed.trim()
+                        .toLowerCase())) {
+                    inAllowedList = true;
+                    break;
+                }
+            }
+
+            if ((norm.equals("water") || norm.equals("minecraft:water") || norm.equals("fluid.water"))
+                && !inAllowedList) {
+                return null; // Plain water is prohibited by default unless explicitly configured by admin
+            }
+
+            for (SecondaryCoolantEntry entry : secondaryCoolants) {
+                if (entry != null && entry.inputFluidName != null) {
+                    String entryClean = entry.inputFluidName.trim()
+                        .toLowerCase();
+                    String entryNorm = entryClean.replace("_", "")
+                        .replace(".", "")
+                        .replace(" ", "");
+                    if (clean.equals(entryClean) || norm.equals(entryNorm)) {
+                        return entry;
+                    }
+                }
+            }
+            // Fallback for distilled water or configured plain water
+            if (norm.equals("ic2distilledwater") || norm.equals("distilledwater")
+                || norm.equals("waterdistilled")
+                || (inAllowedList
+                    && (norm.equals("water") || norm.equals("minecraft:water") || norm.equals("fluid.water")))) {
+                return new SecondaryCoolantEntry(
+                    clean,
+                    100.0,
+                    "steam",
+                    latentHeatJoulePerLiter,
+                    steamExpansionRatio,
+                    true);
+            }
+            if (norm.equals("liquidnitrogen") || norm.equals("nitrogenliquid")) {
+                return new SecondaryCoolantEntry("liquidnitrogen", -196.0, "nitrogen", 160000.0, 160, false);
+            }
+            if (norm.equals("liquidoxygen") || norm.equals("oxygenliquid")) {
+                return new SecondaryCoolantEntry("liquidoxygen", -183.0, "oxygen", 243000.0, 160, false);
+            }
+            if (norm.equals("liquidair") || norm.equals("airliquid")) {
+                return new SecondaryCoolantEntry("liquidair", -194.0, "air", 174000.0, 160, false);
+            }
+            if (norm.equals("liquidhelium") || norm.equals("heliumliquid") || norm.equals("bwmliquidhelium")) {
+                return new SecondaryCoolantEntry("liquid_helium", -269.0, "helium", 20700.0, 160, false);
+            }
+            if (inAllowedList) {
+                // Admin added an arbitrary allowed secondary fluid, treat as steam generator at 100 C if unknown
+                return new SecondaryCoolantEntry(
+                    clean,
+                    100.0,
+                    "steam",
+                    latentHeatJoulePerLiter,
+                    steamExpansionRatio,
+                    true);
+            }
+            return null;
         }
 
         public Map<String, Object> toMap() {
@@ -49,9 +201,15 @@ public class CoolantDeviceData {
             map.put("maxTempDropPerTick", maxTempDropPerTick);
             map.put("coolingFactor", coolingFactor);
             map.put("allowedSecondaryFluids", allowedSecondaryFluids);
+            List<Map<String, Object>> coolantMaps = new ArrayList<>();
+            for (SecondaryCoolantEntry e : secondaryCoolants) {
+                if (e != null) coolantMaps.add(e.toMap());
+            }
+            map.put("secondaryCoolants", coolantMaps);
             return map;
         }
 
+        @SuppressWarnings("unchecked")
         public static PHEData fromMap(Map<String, Object> map) {
             PHEData d = new PHEData();
             if (map == null) return d;
@@ -73,6 +231,14 @@ public class CoolantDeviceData {
                 for (Object item : (List<?>) map.get("allowedSecondaryFluids")) {
                     if (item != null) {
                         d.allowedSecondaryFluids.add(item.toString());
+                    }
+                }
+            }
+            if (map.containsKey("secondaryCoolants") && map.get("secondaryCoolants") instanceof List) {
+                d.secondaryCoolants = new ArrayList<>();
+                for (Object item : (List<?>) map.get("secondaryCoolants")) {
+                    if (item instanceof Map) {
+                        d.secondaryCoolants.add(SecondaryCoolantEntry.fromMap((Map<String, Object>) item));
                     }
                 }
             }

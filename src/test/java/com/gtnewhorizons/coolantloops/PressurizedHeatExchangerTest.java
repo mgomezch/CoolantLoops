@@ -381,4 +381,99 @@ public class PressurizedHeatExchangerTest {
                 .getFluid()
                 .getName());
     }
+
+    @Test
+    public void testCryogenicLiquidNitrogenBoilingAndSubzeroCooling() {
+        registerFluidIfMissing("liquidnitrogen");
+        registerFluidIfMissing("nitrogen");
+
+        boolean[] allowed = new boolean[] { true };
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_liquid_nitrogen_test");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
+        phe.setBaseMetaTileEntity(mockBase);
+
+        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
+        phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
+        phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
+
+        MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
+        inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
+        Fluid liquidN2 = FluidRegistry.getFluid("liquidnitrogen");
+        assertNotNull(liquidN2);
+        inputHatch.fill(new FluidStack(liquidN2, 10_000), true);
+        phe.mInputHatches.add(inputHatch);
+
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 8, new String[0], null);
+        outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
+        phe.mOutputHatches.add(outputHatch);
+
+        // IC2 Coolant loop starting at 20 C
+        double initialTemp = 20.0;
+        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, initialTemp);
+        CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2coolant");
+        assertNotNull(fluid);
+
+        // Secondary boiling of liquid nitrogen (T_boil = -196 C, deltaT = 20 - (-196) = 216 C)
+        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+
+        int remainingN2 = (inputHatch.getFluid() != null) ? inputHatch.getFluid().amount : 0;
+        int n2Boiled = 10_000 - remainingN2;
+        assertTrue(n2Boiled > 0, "Liquid nitrogen must boil when coolant is warmer than -196 C");
+
+        // Gaseous nitrogen output at 1:160 expansion
+        assertNotNull(outputHatch.getFluid());
+        assertEquals("nitrogen", outputHatch.getFluid().getFluid().getName());
+        assertEquals(n2Boiled * 160, outputHatch.getFluid().amount);
+
+        // Coolant temperature dropped below initial 20 C toward -196 C
+        assertTrue(phe.getDeviceTemperatureCelsius() < initialTemp);
+        assertTrue(seg.getCurrentTemperatureCelsius() < initialTemp);
+        assertTrue(phe.getLastHeatTransferredWatts() > 0.0);
+    }
+
+    @Test
+    public void testCryogenicLiquidHeliumBoiling() {
+        registerFluidIfMissing("liquid_helium");
+        registerFluidIfMissing("helium");
+
+        boolean[] allowed = new boolean[] { true };
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_liquid_helium_test");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
+        phe.setBaseMetaTileEntity(mockBase);
+
+        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
+        phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
+        phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
+
+        MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
+        inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
+        Fluid liquidHe = FluidRegistry.getFluid("liquid_helium");
+        assertNotNull(liquidHe);
+        inputHatch.fill(new FluidStack(liquidHe, 10_000), true);
+        phe.mInputHatches.add(inputHatch);
+
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 8, new String[0], null);
+        outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
+        phe.mOutputHatches.add(outputHatch);
+
+        // IC2 Coolant loop at -100 C (well above Helium boiling point -269 C)
+        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, -100.0);
+        CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2coolant");
+
+        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+
+        int remainingHe = (inputHatch.getFluid() != null) ? inputHatch.getFluid().amount : 0;
+        int heBoiled = 10_000 - remainingHe;
+        assertTrue(heBoiled > 0, "Liquid helium must boil when coolant is warmer than -269 C");
+
+        assertNotNull(outputHatch.getFluid());
+        assertEquals("helium", outputHatch.getFluid().getFluid().getName());
+        assertEquals(heBoiled * 160, outputHatch.getFluid().amount);
+        assertTrue(phe.getDeviceTemperatureCelsius() < -100.0);
+    }
+
 }

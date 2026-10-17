@@ -56,6 +56,7 @@ class CoolantFluidPropertyTest {
     void testNonBoilingFluids() {
         assertFalse(CoolantFluidProperty.IC2_COOLANT.canBoil());
         assertTrue(Double.isInfinite(CoolantFluidProperty.IC2_COOLANT.getBoilingPointCelsius()));
+        assertEquals(Double.NEGATIVE_INFINITY, CoolantFluidProperty.IC2_COOLANT.getFreezingPointCelsius());
         assertFalse(CoolantFluidProperty.SODIUM.canBoil());
         assertTrue(Double.isInfinite(CoolantFluidProperty.SODIUM.getBoilingPointCelsius()));
     }

@@ -248,4 +248,37 @@ class CoolantLoopEngineTest {
         // Parallel pressure drop with 2 branches must be significantly lower than series addition
         assertTrue(parallelDrop < seriesDrop * 0.35, "Parallel branches must not add pressure drops in series");
     }
+
+    @Test
+    void testLoopFreezingFailureWhenBelowFreezingPoint() {
+        CoolantLoopEngine waterEngine = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+        waterEngine.addSegment(
+            new LoopSegment("pipe_cold", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -5.0));
+        waterEngine.setPumpPowered(true);
+        waterEngine.setPumpMechanicalPowerWatts(100.0);
+        waterEngine.step(0.05);
+
+        assertTrue(waterEngine.isRuptured(), "Water loop must rupture if temperature drops below freezing point (0 C)");
+        assertNotNull(waterEngine.getFailureReason());
+        assertTrue(
+            waterEngine.getFailureReason()
+                .contains("Catastrophic coolant freezing"),
+            "Failure reason must report catastrophic coolant freezing: " + waterEngine.getFailureReason());
+    }
+
+    @Test
+    void testIC2CoolantImmunityToFreezingAtCryogenicTemperatures() {
+        CoolantLoopEngine ic2Engine = new CoolantLoopEngine(CoolantFluidProperty.IC2_COOLANT);
+        ic2Engine.addSegment(
+            new LoopSegment("pipe_cryo_1", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -196.0));
+        ic2Engine.addSegment(
+            new LoopSegment("pipe_cryo_2", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -269.0));
+        ic2Engine.setPumpPowered(true);
+        ic2Engine.setPumpMechanicalPowerWatts(1000.0);
+        ic2Engine.step(0.05);
+
+        assertFalse(ic2Engine.isRuptured(), "IC2 Coolant must not rupture at cryogenic temperatures (-196 C, -269 C)");
+        assertNull(ic2Engine.getFailureReason());
+    }
 }
+

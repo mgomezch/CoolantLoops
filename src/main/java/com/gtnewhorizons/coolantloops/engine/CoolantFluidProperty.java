@@ -113,7 +113,7 @@ public class CoolantFluidProperty {
         3800.0,
         0.520,
         Double.POSITIVE_INFINITY, // Non-boiling closed coolant
-        -25.0);
+        Double.NEGATIVE_INFINITY); // IC2 coolant has no freezing point
 
     public static final CoolantFluidProperty SODIUM = new CoolantFluidProperty(
         "sodium",

@@ -392,4 +392,109 @@ public class CoolantBathTest {
         bath.processThermalExchange(0.01, 1.0, CoolantFluidProperty.DISTILLED_WATER, segment);
         assertEquals(2.0, segment.getMinorLossK(), 1e-4, "10 active items must set segment minor loss K to 2.0");
     }
+
+    @Test
+    public void testCryogenicCellLatentHeatCoolingAndAutoEjection() {
+        ItemStack liquidNitrogenCell = new ItemStack(Items.apple);
+        ItemStack nitrogenGasCell = new ItemStack(Items.baked_potato);
+
+        double boilingPoint = -196.0;
+        double latentHeat = 160000.0; // 160 kJ
+        double surfaceArea = 0.25;
+
+        CoolantBathSlot cryoSlot = new CoolantBathSlot(
+            liquidNitrogenCell.copy(),
+            boilingPoint,
+            boilingPoint,
+            0,
+            1000,
+            latentHeat,
+            surfaceArea,
+            false,
+            false,
+            false,
+            nitrogenGasCell.copy(),
+            true);
+
+        assertTrue(cryoSlot.isCryoCell);
+        assertFalse(cryoSlot.isAutoEjectReady(), "Cryo cell must not be ready to eject initially");
+        assertEquals(0.0, cryoSlot.getProgressFraction(), 1e-4);
+
+        // Put into bath
+        MTECoolantBath bath = new MTECoolantBath("test.bath");
+        bath.mSlots = new CoolantBathSlot[15];
+        bath.mSlots[0] = cryoSlot;
+
+        // Loop segment with IC2 coolant at 20 C
+        LoopSegment segment = new LoopSegment("cryo_seg", 1.0, 0.05, 0.00005, 0.0, 100.0, 1200.0, 20.0);
+        double flowRate = 0.02; // 20 L/s
+
+        // Process thermal exchange for several ticks
+        double prevCoolantTemp = segment.getCurrentTemperatureCelsius();
+        bath.processThermalExchange(flowRate, 1.0, CoolantFluidProperty.IC2_COOLANT, segment);
+
+        assertTrue(
+            segment.getCurrentTemperatureCelsius() < prevCoolantTemp,
+            "Coolant temperature must decrease when exchanging heat with -196 C cryo cell");
+        assertTrue(cryoSlot.absorbedHeatJoules > 0.0, "Cryo cell must absorb latent heat");
+        assertEquals(
+            boilingPoint,
+            cryoSlot.currentTemp,
+            1e-4,
+            "Cryo cell temperature remains at boiling point during phase change");
+
+        // Manually absorb full latent heat (160 kJ)
+        cryoSlot.absorbedHeatJoules = latentHeat;
+        cryoSlot.updateItemDamage();
+
+        assertTrue(
+            cryoSlot.isAutoEjectReady(),
+            "Cryo cell must be ready to auto-eject once 100% latent heat is absorbed");
+        assertEquals(1.0, cryoSlot.getProgressFraction(), 1e-4);
+        assertNotNull(cryoSlot.getCompletedOutput());
+        assertEquals(
+            nitrogenGasCell.getItem(),
+            cryoSlot.getCompletedOutput()
+                .getItem());
+    }
+
+    @Test
+    public void testCryoSlotNBTSerialization() {
+        ItemStack inCell = new ItemStack(Items.arrow);
+        ItemStack outCell = new ItemStack(Items.feather);
+
+        CoolantBathSlot original = new CoolantBathSlot(
+            inCell,
+            -196.0,
+            -196.0,
+            0,
+            1000,
+            160000.0,
+            0.25,
+            false,
+            false,
+            false,
+            outCell,
+            true);
+        original.absorbedHeatJoules = 80000.0;
+        original.updateItemDamage();
+
+        NBTTagCompound tag = original.writeToNBT();
+        assertNotNull(tag);
+
+        CoolantBathSlot restored = CoolantBathSlot.readFromNBT(tag);
+        assertNotNull(restored);
+        assertTrue(restored.isCryoCell);
+        assertEquals(80000.0, restored.absorbedHeatJoules, 1e-4);
+        assertEquals(original.currentTemp, restored.currentTemp, 1e-4);
+        assertEquals(original.targetTemp, restored.targetTemp, 1e-4);
+        assertEquals(original.heatCapacity, restored.heatCapacity, 1e-4);
+        assertNotNull(restored.transformedOutput);
+        assertEquals(
+            Items.feather,
+            restored.transformedOutput
+                .getItem());
+        assertEquals(0.5, restored.getProgressFraction(), 1e-2);
+    }
 }
+

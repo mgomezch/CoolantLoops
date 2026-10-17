@@ -204,17 +204,36 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
             CoolantBathSlot slot = mSlots[i];
             if (slot == null || slot.isEmpty()) continue;
 
-            // Newton's law: Q_dot = h(v) * A * (T_item - T_coolant)
-            // Positive Q_dot means heat transfers from item into coolant
-            double qDotWatts = conv
-                .computeHeatTransferRate(velocity, slot.surfaceArea, slot.currentTemp, mCurrentCoolantTemp);
-            double deltaEJoules = qDotWatts * dt;
+            if (slot.isCryoCell) {
+                // Cryogenic boiling cell stays at boiling point while absorbing heat
+                // Newton's law: Q_dot = h(v) * A * (T_cell - T_coolant)
+                // When T_cell < T_coolant, Q_dot is negative (cooling the loop coolant)
+                double qDotWatts = conv
+                    .computeHeatTransferRate(velocity, slot.surfaceArea, slot.currentTemp, mCurrentCoolantTemp);
+                double deltaEJoules = qDotWatts * dt;
 
-            double deltaItemTemp = -deltaEJoules / slot.heatCapacity;
-            slot.currentTemp += deltaItemTemp;
-            slot.updateItemDamage();
+                // Heat absorbed by the cryogenic cell
+                double heatAbsorbed = -deltaEJoules;
+                if (heatAbsorbed > 0) {
+                    double remainingCapacity = Math.max(0.0, slot.heatCapacity - slot.absorbedHeatJoules);
+                    double actualHeatAbsorbed = Math.min(heatAbsorbed, remainingCapacity);
+                    slot.absorbedHeatJoules += actualHeatAbsorbed;
+                    slot.updateItemDamage();
+                    totalHeatToCoolantJoules -= actualHeatAbsorbed;
+                }
+            } else {
+                // Newton's law: Q_dot = h(v) * A * (T_item - T_coolant)
+                // Positive Q_dot means heat transfers from item into coolant
+                double qDotWatts = conv
+                    .computeHeatTransferRate(velocity, slot.surfaceArea, slot.currentTemp, mCurrentCoolantTemp);
+                double deltaEJoules = qDotWatts * dt;
 
-            totalHeatToCoolantJoules += deltaEJoules;
+                double deltaItemTemp = -deltaEJoules / slot.heatCapacity;
+                slot.currentTemp += deltaItemTemp;
+                slot.updateItemDamage();
+
+                totalHeatToCoolantJoules += deltaEJoules;
+            }
         }
 
         // Alter coolant fluid temperature in segment

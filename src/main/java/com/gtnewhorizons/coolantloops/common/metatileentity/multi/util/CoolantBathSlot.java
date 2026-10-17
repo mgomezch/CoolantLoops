@@ -20,6 +20,8 @@ public class CoolantBathSlot {
     public double surfaceArea; // Convective heat transfer area in m^2
     public boolean isCoolantCell;
     public boolean isIngot;
+    public boolean isCryoCell;
+    public double absorbedHeatJoules;
     public boolean cooling; // true if item is hotter than target / cooling; false if heating
     public ItemStack transformedOutput;
 
@@ -31,6 +33,24 @@ public class CoolantBathSlot {
     public CoolantBathSlot(ItemStack itemStack, double initialTemp, double targetTemp, int initialDamage, int maxDamage,
         double heatCapacity, double surfaceArea, boolean isCoolantCell, boolean isIngot, boolean cooling,
         ItemStack transformedOutput) {
+        this(
+            itemStack,
+            initialTemp,
+            targetTemp,
+            initialDamage,
+            maxDamage,
+            heatCapacity,
+            surfaceArea,
+            isCoolantCell,
+            isIngot,
+            cooling,
+            transformedOutput,
+            false);
+    }
+
+    public CoolantBathSlot(ItemStack itemStack, double initialTemp, double targetTemp, int initialDamage, int maxDamage,
+        double heatCapacity, double surfaceArea, boolean isCoolantCell, boolean isIngot, boolean cooling,
+        ItemStack transformedOutput, boolean isCryoCell) {
         this.itemStack = itemStack;
         this.currentTemp = initialTemp;
         this.targetTemp = targetTemp;
@@ -43,6 +63,8 @@ public class CoolantBathSlot {
         this.isIngot = isIngot;
         this.cooling = cooling;
         this.transformedOutput = transformedOutput;
+        this.isCryoCell = isCryoCell;
+        this.absorbedHeatJoules = 0.0;
     }
 
     public boolean isEmpty() {
@@ -57,9 +79,14 @@ public class CoolantBathSlot {
      * equals insertion state (fully-hot ejects only when fully-cold; fully-cold ejects only
      * when fully-hot; intermediate ejects at either extreme).
      * - Ingots auto-eject when they have reached the target temperature and transformed.
+     * - Cryogenic cells auto-eject when they have absorbed their full latent heat of vaporization.
      */
     public boolean isAutoEjectReady() {
         if (itemStack == null) return false;
+
+        if (isCryoCell) {
+            return absorbedHeatJoules >= (heatCapacity - 1e-4);
+        }
 
         if (isCoolantCell) {
             int currentDmg = itemStack.getItemDamage();
@@ -98,6 +125,10 @@ public class CoolantBathSlot {
     public double getProgressFraction() {
         if (itemStack == null) return 0.0;
 
+        if (isCryoCell) {
+            return Math.min(1.0, Math.max(0.0, absorbedHeatJoules / Math.max(1.0, heatCapacity)));
+        }
+
         if (isCoolantCell) {
             int minDmg = 1;
             int maxDmg = maxDamage > 1 ? maxDamage : 10000;
@@ -127,7 +158,20 @@ public class CoolantBathSlot {
     public void updateItemDamage() {
         if (itemStack == null) return;
 
-        if (isCoolantCell) {
+        if (isCryoCell) {
+            double frac = getProgressFraction();
+            int maxDmg = 1000;
+            int dmg = (int) Math.round(frac * maxDmg);
+            if (itemStack.isItemStackDamageable()) {
+                itemStack.setItemDamage(dmg);
+            }
+            NBTTagCompound tag = itemStack.hasTagCompound() ? itemStack.getTagCompound() : new NBTTagCompound();
+            tag.setInteger("bathDamage", dmg);
+            tag.setDouble("bathProgress", frac);
+            tag.setDouble("absorbedHeat", absorbedHeatJoules);
+            tag.setDouble("bathTemperature", currentTemp);
+            itemStack.setTagCompound(tag);
+        } else if (isCoolantCell) {
             int minDmg = 1;
             int maxDmg = maxDamage > 1 ? maxDamage : 10000;
             double frac = Math.max(0.0, Math.min(1.0, (currentTemp - 20.0) / (1000.0 - 20.0)));
@@ -165,6 +209,8 @@ public class CoolantBathSlot {
         tag.setDouble("surfaceArea", surfaceArea);
         tag.setBoolean("isCoolantCell", isCoolantCell);
         tag.setBoolean("isIngot", isIngot);
+        tag.setBoolean("isCryoCell", isCryoCell);
+        tag.setDouble("absorbedHeatJoules", absorbedHeatJoules);
         tag.setBoolean("cooling", cooling);
         if (transformedOutput != null) {
             NBTTagCompound outTag = new NBTTagCompound();
@@ -190,6 +236,8 @@ public class CoolantBathSlot {
         slot.surfaceArea = Math.max(0.01, tag.getDouble("surfaceArea"));
         slot.isCoolantCell = tag.getBoolean("isCoolantCell");
         slot.isIngot = tag.getBoolean("isIngot");
+        slot.isCryoCell = tag.getBoolean("isCryoCell");
+        slot.absorbedHeatJoules = tag.getDouble("absorbedHeatJoules");
         slot.cooling = tag.getBoolean("cooling");
         if (tag.hasKey("transformedOutput")) {
             slot.transformedOutput = ItemStack.loadItemStackFromNBT(tag.getCompoundTag("transformedOutput"));

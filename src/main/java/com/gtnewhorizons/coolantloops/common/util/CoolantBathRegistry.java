@@ -42,6 +42,26 @@ public class CoolantBathRegistry {
         }
     }
 
+    public static class CryoCellPair {
+
+        public final String name;
+        public final ItemStack liquidCell;
+        public final ItemStack gasCell;
+        public final double boilingPointCelsius;
+        public final double latentHeatJoules;
+
+        public CryoCellPair(String name, ItemStack liquidCell, ItemStack gasCell, double boilingPointCelsius,
+            double latentHeatJoules) {
+            this.name = name;
+            this.liquidCell = liquidCell;
+            this.gasCell = gasCell;
+            this.boilingPointCelsius = boilingPointCelsius;
+            this.latentHeatJoules = latentHeatJoules;
+        }
+    }
+
+    private static final Map<String, CryoCellPair> CRYO_CELLS = new HashMap<>();
+
     public static synchronized void ensureInitialized() {
         if (initialized) return;
         initialized = true;
@@ -93,6 +113,148 @@ public class CoolantBathRegistry {
                 }
             }
         } catch (Throwable ignored) {}
+
+        // 3. Register cryogenic cells
+        try {
+            registerCryoCellPair(
+                "liquidnitrogen",
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.LiquidNitrogen, 1L),
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.Nitrogen, 1L),
+                -196.0,
+                160000.0);
+            registerCryoCellPair(
+                "liquidoxygen",
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.LiquidOxygen, 1L),
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.Oxygen, 1L),
+                -183.0,
+                243000.0);
+            ItemStack airCell = null;
+            try {
+                airCell = gregtech.api.util.GTModHandler.getIC2Item("airCell", 1L);
+            } catch (Throwable ignored) {}
+            if (airCell == null) {
+                airCell = GTOreDictUnificator.get(OrePrefixes.cell, Materials.Air, 1L);
+            }
+            registerCryoCellPair(
+                "liquidair",
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.LiquidAir, 1L),
+                airCell,
+                -194.0,
+                174000.0);
+            ItemStack heliumLiquidCell = null;
+            try {
+                heliumLiquidCell = bartworks.system.material.WerkstoffLoader.LiquidHelium.get(OrePrefixes.cell);
+            } catch (Throwable ignored) {}
+            if (heliumLiquidCell == null) {
+                heliumLiquidCell = GTOreDictUnificator.get(OrePrefixes.cell, Materials.Helium, 1L);
+            }
+            registerCryoCellPair(
+                "liquidhelium",
+                heliumLiquidCell,
+                GTOreDictUnificator.get(OrePrefixes.cell, Materials.Helium, 1L),
+                -269.0,
+                20700.0);
+        } catch (Throwable ignored) {}
+    }
+
+    public static void registerCryoCellPair(String name, ItemStack liquidCell, ItemStack gasCell,
+        double boilingPointCelsius, double latentHeatJoules) {
+        if (liquidCell == null || gasCell == null) return;
+        CryoCellPair pair = new CryoCellPair(
+            name,
+            liquidCell.copy(),
+            gasCell.copy(),
+            boilingPointCelsius,
+            latentHeatJoules);
+        CRYO_CELLS.put(getStackKey(liquidCell), pair);
+    }
+
+    public static CryoCellPair getCryoCellPair(ItemStack stack) {
+        if (stack == null) return null;
+        ensureInitialized();
+        String key = getStackKey(stack);
+        if (CRYO_CELLS.containsKey(key)) {
+            return CRYO_CELLS.get(key);
+        }
+        // Fallback by checking item data associations or unlocalized names
+        ItemData data = GTOreDictUnificator.getAssociation(stack);
+        if (data != null && data.mPrefix == OrePrefixes.cell && data.mMaterial != null
+            && data.mMaterial.mMaterial != null) {
+            String matName = data.mMaterial.mMaterial.mName.toLowerCase();
+            if (matName.contains("liquidnitrogen")) {
+                return new CryoCellPair(
+                    "liquidnitrogen",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Nitrogen, 1L),
+                    -196.0,
+                    160000.0);
+            }
+            if (matName.contains("liquidoxygen")) {
+                return new CryoCellPair(
+                    "liquidoxygen",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Oxygen, 1L),
+                    -183.0,
+                    243000.0);
+            }
+            if (matName.contains("liquidair")) {
+                ItemStack airOut = null;
+                try {
+                    airOut = gregtech.api.util.GTModHandler.getIC2Item("airCell", 1L);
+                } catch (Throwable ignored) {}
+                if (airOut == null) airOut = GTOreDictUnificator.get(OrePrefixes.cell, Materials.Air, 1L);
+                return new CryoCellPair("liquidair", stack, airOut, -194.0, 174000.0);
+            }
+            if (matName.contains("liquidhelium")) {
+                return new CryoCellPair(
+                    "liquidhelium",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Helium, 1L),
+                    -269.0,
+                    20700.0);
+            }
+        }
+        String unloc = stack.getUnlocalizedName();
+        if (unloc != null) {
+            String lower = unloc.toLowerCase();
+            if (lower.contains("liquidnitrogen") || lower.contains("liquid_nitrogen")) {
+                return new CryoCellPair(
+                    "liquidnitrogen",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Nitrogen, 1L),
+                    -196.0,
+                    160000.0);
+            }
+            if (lower.contains("liquidoxygen") || lower.contains("liquid_oxygen")) {
+                return new CryoCellPair(
+                    "liquidoxygen",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Oxygen, 1L),
+                    -183.0,
+                    243000.0);
+            }
+            if (lower.contains("liquidair") || lower.contains("liquid_air")) {
+                ItemStack airOut = null;
+                try {
+                    airOut = gregtech.api.util.GTModHandler.getIC2Item("airCell", 1L);
+                } catch (Throwable ignored) {}
+                if (airOut == null) airOut = GTOreDictUnificator.get(OrePrefixes.cell, Materials.Air, 1L);
+                return new CryoCellPair("liquidair", stack, airOut, -194.0, 174000.0);
+            }
+            if (lower.contains("liquidhelium") || lower.contains("liquid_helium")) {
+                return new CryoCellPair(
+                    "liquidhelium",
+                    stack,
+                    GTOreDictUnificator.get(OrePrefixes.cell, Materials.Helium, 1L),
+                    -269.0,
+                    20700.0);
+            }
+        }
+        return null;
+    }
+
+    public static boolean isCryoCell(ItemStack stack) {
+        return getCryoCellPair(stack) != null;
     }
 
     public static double getMaterialBlastFurnaceTemp(Materials mat) {
@@ -116,6 +278,10 @@ public class CoolantBathRegistry {
     public static boolean isCompatibleItem(ItemStack stack) {
         if (stack == null) return false;
         ensureInitialized();
+
+        if (isCryoCell(stack)) {
+            return true;
+        }
 
         if (isCoolantCell(stack)) {
             return true;
@@ -172,6 +338,31 @@ public class CoolantBathRegistry {
 
         ItemStack stack = inputStack.copy();
         stack.stackSize = 1;
+
+        CryoCellPair cryo = getCryoCellPair(stack);
+        if (cryo != null) {
+            double cellTemp = cryo.boilingPointCelsius;
+            double targetTemp = cryo.boilingPointCelsius;
+            int maxDmg = 1000;
+            int initialDmg = 0;
+            double heatCap = Math.max(1000.0, cryo.latentHeatJoules); // Latent heat of vaporization in Joules
+            double area = 0.25; // m^2 surface area
+            ItemStack gasOutput = cryo.gasCell != null ? cryo.gasCell.copy() : null;
+
+            return new CoolantBathSlot(
+                stack,
+                cellTemp,
+                targetTemp,
+                initialDmg,
+                maxDmg,
+                heatCap,
+                area,
+                false,
+                false,
+                false, // cooling = false: item absorbs heat / boils
+                gasOutput,
+                true);
+        }
 
         if (isCoolantCell(stack)) {
             int maxDmg = stack.getMaxDamage() > 0 ? stack.getMaxDamage() : 10000;
