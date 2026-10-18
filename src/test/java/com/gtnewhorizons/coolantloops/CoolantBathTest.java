@@ -317,9 +317,9 @@ public class CoolantBathTest {
             null);
 
         assertEquals(3, bath.getActiveItemCount());
-        assertEquals(1.3, bath.getMinorLossK(), 1e-4, "K with 3 active items must be 1.3");
+        assertEquals(4.0, bath.getMinorLossK(), 1e-4, "K with 3 active items must be 4.0 (1.0 + 1.0 * 3)");
 
-        // Add 12 more active items -> 15 active items -> K = 1.0 + 0.1 * 15 = 2.5
+        // Add 12 more active items -> 15 active items -> K = 1.0 + 1.0 * 15 = 16.0
         for (int i = 3; i < 15; i++) {
             bath.mSlots[i] = new CoolantBathSlot(
                 new ItemStack(Items.iron_ingot),
@@ -335,7 +335,7 @@ public class CoolantBathTest {
                 null);
         }
         assertEquals(15, bath.getActiveItemCount());
-        assertEquals(2.5, bath.getMinorLossK(), 1e-4, "K with 15 active items must be 2.5");
+        assertEquals(16.0, bath.getMinorLossK(), 1e-4, "K with 15 active items must be 16.0 (1.0 + 1.0 * 15)");
     }
 
     @Test
@@ -347,18 +347,26 @@ public class CoolantBathTest {
         bath.mInteriorWidth = 3;
         bath.mInteriorLength = 5;
         assertEquals(15, bath.getTotalSlotCount(), "EV glass tier must provide 15 virtual slots (3x5)");
+        assertEquals(15000L, bath.getFillVolumeLiters(), "15 slots must have 15,000 L fill volume (1000 L/slot)");
 
         // IV Glass (Tier 5 / structure tier 2): 7x9x3 footprint -> 5x7 interior = 35 slots
         bath.mStructureTier = 2;
         bath.mInteriorWidth = 5;
         bath.mInteriorLength = 7;
         assertEquals(35, bath.getTotalSlotCount(), "IV glass tier must provide 35 virtual slots (5x7)");
+        assertEquals(35000L, bath.getFillVolumeLiters(), "35 slots must have 35,000 L fill volume (1000 L/slot)");
 
         // LuV Glass (Tier 6 / structure tier 3): 9x11x3 footprint -> 7x9 interior = 63 slots
         bath.mStructureTier = 3;
         bath.mInteriorWidth = 7;
         bath.mInteriorLength = 9;
         assertEquals(63, bath.getTotalSlotCount(), "LuV glass tier must provide 63 virtual slots (7x9)");
+        assertEquals(63000L, bath.getFillVolumeLiters(), "63 slots must have 63,000 L fill volume (1000 L/slot)");
+
+        // Custom slot array (e.g. 12 slots)
+        bath.mSlots = new CoolantBathSlot[12];
+        assertEquals(12, bath.getTotalSlotCount(), "Explicit 12-slot array must report 12 slots");
+        assertEquals(12000L, bath.getFillVolumeLiters(), "12 slots must have 12,000 L fill volume");
     }
 
     @Test
@@ -373,7 +381,7 @@ public class CoolantBathTest {
         bath.processThermalExchange(0.01, 1.0, CoolantFluidProperty.DISTILLED_WATER, segment);
         assertEquals(1.0, segment.getMinorLossK(), 1e-4, "Empty bath must set segment minor loss K to 1.0");
 
-        // Add 10 active items to bath
+        // Add 10 active items to bath -> K = 1.0 + 1.0 * 10 = 11.0
         for (int i = 0; i < 10; i++) {
             bath.mSlots[i] = new CoolantBathSlot(
                 new ItemStack(Items.iron_ingot),
@@ -390,7 +398,42 @@ public class CoolantBathTest {
         }
 
         bath.processThermalExchange(0.01, 1.0, CoolantFluidProperty.DISTILLED_WATER, segment);
-        assertEquals(2.0, segment.getMinorLossK(), 1e-4, "10 active items must set segment minor loss K to 2.0");
+        assertEquals(11.0, segment.getMinorLossK(), 1e-4, "10 active items must set segment minor loss K to 11.0");
+    }
+
+    @Test
+    public void testCoolantBathYAMLConfiguration() {
+        com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData devData = new com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData();
+        devData.getBath().fillVolumePerSlotLiters = 500L;
+        devData.getBath().baseMinorLossK = 2.5;
+        devData.getBath().itemMinorLossK = 0.5;
+
+        // Verify serialization / deserialization round-trip
+        java.util.Map<String, Object> map = devData.toMap();
+        com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData loaded = com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData.fromMap(map);
+        assertEquals(500L, loaded.getBath().fillVolumePerSlotLiters);
+        assertEquals(2.5, loaded.getBath().baseMinorLossK, 1e-4);
+        assertEquals(0.5, loaded.getBath().itemMinorLossK, 1e-4);
+
+        // Set as active device data
+        com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.setDeviceData(loaded);
+        try {
+            MTECoolantBath bath = new MTECoolantBath("test.bath");
+            bath.mSlots = new CoolantBathSlot[12];
+            assertEquals(12 * 500L, bath.getFillVolumeLiters(), "12 slots with 500 L/slot must have 6,000 L fill volume");
+
+            // Empty bath
+            assertEquals(2.5, bath.getMinorLossK(), 1e-4, "Base K must be 2.5 from config");
+
+            // 3 active items -> 2.5 + 0.5 * 3 = 4.0
+            bath.mSlots[0] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
+            bath.mSlots[1] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
+            bath.mSlots[2] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
+            assertEquals(4.0, bath.getMinorLossK(), 1e-4, "3 active items must give K = 2.5 + 0.5 * 3 = 4.0");
+        } finally {
+            // Restore default
+            com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.setDeviceData(new com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData());
+        }
     }
 
     @Test

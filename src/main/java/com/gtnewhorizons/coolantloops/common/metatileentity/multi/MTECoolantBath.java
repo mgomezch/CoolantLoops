@@ -16,6 +16,8 @@ import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import com.gtnewhorizon.structurelib.structure.StructureUtility;
 import com.gtnewhorizons.coolantloops.CoolantLoops;
+import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
+import com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData;
 import com.gtnewhorizons.coolantloops.common.gui.CoolantBathGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.util.CoolantBathSlot;
@@ -151,6 +153,9 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
     }
 
     public int getTotalSlotCount() {
+        if (mSlots != null && (mMachine || mSlots.length != 15)) {
+            return mSlots.length;
+        }
         return mInteriorWidth * mInteriorLength;
     }
 
@@ -167,10 +172,25 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
 
     @Override
     public double getMinorLossK() {
-        // Resistance increases proportionally to active item count
+        // Resistance increases proportionally to active item count: baseK + itemK * N_active
         double baseK = 1.0;
-        double itemK = 0.1;
+        double itemK = 1.0;
+        CoolantDeviceData devData = CoolantLoopDataRegistry.getDeviceData();
+        if (devData != null && devData.getBath() != null) {
+            baseK = devData.getBath().baseMinorLossK;
+            itemK = devData.getBath().itemMinorLossK;
+        }
         return baseK + itemK * getActiveItemCount();
+    }
+
+    @Override
+    public long getFillVolumeLiters() {
+        long perSlot = 1000L;
+        CoolantDeviceData devData = CoolantLoopDataRegistry.getDeviceData();
+        if (devData != null && devData.getBath() != null) {
+            perSlot = devData.getBath().fillVolumePerSlotLiters;
+        }
+        return (long) getTotalSlotCount() * perSlot;
     }
 
     @Override

@@ -298,9 +298,37 @@ public class CoolantDeviceData {
         }
     }
 
+    public static class CoolantBathData {
+
+        public long fillVolumePerSlotLiters = 1000L; // Coolant fill volume per slot in Liters
+        public double baseMinorLossK = 1.0;          // Base minor loss coefficient of empty bath
+        public double itemMinorLossK = 1.0;          // Additional minor loss K per active item in bath
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("fillVolumePerSlotLiters", fillVolumePerSlotLiters);
+            map.put("baseMinorLossK", baseMinorLossK);
+            map.put("itemMinorLossK", itemMinorLossK);
+            return map;
+        }
+
+        public static CoolantBathData fromMap(Map<String, Object> map) {
+            CoolantBathData d = new CoolantBathData();
+            if (map == null) return d;
+            if (map.containsKey("fillVolumePerSlotLiters"))
+                d.fillVolumePerSlotLiters = ((Number) map.get("fillVolumePerSlotLiters")).longValue();
+            if (map.containsKey("baseMinorLossK"))
+                d.baseMinorLossK = ((Number) map.get("baseMinorLossK")).doubleValue();
+            if (map.containsKey("itemMinorLossK"))
+                d.itemMinorLossK = ((Number) map.get("itemMinorLossK")).doubleValue();
+            return d;
+        }
+    }
+
     private PHEData phe = new PHEData();
     private DegasserData degasser = new DegasserData();
     private ReservoirData reservoir = new ReservoirData();
+    private CoolantBathData bath = new CoolantBathData();
 
     public PHEData getPhe() {
         return phe;
@@ -326,10 +354,19 @@ public class CoolantDeviceData {
         this.reservoir = reservoir;
     }
 
+    public CoolantBathData getBath() {
+        return bath;
+    }
+
+    public void setBath(CoolantBathData bath) {
+        this.bath = bath;
+    }
+
     public Map<String, Object> toMap() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("phe", phe.toMap());
         map.put("degasser", degasser.toMap());
+        map.put("bath", bath.toMap());
         map.put("reservoir", reservoir.toMap());
         return map;
     }
@@ -343,6 +380,9 @@ public class CoolantDeviceData {
         }
         if (map.containsKey("degasser") && map.get("degasser") instanceof Map) {
             data.degasser = DegasserData.fromMap((Map<String, Object>) map.get("degasser"));
+        }
+        if (map.containsKey("bath") && map.get("bath") instanceof Map) {
+            data.bath = CoolantBathData.fromMap((Map<String, Object>) map.get("bath"));
         }
         if (map.containsKey("reservoir") && map.get("reservoir") instanceof Map) {
             data.reservoir = ReservoirData.fromMap((Map<String, Object>) map.get("reservoir"));

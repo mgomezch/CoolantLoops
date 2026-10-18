@@ -1171,6 +1171,8 @@ public class LoopGraphCrawler {
                                 1000.0,
                                 3000.0,
                                 bath.getDeviceTemperatureCelsius());
+                            devSeg.setCapacityLiters(bath.getFillVolumeLiters());
+                            devSeg.setCustomVolumeM3(bath.getFillVolumeLiters() / 1000.0);
                             segments.add(devSeg);
 
                             MTEHatchPressurizedFluid outlet = bath.getPrimaryOutlet();

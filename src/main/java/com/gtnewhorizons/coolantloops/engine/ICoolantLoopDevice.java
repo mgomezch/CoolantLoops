@@ -32,6 +32,13 @@ public interface ICoolantLoopDevice {
     void processThermalExchange(double coolantFlowRateM3s, double dt, CoolantFluidProperty fluid, LoopSegment segment);
 
     /**
+     * Required fill volume in liters contributed by this device to the loop.
+     */
+    default long getFillVolumeLiters() {
+        return 1000L;
+    }
+
+    /**
      * Associates the managing coolant loop pump with this device.
      */
     default void setLoopPump(ICoolantLoopPump pump) {}

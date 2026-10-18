@@ -54,11 +54,20 @@ public class LoopSegment {
         return area;
     }
 
+    private double customVolumeM3 = -1.0;
+
     /**
      * Volume of fluid contained within this segment in m^3.
      */
     public double getVolume() {
+        if (customVolumeM3 >= 0.0) {
+            return customVolumeM3;
+        }
         return area * length;
+    }
+
+    public void setCustomVolumeM3(double customVolumeM3) {
+        this.customVolumeM3 = customVolumeM3;
     }
 
     /**

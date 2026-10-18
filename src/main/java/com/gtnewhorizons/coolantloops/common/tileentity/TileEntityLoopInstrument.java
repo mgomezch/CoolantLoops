@@ -267,6 +267,11 @@ public class TileEntityLoopInstrument extends TileEntity
     }
 
     @Override
+    public long getFillVolumeLiters() {
+        return 10L;
+    }
+
+    @Override
     public double getDeviceTemperatureCelsius() {
         return currentTemperatureCelsius;
     }

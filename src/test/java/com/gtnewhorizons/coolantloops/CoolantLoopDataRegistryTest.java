@@ -219,6 +219,10 @@ public class CoolantLoopDataRegistryTest {
             + "  minorLossK: 1.1\n"
             + "  gasExtractionEfficiency: 0.40\n"
             + "  gasExtractionPowerEuPerLiter: 12.0\n"
+            + "bath:\n"
+            + "  fillVolumePerSlotLiters: 1500\n"
+            + "  baseMinorLossK: 2.0\n"
+            + "  itemMinorLossK: 0.8\n"
             + "reservoir:\n"
             + "  exchangeArea: 5.0\n"
             + "  temperaturePresets:\n"
@@ -279,6 +283,9 @@ public class CoolantLoopDataRegistryTest {
         assertEquals(200, devices.getPhe().steamExpansionRatio);
         assertEquals(0.40, devices.getDegasser().gasExtractionEfficiency, 1e-4);
         assertEquals(12.0, devices.getDegasser().gasExtractionPowerEuPerLiter, 1e-4);
+        assertEquals(1500L, devices.getBath().fillVolumePerSlotLiters);
+        assertEquals(2.0, devices.getBath().baseMinorLossK, 1e-4);
+        assertEquals(0.8, devices.getBath().itemMinorLossK, 1e-4);
         assertEquals(5.0, devices.getReservoir().exchangeArea, 1e-4);
         assertEquals(3, devices.getReservoir().temperaturePresets.size());
     }

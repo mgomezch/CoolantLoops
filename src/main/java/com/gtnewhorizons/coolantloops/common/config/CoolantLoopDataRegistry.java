@@ -397,6 +397,12 @@ public class CoolantLoopDataRegistry {
             + "  gasExtractionEfficiency: 0.25     # Maximum fraction of dissolved gas extracted per crossing\n"
             + "  gasExtractionPowerEuPerLiter: 8.0 # EU consumed per liter of gas separated\n"
             + "\n"
+            + "# Coolant Bath\n"
+            + "bath:\n"
+            + "  fillVolumePerSlotLiters: 1000   # Coolant fill volume per item slot in Liters\n"
+            + "  baseMinorLossK: 1.0            # Base minor loss coefficient of empty bath\n"
+            + "  itemMinorLossK: 1.0            # Additional minor loss K per active item in bath\n"
+            + "\n"
             + "# Creative Heat Reservoir\n"
             + "reservoir:\n"
             + "  exchangeArea: 2.0                # Heat exchange surface area in m^2\n"
@@ -498,6 +504,10 @@ public class CoolantLoopDataRegistry {
 
     public static CoolantDeviceData getDeviceData() {
         return deviceData;
+    }
+
+    public static void setDeviceData(CoolantDeviceData data) {
+        deviceData = (data != null) ? data : new CoolantDeviceData();
     }
 
     public static double getPipePressureRating(String materialName) {

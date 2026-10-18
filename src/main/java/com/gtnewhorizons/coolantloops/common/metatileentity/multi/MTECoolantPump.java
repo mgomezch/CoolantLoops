@@ -653,17 +653,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mLoopDevices = result.devices;
         for (ICoolantLoopDevice dev : mLoopDevices) {
             dev.setLoopPump(this);
-            if (dev instanceof MTEPressurizedHeatExchanger || dev instanceof ICoolantPassageHatch
-                || dev instanceof MTEPressurizedDegasser
-                || dev instanceof MTECoolantBath) {
-                requiredFill += 1000L;
-            } else if (dev instanceof TileEntityLoopInstrument) {
-                requiredFill += 10L;
-            } else if (dev instanceof TileEntityManifold) {
-                requiredFill += 1000L;
-            } else {
-                requiredFill += 1000L;
-            }
+            requiredFill += dev.getFillVolumeLiters();
         }
         mRequiredFillLiters = requiredFill;
         mLoopFormed = true;
