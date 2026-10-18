@@ -248,26 +248,39 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         return list;
     }
 
-    public long getRequiredPowerDrawEU() {
+    public long getTargetVoltage() {
         List<MTEHatchEnergy> hatches = getValidEnergyHatches();
         if (hatches.isEmpty()) {
             return 32L;
         }
-        long total = 0L;
-        for (MTEHatchEnergy h : hatches) {
-            int tier = Math.max(0, Math.min(h.mTier, GTValues.V.length - 1));
-            total += GTValues.V[tier];
+        if (hatches.size() == 1) {
+            int tier = Math.max(1, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
+            return GTValues.V[tier];
         }
-        return Math.max(32L, total);
+        int maxTier = 1;
+        for (MTEHatchEnergy h : hatches) {
+            if (h.mTier > maxTier) {
+                maxTier = h.mTier;
+            }
+        }
+        maxTier = Math.max(1, Math.min(maxTier, GTValues.V.length - 1));
+        return 4L * GTValues.V[maxTier];
+    }
+
+    public long getRequiredPowerDrawEU() {
+        long v = getTargetVoltage();
+        return Math.max(1L, (15L * v) / 16L);
+    }
+
+    public double getOverclockMultiplier() {
+        return (double) getTargetVoltage() / 32.0;
     }
 
     public double getMaxHeatExchangePerBatchJoules() {
         double baseHeat = (CoolantLoopDataRegistry.getDeviceData() != null)
             ? CoolantLoopDataRegistry.getDeviceData().getPhe().baseMaxHeatPerBatchJoules
             : 2260000.0;
-        long powerEU = getRequiredPowerDrawEU();
-        // Perfect overclocking: base amount for LV (32 EU/t), scales linearly with total power EU/t
-        return baseHeat * ((double) powerEU / 32.0);
+        return baseHeat * getOverclockMultiplier();
     }
 
     public int getBatchTicks() {

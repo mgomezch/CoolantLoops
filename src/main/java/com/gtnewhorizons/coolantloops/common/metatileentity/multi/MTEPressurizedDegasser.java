@@ -162,7 +162,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             return false;
         }
 
-        if (mEnergyHatches.isEmpty() || mOutputHatches.isEmpty() || mMaintenanceHatches.size() != 1) {
+        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2 || mOutputHatches.isEmpty() || mMaintenanceHatches.size() != 1) {
             return false;
         }
 
@@ -171,6 +171,18 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             aBaseMetaTileEntity.enableWorking();
         }
 
+        return true;
+    }
+
+    public static boolean isSingleAmpEnergyHatch(MTEHatchEnergy hatch) {
+        if (hatch == null) return false;
+        String name = hatch.getClass().getName();
+        if (name.contains("Multi") || name.contains("Tunnel")) {
+            return false;
+        }
+        if (hatch.maxWorkingAmperesIn() > 2L || hatch.maxAmperesIn() > 2L) {
+            return false;
+        }
         return true;
     }
 
@@ -202,9 +214,11 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             return true;
         }
         if (aMetaTileEntity instanceof MTEHatchEnergy) {
-            if (aMetaTileEntity.getClass()
-                .getName()
-                .contains("Multi")) {
+            MTEHatchEnergy eh = (MTEHatchEnergy) aMetaTileEntity;
+            if (!isSingleAmpEnergyHatch(eh)) {
+                return false;
+            }
+            if (mEnergyHatches.size() >= 2) {
                 return false;
             }
             return addEnergyInputToMachineList(aTileEntity, aBaseCasingIndex);
@@ -316,7 +330,8 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         List<MTEHatchEnergy> list = new ArrayList<>();
         if (mEnergyHatches != null) {
             for (MTEHatchEnergy hatch : mEnergyHatches) {
-                if (hatch != null && (hatch.isValid() || hatch.getBaseMetaTileEntity() != null)) {
+                if (hatch != null && (hatch.isValid() || hatch.getBaseMetaTileEntity() != null)
+                    && isSingleAmpEnergyHatch(hatch)) {
                     list.add(hatch);
                 }
             }
@@ -324,23 +339,32 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         return list;
     }
 
-    public long getRequiredPowerDrawEU() {
+    public long getTargetVoltage() {
         List<MTEHatchEnergy> hatches = getValidEnergyHatches();
         if (hatches.isEmpty()) {
-            return 512L;
+            return 32L;
         }
         if (hatches.size() == 1) {
-            int tier = Math.max(0, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
+            int tier = Math.max(1, Math.min(hatches.get(0).mTier, GTValues.V.length - 1));
             return GTValues.V[tier];
         }
-        int maxTier = 0;
+        int maxTier = 1;
         for (MTEHatchEnergy h : hatches) {
             if (h.mTier > maxTier) {
                 maxTier = h.mTier;
             }
         }
-        maxTier = Math.max(0, Math.min(maxTier, GTValues.V.length - 1));
-        return 2L * hatches.size() * GTValues.V[maxTier];
+        maxTier = Math.max(1, Math.min(maxTier, GTValues.V.length - 1));
+        return 4L * GTValues.V[maxTier];
+    }
+
+    public long getRequiredPowerDrawEU() {
+        long v = getTargetVoltage();
+        return Math.max(1L, (15L * v) / 16L);
+    }
+
+    public double getOverclockMultiplier() {
+        return (double) getTargetVoltage() / 32.0;
     }
 
     public boolean triggerPowerfail() {
@@ -460,6 +484,8 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
                 .getDegasser().gasExtractionEfficiency
             : 0.25;
 
+        double overclockMultiplier = getOverclockMultiplier();
+
         // Process each dissolved gas species
         for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
             String gasName = entry.getKey();
@@ -468,7 +494,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
             double cGas = (double) gasLiters / (double) loopVolume;
             double vCrossing = cGas * qTick;
-            double maxGasMassThisTick = extractionEff * vCrossing;
+            double maxGasMassThisTick = Math.min((double) gasLiters, extractionEff * vCrossing * overclockMultiplier);
 
             double toExtract = Math.min(maxGasEnergyThisTick, maxGasMassThisTick) * effFactor;
             if (toExtract <= 0.0) continue;

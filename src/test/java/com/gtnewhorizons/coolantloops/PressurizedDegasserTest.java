@@ -91,22 +91,45 @@ public class PressurizedDegasserTest {
 
     @Test
     public void testDegasserSingleAmpPowerAndOverclockingLogic() {
-        // 1 EV hatch: voltage 2048, 1 hatch -> 1 amp -> 2048 EU/t
-        int numHatches1 = 1;
-        long voltage = 2048L;
-        long targetEU1 = (numHatches1 == 1) ? voltage : 2L * voltage * numHatches1;
-        assertEquals(2048L, targetEU1, "1 EV hatch must consume 1 amp = 2048 EU/t");
+        // 1 LV hatch (32V -> 15/16ths = 30 EU/t, 1x speed)
+        long vLV = 32L;
+        long targetEULV1 = (15L * vLV) / 16L;
+        assertEquals(30L, targetEULV1, "1 LV hatch must consume 15/16ths of 32 = 30 EU/t");
 
-        // 2 EV hatches: voltage 2048 each -> 2 amps per hatch -> 4 amps total = 8192 EU/t
-        int numHatches2 = 2;
-        long targetEU2 = (numHatches2 == 1) ? voltage : 2L * voltage * numHatches2;
-        assertEquals(8192L, targetEU2, "2 EV hatches must consume 2 amps each = 8192 EU/t");
+        // 2 LV hatches (overclocks to 4x 32V = 128V -> 15/16ths = 120 EU/t, 4x speed)
+        long targetEULV2 = (15L * (4L * vLV)) / 16L;
+        assertEquals(120L, targetEULV2, "2 LV hatches must consume 15/16ths of 128 = 120 EU/t");
 
-        // 4 IV hatches: voltage 8192 each -> 2 amps per hatch -> 8 amps total = 65536 EU/t
-        int numHatches4 = 4;
-        long voltageIV = 8192L;
-        long targetEU4 = (numHatches4 == 1) ? voltageIV : 2L * voltageIV * numHatches4;
-        assertEquals(65536L, targetEU4, "4 IV hatches must consume 2 amps each = 65536 EU/t");
+        // 1 MV hatch (128V -> 15/16ths = 120 EU/t, 4x speed)
+        long vMV = 128L;
+        long targetEUMV1 = (15L * vMV) / 16L;
+        assertEquals(120L, targetEUMV1, "1 MV hatch must consume 15/16ths of 128 = 120 EU/t");
+
+        // 2 MV hatches (overclocks to 4x 128V = 512V -> 15/16ths = 480 EU/t, 16x speed)
+        long targetEUMV2 = (15L * (4L * vMV)) / 16L;
+        assertEquals(480L, targetEUMV2, "2 MV hatches must consume 15/16ths of 512 = 480 EU/t");
+
+        // 1 HV hatch (512V -> 15/16ths = 480 EU/t, 16x speed)
+        long vHV = 512L;
+        long targetEUHV1 = (15L * vHV) / 16L;
+        assertEquals(480L, targetEUHV1, "1 HV hatch must consume 15/16ths of 512 = 480 EU/t");
+
+        // 2 HV hatches (overclocks to 4x 512V = 2048V -> 15/16ths = 1920 EU/t, 64x speed)
+        long targetEUHV2 = (15L * (4L * vHV)) / 16L;
+        assertEquals(1920L, targetEUHV2, "2 HV hatches must consume 15/16ths of 2048 = 1920 EU/t");
+
+        // Mixed 1 MV + 1 HV hatch: higher-tiered hatch determines overclock (4x 512V = 2048V -> 1920 EU/t, 64x speed)
+        long targetEUMixed = (15L * (4L * Math.max(vMV, vHV))) / 16L;
+        assertEquals(1920L, targetEUMixed, "Mixed 1 MV + 1 HV hatches must overclock to 4A HV = 1920 EU/t");
+
+        // 1 EV hatch (2048V -> 15/16ths = 1920 EU/t, 64x speed)
+        long vEV = 2048L;
+        long targetEUEV1 = (15L * vEV) / 16L;
+        assertEquals(1920L, targetEUEV1, "1 EV hatch must consume 15/16ths of 2048 = 1920 EU/t");
+
+        // 2 EV hatches (overclocks to 4x 2048V = 8192V -> 15/16ths = 7680 EU/t, 256x speed)
+        long targetEUEV2 = (15L * (4L * vEV)) / 16L;
+        assertEquals(7680L, targetEUEV2, "2 EV hatches must consume 15/16ths of 8192 = 7680 EU/t");
     }
 
     @Test

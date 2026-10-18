@@ -272,36 +272,36 @@ public class CoolantLoopPowerAndGuiTest {
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 
-        // 1 EV hatch (tier 4 -> 1A at 2048V = 2048 EU/t)
+        // 1 EV hatch (tier 4 -> 15/16ths of 2048V = 1920 EU/t)
         long[] hatch1EU = new long[] { 10000L };
         MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatch1EU);
         phe.mEnergyHatches.add(evHatch);
-        assertEquals(2048L, phe.getRequiredPowerDrawEU());
+        assertEquals(1920L, phe.getRequiredPowerDrawEU());
 
         // Step heat exchange with sufficient power
         assertTrue(phe.stepHeatExchange());
-        assertEquals(10000L - 2048L, hatch1EU[0]);
+        assertEquals(10000L - 1920L, hatch1EU[0]);
         assertTrue(phe.isAllowedToWork());
 
-        // Add 2nd EV hatch -> 2A total = 4096 EU/t (strictly single-amp)
+        // Add 2nd EV hatch -> overclocks to 4A EV = 8192V -> 15/16ths = 7680 EU/t
         long[] hatch2EU = new long[] { 5000L };
         MTEHatchEnergy evHatch2 = createMockEnergyHatch(4, hatch2EU);
         phe.mEnergyHatches.add(evHatch2);
-        assertEquals(4096L, phe.getRequiredPowerDrawEU());
+        assertEquals(7680L, phe.getRequiredPowerDrawEU());
 
-        // Combined available = (10000 - 2048) + 5000 = 12952 >= 4096
+        // Combined available = (10000 - 1920) + 5000 = 13080 >= 7680
         assertTrue(phe.stepHeatExchange());
-        assertEquals(10000L - 2048L - 4096L, hatch1EU[0]); // 3856L
+        assertEquals(10000L - 1920L - 7680L, hatch1EU[0]); // 400L
         assertEquals(5000L, hatch2EU[0]);
 
-        // Now drop power below 4096 EU total: hatch1 = 0, hatch2 = 3000
+        // Now drop power below 7680 EU total: hatch1 = 0, hatch2 = 5000
         hatch1EU[0] = 0L;
-        hatch2EU[0] = 3000L;
+        hatch2EU[0] = 5000L;
         assertFalse(phe.stepHeatExchange());
 
         // Verify atomic behavior and standard GT5U powerfail
         assertFalse(phe.isAllowedToWork());
-        assertEquals(3000L, hatch2EU[0], "Atomic drain: buffer must not be modified");
+        assertEquals(5000L, hatch2EU[0], "Atomic drain: buffer must not be modified");
         Mockito.verify(mockTracker, Mockito.times(1))
             .createPowerfailEvent(mockBase);
     }
@@ -325,31 +325,31 @@ public class CoolantLoopPowerAndGuiTest {
         ICoolantLoopPump mockPump = Mockito.mock(ICoolantLoopPump.class);
         degasser.setConnectedPump(mockPump);
 
-        // 1 EV hatch (tier 4 -> 1A at 2048V = 2048 EU/t)
+        // 1 EV hatch (tier 4 -> 15/16ths of 2048V = 1920 EU/t)
         long[] hatch1EU = new long[] { 5000L };
         MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatch1EU);
         degasser.mEnergyHatches.add(evHatch);
-        assertEquals(2048L, degasser.getRequiredPowerDrawEU());
+        assertEquals(1920L, degasser.getRequiredPowerDrawEU());
 
         // Step degassing with sufficient power
         assertTrue(degasser.stepDegassing(0.04, 0.05));
-        assertEquals(5000L - 2048L, hatch1EU[0]);
-        assertEquals(2048L, degasser.getLastDrainedEU());
+        assertEquals(5000L - 1920L, hatch1EU[0]);
+        assertEquals(1920L, degasser.getLastDrainedEU());
         assertTrue(degasser.isAllowedToWork());
 
-        // Add 2nd EV hatch -> 4A total = 8192 EU/t
+        // Add 2nd EV hatch -> overclocks to 4A EV = 8192V -> 15/16ths = 7680 EU/t
         long[] hatch2EU = new long[] { 10000L };
         MTEHatchEnergy evHatch2 = createMockEnergyHatch(4, hatch2EU);
         degasser.mEnergyHatches.add(evHatch2);
-        assertEquals(8192L, degasser.getRequiredPowerDrawEU());
+        assertEquals(7680L, degasser.getRequiredPowerDrawEU());
 
         // Step degassing with 2 hatches
         assertTrue(degasser.stepDegassing(0.04, 0.05));
         assertEquals(0L, hatch1EU[0]);
-        assertEquals(10000L - (8192L - 2952L), hatch2EU[0]); // 10000 - 5240 = 4760
-        assertEquals(8192L, degasser.getLastDrainedEU());
+        assertEquals(10000L - (7680L - 3080L), hatch2EU[0]); // 10000 - 4600 = 5400
+        assertEquals(7680L, degasser.getLastDrainedEU());
 
-        // Now drop power below 8192 EU total: hatch1 = 0, hatch2 = 2000
+        // Now drop power below 7680 EU total: hatch1 = 0, hatch2 = 2000
         hatch2EU[0] = 2000L;
         assertFalse(degasser.stepDegassing(0.04, 0.05));
 

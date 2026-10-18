@@ -287,7 +287,7 @@ public class PressurizedHeatExchangerTest {
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
 
         // But EU must have been consumed each tick for running secondary channels
-        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -316,7 +316,7 @@ public class PressurizedHeatExchangerTest {
         assertEquals(300.0, phe.getDeviceTemperatureCelsius(), "Dry PHE must not cool primary coolant");
         assertEquals(300.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
-        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -348,7 +348,7 @@ public class PressurizedHeatExchangerTest {
         assertEquals(90.0, phe.getDeviceTemperatureCelsius(), "Coolant temperature remains unchanged");
         assertEquals(90.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
-        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -541,7 +541,7 @@ public class PressurizedHeatExchangerTest {
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
 
         // BUT secondary side pump must still consume power each tick!
-        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU(),
+        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU(),
             "PHE secondary pumps must consume EU every tick even with zero loop flow");
     }
 
@@ -619,37 +619,63 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(new boolean[] { true });
         phe.setBaseMetaTileEntity(mockBase);
 
-        // 1 LV hatch (32 EU/t): base heat = 2.26 MJ per batch (1 L water)
+        // 1 LV hatch (32V -> 15/16ths = 30 EU/t): base heat = 2.26 MJ per batch (1 L water)
         MTEHatchEnergy lv1 = createMockEnergyHatch(1, 100_000L);
         phe.mEnergyHatches.add(lv1);
-        assertEquals(32L, phe.getRequiredPowerDrawEU());
+        assertEquals(30L, phe.getRequiredPowerDrawEU());
         assertEquals(2260000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 LV hatches (64 EU/t): 2x base heat = 4.52 MJ per batch (2 L water)
+        // 2 LV hatches (overclocks to 4x 32V = 128V -> 15/16ths = 120 EU/t): 4x base heat = 9.04 MJ per batch (4 L water)
         MTEHatchEnergy lv2 = createMockEnergyHatch(1, 100_000L);
         phe.mEnergyHatches.add(lv2);
-        assertEquals(64L, phe.getRequiredPowerDrawEU());
-        assertEquals(4520000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+        assertEquals(120L, phe.getRequiredPowerDrawEU());
+        assertEquals(9040000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 1 MV hatch (128 EU/t): 4x base heat = 9.04 MJ per batch (4 L water)
+        // 1 MV hatch (128V -> 15/16ths = 120 EU/t): 4x base heat = 9.04 MJ per batch (4 L water)
         phe.mEnergyHatches.clear();
         MTEHatchEnergy mv1 = createMockEnergyHatch(2, 100_000L);
         phe.mEnergyHatches.add(mv1);
-        assertEquals(128L, phe.getRequiredPowerDrawEU());
+        assertEquals(120L, phe.getRequiredPowerDrawEU());
         assertEquals(9040000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 MV hatches (256 EU/t): 8x base heat = 18.08 MJ per batch (8 L water)
+        // 2 MV hatches (overclocks to 4x 128V = 512V -> 15/16ths = 480 EU/t): 16x base heat = 36.16 MJ per batch (16 L water)
         MTEHatchEnergy mv2 = createMockEnergyHatch(2, 100_000L);
         phe.mEnergyHatches.add(mv2);
-        assertEquals(256L, phe.getRequiredPowerDrawEU());
-        assertEquals(18080000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+        assertEquals(480L, phe.getRequiredPowerDrawEU());
+        assertEquals(36160000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 1 HV hatch (512 EU/t): 16x base heat = 36.16 MJ per batch (16 L water)
+        // 1 HV hatch (512V -> 15/16ths = 480 EU/t): 16x base heat = 36.16 MJ per batch (16 L water)
         phe.mEnergyHatches.clear();
         MTEHatchEnergy hv1 = createMockEnergyHatch(3, 100_000L);
         phe.mEnergyHatches.add(hv1);
-        assertEquals(512L, phe.getRequiredPowerDrawEU());
+        assertEquals(480L, phe.getRequiredPowerDrawEU());
         assertEquals(36160000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 2 HV hatches (overclocks to 4x 512V = 2048V -> 15/16ths = 1920 EU/t): 64x base heat = 144.64 MJ per batch (64 L water)
+        MTEHatchEnergy hv2 = createMockEnergyHatch(3, 100_000L);
+        phe.mEnergyHatches.add(hv2);
+        assertEquals(1920L, phe.getRequiredPowerDrawEU());
+        assertEquals(144640000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // Mixed 1 MV + 1 HV hatch: higher-tiered hatch determines target overclock voltage (4x 512V = 2048V -> 1920 EU/t)
+        phe.mEnergyHatches.clear();
+        phe.mEnergyHatches.add(mv1);
+        phe.mEnergyHatches.add(hv1);
+        assertEquals(1920L, phe.getRequiredPowerDrawEU());
+        assertEquals(144640000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 1 EV hatch (2048V -> 15/16ths = 1920 EU/t): 64x base heat = 144.64 MJ per batch (64 L water)
+        phe.mEnergyHatches.clear();
+        MTEHatchEnergy ev1 = createMockEnergyHatch(4, 100_000L);
+        phe.mEnergyHatches.add(ev1);
+        assertEquals(1920L, phe.getRequiredPowerDrawEU());
+        assertEquals(144640000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 2 EV hatches (overclocks to 4x 2048V = 8192V -> 15/16ths = 7680 EU/t): 256x base heat = 578.56 MJ per batch (256 L water)
+        MTEHatchEnergy ev2 = createMockEnergyHatch(4, 100_000L);
+        phe.mEnergyHatches.add(ev2);
+        assertEquals(7680L, phe.getRequiredPowerDrawEU());
+        assertEquals(578560000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
         // Verify batch boiling is capped by overclock limit when thermal transfer capacity exceeds cap
         phe.mEnergyHatches.clear();
