@@ -567,14 +567,6 @@ public class TileEntityLoopInstrument extends TileEntity
             if (m >= 0 && m < TrackedMetric.values().length) {
                 this.trackedMetric = TrackedMetric.values()[m];
             }
-        } else if (nbt.hasKey("type")) {
-            int t = nbt.getInteger("type");
-            this.trackedMetric = switch (t) {
-                case 0 -> TrackedMetric.FLOW_RATE;
-                case 1 -> TrackedMetric.TEMPERATURE;
-                case 2 -> TrackedMetric.DISSOLVED_GAS;
-                default -> TrackedMetric.FLOW_RATE;
-            };
         }
         if (nbt.hasKey("redstone")) {
             this.redstoneOutput = nbt.getInteger("redstone");

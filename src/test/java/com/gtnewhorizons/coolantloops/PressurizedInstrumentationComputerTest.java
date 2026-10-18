@@ -304,13 +304,6 @@ class PressurizedInstrumentationComputerTest {
         assertEquals(TrackedMetric.PRESSURE, restored.getTrackedMetric());
         assertEquals(TileEntityLoopInstrument.BUNDLED_MODE_MULTI, restored.getBundledMode());
         assertEquals(42.5, restored.getCurrentPressureBar(), 1e-4);
-
-        // Legacy compatibility test: "type" key
-        NBTTagCompound legacyNbt = new NBTTagCompound();
-        legacyNbt.setInteger("type", 1); // Old THERMOMETER
-        TileEntityLoopInstrument legacyRestored = new TileEntityLoopInstrument();
-        legacyRestored.readFromNBT(legacyNbt);
-        assertEquals(TrackedMetric.TEMPERATURE, legacyRestored.getTrackedMetric());
     }
 
     @Test
