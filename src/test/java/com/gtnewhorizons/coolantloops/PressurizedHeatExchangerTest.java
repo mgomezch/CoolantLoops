@@ -172,6 +172,13 @@ public class PressurizedHeatExchangerTest {
         return hatch;
     }
 
+    private void runBatch(MTEPressurizedHeatExchanger phe, double flowRateM3s, double dt, CoolantFluidProperty fluid,
+        LoopSegment seg) {
+        for (int i = 0; i < phe.getBatchTicks(); i++) {
+            phe.processThermalExchange(flowRateM3s, dt, fluid, seg);
+        }
+    }
+
     @Test
     public void testEnergyConservingCoolantHeatRemovalAndSteamGeneration() {
         boolean[] allowed = new boolean[] { true };
@@ -196,24 +203,33 @@ public class PressurizedHeatExchangerTest {
         phe.mInputHatches.add(inputHatch);
 
         // Secondary Output: empty output hatch for steam
-        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 4, new String[0], null);
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 8, new String[0], null);
         outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
         phe.mOutputHatches.add(outputHatch);
 
-        // Primary coolant segment starting at 300 C
-        double initialTemp = 300.0;
-        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, initialTemp);
+        // Primary coolant segment starting at 400 C
+        double initialTemp = 400.0;
+        LoopSegment seg = new LoopSegment("phe_seg", 20.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, initialTemp);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
         assertNotNull(fluid);
         double flowRateM3s = 0.05; // 50 L/s
 
-        // Process thermal exchange
+        // Process tick 1: coolant cools down smoothly per tick, but batch output does not emit until tick 20
         phe.processThermalExchange(flowRateM3s, 0.05, fluid, seg);
+        assertTrue(phe.getDeviceTemperatureCelsius() < initialTemp, "Primary coolant must cool down on tick 1");
+        assertTrue(phe.getBatchAccumulatedHeatJoules() > 0.0, "Heat must accumulate in batch on tick 1");
+        assertEquals(10_000, inputHatch.getFluid().amount, "Water must not be drained mid-batch");
+        assertNull(outputHatch.getFluid(), "Steam must not be produced mid-batch");
 
-        // Verify water was boiled
+        // Run remaining 19 ticks to complete the 20-tick batch
+        for (int i = 1; i < 20; i++) {
+            phe.processThermalExchange(flowRateM3s, 0.05, fluid, seg);
+        }
+
+        // Verify water was boiled at batch completion
         int remainingWater = inputHatch.getFluid().amount;
         int waterBoiled = 10_000 - remainingWater;
-        assertTrue(waterBoiled > 0, "Water must be boiled during heat exchange");
+        assertTrue(waterBoiled > 0, "Water must be boiled during heat exchange batch");
 
         // Verify steam produced in output hatch
         assertNotNull(outputHatch.getFluid());
@@ -224,20 +240,13 @@ public class PressurizedHeatExchangerTest {
                 .getName());
         assertEquals(waterBoiled * 160, outputHatch.getFluid().amount, "Steam expansion must be 1:160");
 
-        // Verify energy conservation: Q_actual = waterBoiled * 2260 J
+        // Verify energy conservation across the batch
         double actualHeatJoules = waterBoiled * 2260.0;
-        double expectedWatts = actualHeatJoules / 0.05;
-        assertEquals(expectedWatts, phe.getLastHeatTransferredWatts(), 1e-4);
-
-        // Verify primary coolant cooled down
         double effectiveVolume = Math.max(seg.getVolume(), flowRateM3s * 0.05);
         double fluidHeatCapacity = effectiveVolume * fluid.getDensity() * fluid.getSpecificHeat();
-        double expectedTempDrop = actualHeatJoules / fluidHeatCapacity;
-        double expectedTemp = initialTemp - expectedTempDrop;
-
-        assertEquals(expectedTemp, phe.getDeviceTemperatureCelsius(), 1e-4);
-        assertEquals(expectedTemp, seg.getCurrentTemperatureCelsius(), 1e-4);
-        assertEquals(expectedTemp, outlet.getDeviceTemperatureCelsius(), 1e-4);
+        double totalTempDrop = initialTemp - seg.getCurrentTemperatureCelsius();
+        double totalSensibleHeatExtracted = totalTempDrop * fluidHeatCapacity;
+        assertEquals(actualHeatJoules, totalSensibleHeatExtracted, 2260.0, "Energy conservation within 1 mL discrete rounding");
     }
 
     @Test
@@ -251,7 +260,8 @@ public class PressurizedHeatExchangerTest {
         MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
-        phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
+        MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
+        phe.mEnergyHatches.add(energyHatch);
 
         // Plain Minecraft water in input hatch (must be REJECTED)
         MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
@@ -267,7 +277,7 @@ public class PressurizedHeatExchangerTest {
 
         LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 300.0);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
 
         // Plain water must NOT be drained
         assertEquals(10_000, inputHatch.getFluid().amount, "Plain water must not be consumed");
@@ -275,6 +285,9 @@ public class PressurizedHeatExchangerTest {
         assertEquals(300.0, phe.getDeviceTemperatureCelsius(), "Primary coolant must not cool down");
         assertEquals(300.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
+
+        // But EU must have been consumed each tick for running secondary channels
+        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -288,7 +301,8 @@ public class PressurizedHeatExchangerTest {
         MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
-        phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
+        MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
+        phe.mEnergyHatches.add(energyHatch);
 
         // Empty input hatch
         MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
@@ -297,11 +311,12 @@ public class PressurizedHeatExchangerTest {
 
         LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 300.0);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
 
         assertEquals(300.0, phe.getDeviceTemperatureCelsius(), "Dry PHE must not cool primary coolant");
         assertEquals(300.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
+        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -315,7 +330,8 @@ public class PressurizedHeatExchangerTest {
         MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
-        phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
+        MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
+        phe.mEnergyHatches.add(energyHatch);
 
         MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
         inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
@@ -326,12 +342,13 @@ public class PressurizedHeatExchangerTest {
         // Primary coolant at 90 C (below 100 C boiling point)
         LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 90.0);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
 
         assertEquals(10_000, inputHatch.getFluid().amount, "No water boiled below 100 C");
         assertEquals(90.0, phe.getDeviceTemperatureCelsius(), "Coolant temperature remains unchanged");
         assertEquals(90.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
+        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU());
     }
 
     @Test
@@ -359,9 +376,10 @@ public class PressurizedHeatExchangerTest {
         phe.mOutputHatches.add(outputHatch);
 
         // Case 1: Coolant at 200 C -> standard steam
-        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 200.0);
+        LoopSegment seg = new LoopSegment("phe_seg", 50.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 200.0);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
+        assertNotNull(outputHatch.getFluid());
         assertEquals(
             "steam",
             outputHatch.getFluid()
@@ -371,7 +389,8 @@ public class PressurizedHeatExchangerTest {
         // Case 2: Coolant at 800 C -> supercritical steam
         outputHatch.drain(outputHatch.getFluid().amount, true);
         seg.setCurrentTemperatureCelsius(800.0);
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
+        assertNotNull(outputHatch.getFluid());
         assertTrue(
             outputHatch.getFluid()
                 .getFluid()
@@ -416,20 +435,20 @@ public class PressurizedHeatExchangerTest {
         assertNotNull(fluid);
 
         // Secondary boiling of liquid nitrogen (T_boil = -196 C, deltaT = 20 - (-196) = 216 C)
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
 
         int remainingN2 = (inputHatch.getFluid() != null) ? inputHatch.getFluid().amount : 0;
         int n2Boiled = 10_000 - remainingN2;
         assertTrue(n2Boiled > 0, "Liquid nitrogen must boil when coolant is warmer than -196 C");
 
-        // Gaseous nitrogen output at 1:160 expansion
+        // Gaseous nitrogen output at 1:1 expansion (cryogenic)
         assertNotNull(outputHatch.getFluid());
         assertEquals(
             "nitrogen",
             outputHatch.getFluid()
                 .getFluid()
                 .getName());
-        assertEquals(n2Boiled * 160, outputHatch.getFluid().amount);
+        assertEquals(n2Boiled * 1, outputHatch.getFluid().amount, "Cryogenic liquid nitrogen expands 1:1");
 
         // Coolant temperature dropped below initial 20 C toward -196 C
         assertTrue(phe.getDeviceTemperatureCelsius() < initialTemp);
@@ -468,7 +487,7 @@ public class PressurizedHeatExchangerTest {
         LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, -100.0);
         CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2coolant");
 
-        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        runBatch(phe, 0.05, 0.05, fluid, seg);
 
         int remainingHe = (inputHatch.getFluid() != null) ? inputHatch.getFluid().amount : 0;
         int heBoiled = 10_000 - remainingHe;
@@ -480,8 +499,186 @@ public class PressurizedHeatExchangerTest {
             outputHatch.getFluid()
                 .getFluid()
                 .getName());
-        assertEquals(heBoiled * 160, outputHatch.getFluid().amount);
+        assertEquals(heBoiled * 1, outputHatch.getFluid().amount, "Cryogenic liquid helium expands 1:1");
         assertTrue(phe.getDeviceTemperatureCelsius() < -100.0);
+    }
+
+    @Test
+    public void testZeroCoolantFlowNoHeatExchangeWhileEnergyConsumed() {
+        boolean[] allowed = new boolean[] { true };
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_zero_flow");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
+        phe.setBaseMetaTileEntity(mockBase);
+
+        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
+        phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
+
+        MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
+        phe.mEnergyHatches.add(energyHatch);
+
+        MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
+        inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
+        Fluid distilled = FluidRegistry.getFluid("ic2distilledwater");
+        inputHatch.fill(new FluidStack(distilled, 10_000), true);
+        phe.mInputHatches.add(inputHatch);
+
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 4, new String[0], null);
+        outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
+        phe.mOutputHatches.add(outputHatch);
+
+        // Loop coolant at 300 C, but flow rate is ZERO (0.0 m^3/s)
+        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 300.0);
+        CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
+
+        runBatch(phe, 0.0, 0.05, fluid, seg);
+
+        // With zero flow: primary side has no driving pump flow, so 0 convective heat transfer
+        assertEquals(10_000, inputHatch.getFluid().amount, "No water boiled when loop flow is zero");
+        assertNull(outputHatch.getFluid(), "No steam produced when loop flow is zero");
+        assertEquals(300.0, seg.getCurrentTemperatureCelsius(), "Primary coolant did not cool when flow is zero");
+        assertEquals(0.0, phe.getLastHeatTransferredWatts());
+
+        // BUT secondary side pump must still consume power each tick!
+        assertEquals(1_000_000L - (20 * 2048L), energyHatch.getBaseMetaTileEntity().getStoredEU(),
+            "PHE secondary pumps must consume EU every tick even with zero loop flow");
+    }
+
+    @Test
+    public void testPowerStateHonorAndPowerLossShutdown() {
+        boolean[] allowed = new boolean[] { true };
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_power_state");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
+        phe.setBaseMetaTileEntity(mockBase);
+
+        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
+        phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
+
+        MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
+        phe.mEnergyHatches.add(energyHatch);
+
+        MTEHatchInput inputHatch = new MTEHatchInput("input", 1, new String[0], null);
+        inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
+        Fluid distilled = FluidRegistry.getFluid("ic2distilledwater");
+        inputHatch.fill(new FluidStack(distilled, 10_000), true);
+        phe.mInputHatches.add(inputHatch);
+
+        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 300.0);
+        CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
+
+        // 1. Turned OFF: mockBase.disableWorking()
+        mockBase.disableWorking();
+        assertFalse(phe.isAllowedToWork());
+        phe.processThermalExchange(0.05, 0.05, fluid, seg);
+        assertEquals(1_000_000L, energyHatch.getBaseMetaTileEntity().getStoredEU(), "0 EU consumed when turned off");
+        assertEquals(300.0, seg.getCurrentTemperatureCelsius(), "0 heat transferred when turned off");
+
+        // 2. Turned ON but energy hatch runs out of power
+        mockBase.enableWorking();
+        assertTrue(phe.isAllowedToWork());
+        energyHatch.getBaseMetaTileEntity().decreaseStoredEnergyUnits(1_000_000L, false); // empty
+        assertEquals(0L, energyHatch.getBaseMetaTileEntity().getStoredEU());
+
+        assertFalse(phe.stepHeatExchange(), "stepHeatExchange must return false on power loss");
+        assertFalse(phe.isAllowedToWork(), "Machine must shut down on power loss");
+        assertEquals(ShutDownReasonRegistry.POWER_LOSS, mockBase.getLastShutDownReason());
+    }
+
+    @Test
+    public void testSingleAmpEnergyHatchValidationAndMultiAmpRejection() {
+        MTEHatchEnergy singleAmpHatch = new MTEHatchEnergy("single_amp", 1, new String[0], null);
+        assertTrue(MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(singleAmpHatch),
+            "Standard GT energy hatch must be accepted as single-amp");
+
+        // Multi-amp hatch (subclass or overridden amperage > 2A)
+        MTEHatchEnergy multiAmpHatch = new MTEHatchEnergy("multi_amp_4a", 1, new String[0], null) {
+            @Override
+            public long maxAmperesIn() {
+                return 4L;
+            }
+        };
+        assertFalse(MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(multiAmpHatch),
+            "Multi-amp hatch with maxAmperesIn > 2 must be rejected");
+
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_multi_amp_check");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(new boolean[] { true });
+        phe.setBaseMetaTileEntity(mockBase);
+
+        // addMaintenanceOrEnergyHatch must reject multi-amp hatch
+        IGregTechTileEntity mockMultiBase = createMockHatchBase(multiAmpHatch);
+        assertFalse(phe.addMaintenanceOrEnergyHatch(mockMultiBase, 11),
+            "addMaintenanceOrEnergyHatch must reject multi-amp energy hatches");
+    }
+
+    @Test
+    public void testPerfectOverclockingBatchCapScaling() {
+        MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_overclock");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(new boolean[] { true });
+        phe.setBaseMetaTileEntity(mockBase);
+
+        // 1 LV hatch (32 EU/t): base heat = 2.26 MJ per batch (1 L water)
+        MTEHatchEnergy lv1 = createMockEnergyHatch(1, 100_000L);
+        phe.mEnergyHatches.add(lv1);
+        assertEquals(32L, phe.getRequiredPowerDrawEU());
+        assertEquals(2260000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 2 LV hatches (64 EU/t): 2x base heat = 4.52 MJ per batch (2 L water)
+        MTEHatchEnergy lv2 = createMockEnergyHatch(1, 100_000L);
+        phe.mEnergyHatches.add(lv2);
+        assertEquals(64L, phe.getRequiredPowerDrawEU());
+        assertEquals(4520000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 1 MV hatch (128 EU/t): 4x base heat = 9.04 MJ per batch (4 L water)
+        phe.mEnergyHatches.clear();
+        MTEHatchEnergy mv1 = createMockEnergyHatch(2, 100_000L);
+        phe.mEnergyHatches.add(mv1);
+        assertEquals(128L, phe.getRequiredPowerDrawEU());
+        assertEquals(9040000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 2 MV hatches (256 EU/t): 8x base heat = 18.08 MJ per batch (8 L water)
+        MTEHatchEnergy mv2 = createMockEnergyHatch(2, 100_000L);
+        phe.mEnergyHatches.add(mv2);
+        assertEquals(256L, phe.getRequiredPowerDrawEU());
+        assertEquals(18080000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // 1 HV hatch (512 EU/t): 16x base heat = 36.16 MJ per batch (16 L water)
+        phe.mEnergyHatches.clear();
+        MTEHatchEnergy hv1 = createMockEnergyHatch(3, 100_000L);
+        phe.mEnergyHatches.add(hv1);
+        assertEquals(512L, phe.getRequiredPowerDrawEU());
+        assertEquals(36160000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
+
+        // Verify batch boiling is capped by overclock limit when thermal transfer capacity exceeds cap
+        phe.mEnergyHatches.clear();
+        phe.mEnergyHatches.add(lv1); // 1 LV hatch: cap is 1,000 mL water per batch
+
+        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
+        phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
+
+        MTEHatchInput inputHatch = new MTEHatchInput("input", 4, new String[0], null);
+        inputHatch.setBaseMetaTileEntity(createMockHatchBase(inputHatch));
+        Fluid distilled = FluidRegistry.getFluid("ic2distilledwater");
+        inputHatch.fill(new FluidStack(distilled, 50_000), true);
+        phe.mInputHatches.add(inputHatch);
+
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 6, new String[0], null);
+        outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
+        phe.mOutputHatches.add(outputHatch);
+
+        // Enormous heat potential: 800 C coolant, 0.5 m^3/s flow (500 L/s)
+        LoopSegment seg = new LoopSegment("phe_seg", 1.0, 0.10, 0.000045, 1.2, 500.0, 2000.0, 800.0);
+        CoolantFluidProperty fluid = CoolantFluidProperty.get("ic2distilledwater");
+
+        runBatch(phe, 0.5, 0.05, fluid, seg);
+
+        int waterBoiled = 50_000 - inputHatch.getFluid().amount;
+        assertEquals(1000, waterBoiled, "Water boiled at LV must be strictly capped at 1,000 mL by overclocking cap");
+        assertEquals(160_000, outputHatch.getFluid().amount, "Steam produced must be 160,000 mL");
     }
 
 }

@@ -283,18 +283,19 @@ public class CoolantLoopPowerAndGuiTest {
         assertEquals(10000L - 2048L, hatch1EU[0]);
         assertTrue(phe.isAllowedToWork());
 
-        // Add 2nd EV hatch -> 4A total = 8192 EU/t
+        // Add 2nd EV hatch -> 2A total = 4096 EU/t (strictly single-amp)
         long[] hatch2EU = new long[] { 5000L };
         MTEHatchEnergy evHatch2 = createMockEnergyHatch(4, hatch2EU);
         phe.mEnergyHatches.add(evHatch2);
-        assertEquals(8192L, phe.getRequiredPowerDrawEU());
+        assertEquals(4096L, phe.getRequiredPowerDrawEU());
 
-        // Combined available = (10000 - 2048) + 5000 = 12952 >= 8192
+        // Combined available = (10000 - 2048) + 5000 = 12952 >= 4096
         assertTrue(phe.stepHeatExchange());
-        assertEquals(0L, hatch1EU[0]);
-        assertEquals(5000L - (8192L - 7952L), hatch2EU[0]); // 5000 - 240 = 4760
+        assertEquals(10000L - 2048L - 4096L, hatch1EU[0]); // 3856L
+        assertEquals(5000L, hatch2EU[0]);
 
-        // Now drop power below 8192 EU total: hatch1 = 0, hatch2 = 3000
+        // Now drop power below 4096 EU total: hatch1 = 0, hatch2 = 3000
+        hatch1EU[0] = 0L;
         hatch2EU[0] = 3000L;
         assertFalse(phe.stepHeatExchange());
 

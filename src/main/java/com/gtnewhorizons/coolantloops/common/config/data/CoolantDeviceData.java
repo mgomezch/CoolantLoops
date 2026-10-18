@@ -69,6 +69,8 @@ public class CoolantDeviceData {
         public double supercriticalTempThreshold = 700.0; // deg C for supercritical steam
         public double maxTempDropPerTick = 40.0; // Maximum primary temperature drop per tick
         public double coolingFactor = 0.5; // Primary temperature relaxation factor
+        public double baseMaxHeatPerBatchJoules = 2260000.0; // Base heat transfer cap per 20-tick batch at 1A LV (32 EU/t) (equivalent to 1 L distilled water)
+        public int batchTicks = 20; // Batch duration (20 ticks = 1 second)
         public List<String> allowedSecondaryFluids = new ArrayList<>(
             Arrays.asList(
                 "ic2distilledwater",
@@ -91,16 +93,16 @@ public class CoolantDeviceData {
                 new SecondaryCoolantEntry("distilledwater", 100.0, "steam", 2260000.0, 160, true),
                 new SecondaryCoolantEntry("distilled_water", 100.0, "steam", 2260000.0, 160, true),
                 new SecondaryCoolantEntry("water.distilled", 100.0, "steam", 2260000.0, 160, true),
-                new SecondaryCoolantEntry("liquidnitrogen", -196.0, "nitrogen", 160000.0, 160, false),
-                new SecondaryCoolantEntry("liquid_nitrogen", -196.0, "nitrogen", 160000.0, 160, false),
-                new SecondaryCoolantEntry("liquidoxygen", -183.0, "oxygen", 243000.0, 160, false),
-                new SecondaryCoolantEntry("liquid_oxygen", -183.0, "oxygen", 243000.0, 160, false),
-                new SecondaryCoolantEntry("liquidair", -194.0, "air", 174000.0, 160, false),
-                new SecondaryCoolantEntry("liquid_air", -194.0, "air", 174000.0, 160, false),
-                new SecondaryCoolantEntry("liquid_helium", -269.0, "helium", 20700.0, 160, false),
-                new SecondaryCoolantEntry("liquidhelium", -269.0, "helium", 20700.0, 160, false),
-                new SecondaryCoolantEntry("liquid helium", -269.0, "helium", 20700.0, 160, false),
-                new SecondaryCoolantEntry("bwm.liquidhelium", -269.0, "helium", 20700.0, 160, false)));
+                new SecondaryCoolantEntry("liquidnitrogen", -196.0, "nitrogen", 160000.0, 1, false),
+                new SecondaryCoolantEntry("liquid_nitrogen", -196.0, "nitrogen", 160000.0, 1, false),
+                new SecondaryCoolantEntry("liquidoxygen", -183.0, "oxygen", 243000.0, 1, false),
+                new SecondaryCoolantEntry("liquid_oxygen", -183.0, "oxygen", 243000.0, 1, false),
+                new SecondaryCoolantEntry("liquidair", -194.0, "air", 174000.0, 1, false),
+                new SecondaryCoolantEntry("liquid_air", -194.0, "air", 174000.0, 1, false),
+                new SecondaryCoolantEntry("liquid_helium", -269.0, "helium", 20700.0, 1, false),
+                new SecondaryCoolantEntry("liquidhelium", -269.0, "helium", 20700.0, 1, false),
+                new SecondaryCoolantEntry("liquid helium", -269.0, "helium", 20700.0, 1, false),
+                new SecondaryCoolantEntry("bwm.liquidhelium", -269.0, "helium", 20700.0, 1, false)));
 
         public boolean isAllowedSecondaryFluid(String fluidName) {
             if (fluidName == null) return false;
