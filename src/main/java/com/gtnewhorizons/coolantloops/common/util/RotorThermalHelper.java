@@ -47,10 +47,11 @@ public final class RotorThermalHelper {
         if (stack == null || stack.getItem() == null) return null;
         try {
             if (stack.getItem() instanceof MetaGeneratedTool) {
-                return ((MetaGeneratedTool) stack.getItem()).getPrimaryMaterial(stack);
+                Materials mat = ((MetaGeneratedTool) stack.getItem()).getPrimaryMaterial(stack);
+                if (mat != null && mat != Materials._NULL) return mat;
             }
         } catch (Throwable ignored) {}
-        return null;
+        return Materials.Steel;
     }
 
     public static double getMeltingPointCelsius(Materials mat) {

@@ -5,8 +5,7 @@ import java.util.Map;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 
@@ -14,9 +13,11 @@ import org.lwjgl.opengl.GL11;
 
 import com.cleanroommc.modularui.api.UpOrDown;
 import com.cleanroommc.modularui.api.widget.Interactable;
+import com.cleanroommc.modularui.drawable.GuiDraw;
 import com.cleanroommc.modularui.screen.RichTooltip;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.theme.WidgetThemeEntry;
+import com.cleanroommc.modularui.utils.Platform;
 import com.cleanroommc.modularui.widget.Widget;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.GraphEdge;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.GraphNode;
@@ -24,10 +25,6 @@ import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutEdge
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutNode;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.Point2D;
 import com.gtnewhorizons.modularui.api.GlStateManager;
-
-import codechicken.lib.gui.GuiDraw;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Interactive canvas widget providing pan, zoom, and rich telemetry hover for the coolant loop graph.
@@ -40,6 +37,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
     private float panX = 20.0f;
     private float panY = 20.0f;
     private float zoom = 1.0f;
+    private boolean hasInitialFit = false;
 
     private boolean isDragging = false;
     private int dragStartMouseX = 0;
@@ -51,13 +49,21 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
     private LayoutEdge hoveredEdge = null;
 
     public CoolantLoopGraphWidget() {
-        tooltipBuilder(this::buildTooltip);
+        size(370, 220);
+        tooltipDynamic(this::buildTooltip);
+        tooltipAutoUpdate(true);
         tooltipShowUpTimer(0);
     }
 
     public void setGraphData(CoolantLoopGraphData data) {
         this.graphData = data;
         layout.computeLayout(data);
+        if (getArea() != null && getArea().w() > 0 && getArea().h() > 0) {
+            fitToView();
+            hasInitialFit = true;
+        } else {
+            hasInitialFit = false;
+        }
     }
 
     public CoolantLoopGraphData getGraphData() {
@@ -127,8 +133,8 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         if (mouseButton == 0) { // Left click
             isDragging = true;
             ModularGuiContext ctx = getContext();
-            dragStartMouseX = ctx != null ? ctx.getMouseX() : 0;
-            dragStartMouseY = ctx != null ? ctx.getMouseY() : 0;
+            dragStartMouseX = ctx != null ? ctx.getAbsMouseX() : 0;
+            dragStartMouseY = ctx != null ? ctx.getAbsMouseY() : 0;
             dragStartPanX = panX;
             dragStartPanY = panY;
             return Interactable.Result.SUCCESS;
@@ -150,8 +156,8 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         if (isDragging && mouseButton == 0) {
             ModularGuiContext ctx = getContext();
             if (ctx != null) {
-                int mx = ctx.getMouseX();
-                int my = ctx.getMouseY();
+                int mx = ctx.getAbsMouseX();
+                int my = ctx.getAbsMouseY();
                 panX = dragStartPanX + (mx - dragStartMouseX);
                 panY = dragStartPanY + (my - dragStartMouseY);
             }
@@ -172,49 +178,69 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
 
     @Override
     public void draw(ModularGuiContext context, WidgetThemeEntry<?> theme) {
-        int rx = getArea().x;
-        int ry = getArea().y;
         int rw = getArea().w();
         int rh = getArea().h();
+        if (rw <= 0 || rh <= 0) return;
 
-        // 1. Draw viewport background
-        GuiDraw.drawRect(rx, ry, rw, rh, 0xEE12161E);
-        GuiDraw.drawRect(rx, ry, rw, 1, 0xFF2A3645);
-        GuiDraw.drawRect(rx, ry + rh - 1, rw, 1, 0xFF2A3645);
-        GuiDraw.drawRect(rx, ry, 1, rh, 0xFF2A3645);
-        GuiDraw.drawRect(rx + rw - 1, ry, 1, rh, 0xFF2A3645);
+        // Auto-fit on first layout once data is ready
+        if (!hasInitialFit && graphData != null && graphData.isFormed) {
+            fitToView();
+            hasInitialFit = true;
+        }
+
+        // 1. Draw viewport background and border in widget-local coordinates [0, 0, rw, rh]
+        GuiDraw.drawRect(0, 0, rw, rh, 0xEE12161E);
+        GuiDraw.drawRect(0, 0, rw, 1, 0xFF2A3645);
+        GuiDraw.drawRect(0, rh - 1, rw, 1, 0xFF2A3645);
+        GuiDraw.drawRect(0, 0, 1, rh, 0xFF2A3645);
+        GuiDraw.drawRect(rw - 1, 0, 1, rh, 0xFF2A3645);
 
         if (graphData == null || !graphData.isFormed) {
             String msg = (graphData != null && graphData.failureReason != null) ? graphData.failureReason
                 : "Coolant Loop Not Formed";
             FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
             int sw = fr.getStringWidth(msg);
-            fr.drawStringWithShadow(msg, rx + (rw - sw) / 2, ry + (rh - 8) / 2, 0xFF8888);
+            fr.drawStringWithShadow(msg, (rw - sw) / 2, (rh - 8) / 2, 0xFF8888);
             return;
         }
 
-        // 2. Perform hit-testing against graph
+        // 2. Perform hit-testing against graph in widget-local coordinates
         int mx = context.getMouseX();
         int my = context.getMouseY();
-        double gmx = (mx - rx - panX) / zoom;
-        double gmy = (my - ry - panY) / zoom;
+        double gmx = (mx - panX) / zoom;
+        double gmy = (my - panY) / zoom;
 
-        hoveredNode = layout.findNodeAt(gmx, gmy);
-        hoveredEdge = (hoveredNode == null) ? layout.findEdgeAt(gmx, gmy, 6.0 / zoom) : null;
+        boolean mouseInside = (mx >= 0 && mx < rw && my >= 0 && my < rh);
+        hoveredNode = mouseInside ? layout.findNodeAt(gmx, gmy) : null;
+        hoveredEdge = (mouseInside && hoveredNode == null) ? layout.findEdgeAt(gmx, gmy, 6.0 / zoom) : null;
 
-        // 3. Render graph with pan and zoom transform
+        // 3. Render graph with pan and zoom transform, guarded by scissor clipping to widget area
+        Minecraft mc = Minecraft.getMinecraft();
+        ScaledResolution sr = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        int scale = sr.getScaleFactor();
+
+        int absX = getArea().x;
+        int absY = getArea().y;
+        int sx = absX * scale;
+        int sy = mc.displayHeight - (absY + rh) * scale;
+        int sw = rw * scale;
+        int sh = rh * scale;
+
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(sx, sy, sw, sh);
+
         GL11.glPushMatrix();
-        GL11.glTranslatef(rx + panX, ry + panY, 0.0f);
+        GL11.glTranslatef(panX, panY, 0.0f);
         GL11.glScalef(zoom, zoom, 1.0f);
 
-        // Draw grid dots
+        // Draw untextured geometry: grid dots
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
         drawGridDots();
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
 
-        // Draw edges (pipes)
-        for (LayoutEdge edge : layout.getEdges()) {
-            boolean isHovered = (edge == hoveredEdge);
-            drawPipeEdge(edge, isHovered);
-        }
+        // Draw edges (pipes & directional chevrons)
+        drawPipes();
+        drawChevrons();
 
         // Draw nodes (devices)
         for (LayoutNode node : layout.getNodes()) {
@@ -224,6 +250,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         }
 
         GL11.glPopMatrix();
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
 
         // Reset OpenGL state
         GlStateManager.disableLighting();
@@ -245,83 +272,116 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
             }
         }
         GL11.glEnd();
+        GL11.glPointSize(1.0f);
     }
 
-    private void drawPipeEdge(LayoutEdge edge, boolean isHovered) {
-        if (edge.waypoints.size() < 2) return;
+    private void drawPipes() {
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        Platform.setupDrawColor();
+        Platform.startDrawing(Platform.DrawMode.QUADS, Platform.VertexFormat.POS_COLOR, builder -> {
+            for (LayoutEdge edge : layout.getEdges()) {
+                if (edge.waypoints.size() < 2) continue;
 
-        // Color coding by fluid temperature and hover state
-        float r = 0.36f, g = 0.50f, b = 0.65f, a = 0.90f; // Default steel blue
-        if (edge.data != null) {
-            double temp = edge.data.temperatureCelsius;
-            if (temp > 300.0) {
-                r = 0.88f;
-                g = 0.25f;
-                b = 0.20f; // Red hot
-            } else if (temp > 100.0) {
-                r = 0.88f;
-                g = 0.55f;
-                b = 0.20f; // Warm amber
+                boolean isHovered = (edge == hoveredEdge);
+                float r = 0.36f, g = 0.50f, b = 0.65f, a = 0.90f; // Default steel blue
+                if (edge.data != null) {
+                    double temp = edge.data.temperatureCelsius;
+                    if (temp > 300.0) {
+                        r = 0.88f;
+                        g = 0.25f;
+                        b = 0.20f; // Red hot
+                    } else if (temp > 100.0) {
+                        r = 0.88f;
+                        g = 0.55f;
+                        b = 0.20f; // Warm amber
+                    }
+                }
+                if (isHovered) {
+                    r = 0.35f;
+                    g = 0.85f;
+                    b = 1.0f;
+                    a = 1.0f; // Glowing cyan
+                }
+
+                double thickness = isHovered ? 5.0 : 3.5;
+
+                for (int i = 0; i < edge.waypoints.size() - 1; i++) {
+                    Point2D p1 = edge.waypoints.get(i);
+                    Point2D p2 = edge.waypoints.get(i + 1);
+
+                    double dx = p2.x - p1.x;
+                    double dy = p2.y - p1.y;
+                    double len = Math.hypot(dx, dy);
+                    if (len == 0.0) continue;
+
+                    double nx = -dy / len * (thickness / 2.0);
+                    double ny = dx / len * (thickness / 2.0);
+
+                    // Outer dark border
+                    float br = 0.08f, bg = 0.10f, bb = 0.14f, ba = 0.85f;
+                    builder.pos(p1.x + nx * 1.5, p1.y + ny * 1.5, 0.0)
+                        .color(br, bg, bb, ba)
+                        .endVertex();
+                    builder.pos(p1.x - nx * 1.5, p1.y - ny * 1.5, 0.0)
+                        .color(br, bg, bb, ba)
+                        .endVertex();
+                    builder.pos(p2.x - nx * 1.5, p2.y - ny * 1.5, 0.0)
+                        .color(br, bg, bb, ba)
+                        .endVertex();
+                    builder.pos(p2.x + nx * 1.5, p2.y + ny * 1.5, 0.0)
+                        .color(br, bg, bb, ba)
+                        .endVertex();
+
+                    // Pipe body
+                    builder.pos(p1.x + nx, p1.y + ny, 0.0)
+                        .color(r, g, b, a)
+                        .endVertex();
+                    builder.pos(p1.x - nx, p1.y - ny, 0.0)
+                        .color(r, g, b, a)
+                        .endVertex();
+                    builder.pos(p2.x - nx, p2.y - ny, 0.0)
+                        .color(r, g, b, a)
+                        .endVertex();
+                    builder.pos(p2.x + nx, p2.y + ny, 0.0)
+                        .color(r, g, b, a)
+                        .endVertex();
+                }
             }
-        }
-        if (isHovered) {
-            r = 0.35f;
-            g = 0.85f;
-            b = 1.0f;
-            a = 1.0f; // Glowing cyan
-        }
+        });
+        Platform.endDrawColor();
+        GL11.glEnable(GL11.GL_CULL_FACE);
+    }
 
-        double thickness = isHovered ? 4.5 : 3.5;
+    private void drawChevrons() {
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        Platform.setupDrawColor();
+        Platform.startDrawing(Platform.DrawMode.TRIANGLES, Platform.VertexFormat.POS_COLOR, builder -> {
+            for (LayoutEdge edge : layout.getEdges()) {
+                if (edge.arrowPoints.size() < 3) continue;
 
-        // Draw thick pipe line segments
-        for (int i = 0; i < edge.waypoints.size() - 1; i++) {
-            Point2D p1 = edge.waypoints.get(i);
-            Point2D p2 = edge.waypoints.get(i + 1);
+                boolean isHovered = (edge == hoveredEdge);
+                float ar = isHovered ? 1.0f : 0.85f;
+                float ag = isHovered ? 1.0f : 0.95f;
+                float ab = 1.0f;
+                float aa = isHovered ? 1.0f : 0.9f;
 
-            double dx = p2.x - p1.x;
-            double dy = p2.y - p1.y;
-            double len = Math.hypot(dx, dy);
-            if (len == 0.0) continue;
+                Point2D tip = edge.arrowPoints.get(0);
+                Point2D left = edge.arrowPoints.get(1);
+                Point2D right = edge.arrowPoints.get(2);
 
-            double nx = -dy / len * (thickness / 2.0);
-            double ny = dx / len * (thickness / 2.0);
-
-            // Draw outer dark border
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glColor4f(0.08f, 0.10f, 0.14f, 0.8f);
-            GL11.glVertex2d(p1.x + nx * 1.5, p1.y + ny * 1.5);
-            GL11.glVertex2d(p1.x - nx * 1.5, p1.y - ny * 1.5);
-            GL11.glVertex2d(p2.x - nx * 1.5, p2.y - ny * 1.5);
-            GL11.glVertex2d(p2.x + nx * 1.5, p2.y + ny * 1.5);
-            GL11.glEnd();
-
-            // Draw pipe body
-            GL11.glBegin(GL11.GL_QUADS);
-            GL11.glColor4f(r, g, b, a);
-            GL11.glVertex2d(p1.x + nx, p1.y + ny);
-            GL11.glVertex2d(p1.x - nx, p1.y - ny);
-            GL11.glVertex2d(p2.x - nx, p2.y - ny);
-            GL11.glVertex2d(p2.x + nx, p2.y + ny);
-            GL11.glEnd();
-        }
-
-        // Draw directional chevron arrow
-        if (edge.arrowPoints.size() >= 3) {
-            Point2D tip = edge.arrowPoints.get(0);
-            Point2D left = edge.arrowPoints.get(1);
-            Point2D right = edge.arrowPoints.get(2);
-
-            GL11.glBegin(GL11.GL_TRIANGLES);
-            if (isHovered) {
-                GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-            } else {
-                GL11.glColor4f(0.85f, 0.95f, 1.0f, 0.9f);
+                builder.pos(tip.x, tip.y, 0.0)
+                    .color(ar, ag, ab, aa)
+                    .endVertex();
+                builder.pos(left.x, left.y, 0.0)
+                    .color(ar, ag, ab, aa)
+                    .endVertex();
+                builder.pos(right.x, right.y, 0.0)
+                    .color(ar, ag, ab, aa)
+                    .endVertex();
             }
-            GL11.glVertex2d(tip.x, tip.y);
-            GL11.glVertex2d(left.x, left.y);
-            GL11.glVertex2d(right.x, right.y);
-            GL11.glEnd();
-        }
+        });
+        Platform.endDrawColor();
+        GL11.glEnable(GL11.GL_CULL_FACE);
     }
 
     private void drawDeviceNode(LayoutNode node, boolean isHovered) {
@@ -343,7 +403,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         // Render controller icon
         ItemStack stack = node.data != null ? node.data.getItemStack() : null;
         if (stack != null) {
-            renderItemStackIcon(stack, nx + 3, ny + (nh - 16) / 2);
+            GuiDraw.drawItem(stack, nx + 3, ny + (nh - 16) / 2, 16, 16, 0);
         }
 
         // Render label text
@@ -367,20 +427,6 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         GlStateManager.scale(0.60f, 0.60f, 1.0f);
         fr.drawString(subtitle, 0, 0, 0xFFCC44, false);
         GlStateManager.popMatrix();
-    }
-
-    @SideOnly(Side.CLIENT)
-    private void renderItemStackIcon(ItemStack stack, int x, int y) {
-        Minecraft mc = Minecraft.getMinecraft();
-        RenderItem itemRenderer = RenderItem.getInstance();
-        RenderHelper.enableGUIStandardItemLighting();
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        itemRenderer.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        RenderHelper.disableStandardItemLighting();
-        GlStateManager.disableLighting();
-        GlStateManager.enableBlend();
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     public void buildTooltip(RichTooltip t) {

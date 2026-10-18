@@ -160,6 +160,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return false;
     }
 
+    @Override
+    public boolean allowCoverOnSide(ForgeDirection side, ItemStack coverItem) {
+        if (ItemList.Cover_Screen.hasBeenSet()
+            && GTUtility.areStacksEqual(coverItem, ItemList.Cover_Screen.get(1L), true)) {
+            return true;
+        }
+        return super.allowCoverOnSide(side, coverItem);
+    }
+
     public String getLoopGraphDataJson() {
         return CoolantLoopGraphData.buildFrom(this)
             .toJson();
@@ -1421,11 +1430,18 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (rotor != null && isMetaGeneratedTool(rotor.getItem())) {
             try {
                 TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
-                mRotorEfficiency = calc.getBaseEfficiency();
+                double eff = calc.getBaseEfficiency();
+                mRotorEfficiency = eff > 0.0 ? eff : 1.0;
                 mRotorStack = rotor;
-                mRotorMaterial = RotorThermalHelper.getRotorMaterial(rotor);
+                Materials mat = RotorThermalHelper.getRotorMaterial(rotor);
+                mRotorMaterial = (mat != null && mat != Materials._NULL) ? mat : Materials.Steel;
                 return true;
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+                mRotorEfficiency = 1.0;
+                mRotorStack = rotor;
+                mRotorMaterial = Materials.Steel;
+                return true;
+            }
         }
         // Headless mock or test environment fallback
         if (getBaseMetaTileEntity() == null || getBaseMetaTileEntity().getWorld() == null) {

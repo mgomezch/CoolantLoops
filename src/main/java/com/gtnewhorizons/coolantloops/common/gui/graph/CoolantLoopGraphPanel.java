@@ -117,7 +117,6 @@ public class CoolantLoopGraphPanel {
             // Fit to view button
             .child(
                 new ButtonWidget<>().size(20, 14)
-                    .marginRight(4)
                     .child(
                         IKey.str("Fit")
                             .asWidget()
@@ -127,18 +126,21 @@ public class CoolantLoopGraphPanel {
                     .onMousePressed(d -> {
                         graphWidget.fitToView();
                         return true;
-                    }))
-            // Window close button
-            .child(
-                CommonButtons.panelCloseButton()
-                    .size(14, 14));
+                    }));
 
         panel.child(
             Flow.column()
                 .full()
                 .padding(4)
-                .child(headerRow)
-                .child(graphWidget.expanded()));
+                .child(headerRow.marginRight(18))
+                .child(
+                    graphWidget.fullWidth()
+                        .expanded()));
+
+        // Window close button (anchored top-right of panel)
+        panel.child(
+            CommonButtons.panelCloseButton()
+                .size(14, 14));
 
         return panel;
     }
