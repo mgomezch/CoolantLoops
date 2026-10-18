@@ -90,10 +90,12 @@ public class LoopGraphCrawler {
         public final double maxPumpPipeCapacityLPerSec;
         public final Materials loopMaterial;
         public final List<PipeFlowConfig> pipeConfigs;
+        public final Map<String, FlowNode> graphNodes;
+        public final Map<String, List<String>> graphEdges;
 
         public CrawlResult(boolean isSuccess, String failureReason, List<LoopSegment> segments,
             List<ICoolantLoopDevice> devices, Set<BlockPosCoord> pipePositions) {
-            this(isSuccess, failureReason, segments, devices, pipePositions, Double.MAX_VALUE, null, null);
+            this(isSuccess, failureReason, segments, devices, pipePositions, Double.MAX_VALUE, null, null, null, null);
         }
 
         public CrawlResult(boolean isSuccess, String failureReason, List<LoopSegment> segments,
@@ -107,12 +109,31 @@ public class LoopGraphCrawler {
                 pipePositions,
                 maxPumpPipeCapacityLPerSec,
                 loopMaterial,
+                null,
+                null,
                 null);
         }
 
         public CrawlResult(boolean isSuccess, String failureReason, List<LoopSegment> segments,
             List<ICoolantLoopDevice> devices, Set<BlockPosCoord> pipePositions, double maxPumpPipeCapacityLPerSec,
             Materials loopMaterial, List<PipeFlowConfig> pipeConfigs) {
+            this(
+                isSuccess,
+                failureReason,
+                segments,
+                devices,
+                pipePositions,
+                maxPumpPipeCapacityLPerSec,
+                loopMaterial,
+                pipeConfigs,
+                null,
+                null);
+        }
+
+        public CrawlResult(boolean isSuccess, String failureReason, List<LoopSegment> segments,
+            List<ICoolantLoopDevice> devices, Set<BlockPosCoord> pipePositions, double maxPumpPipeCapacityLPerSec,
+            Materials loopMaterial, List<PipeFlowConfig> pipeConfigs, Map<String, FlowNode> graphNodes,
+            Map<String, List<String>> graphEdges) {
             this.isSuccess = isSuccess;
             this.failureReason = failureReason;
             this.segments = segments != null ? segments : new ArrayList<>();
@@ -121,15 +142,27 @@ public class LoopGraphCrawler {
             this.maxPumpPipeCapacityLPerSec = maxPumpPipeCapacityLPerSec;
             this.loopMaterial = loopMaterial;
             this.pipeConfigs = pipeConfigs != null ? pipeConfigs : new ArrayList<>();
+            this.graphNodes = graphNodes != null ? new LinkedHashMap<>(graphNodes) : new LinkedHashMap<>();
+            this.graphEdges = graphEdges != null ? new LinkedHashMap<>(graphEdges) : new LinkedHashMap<>();
         }
 
         public static CrawlResult fail(String reason) {
-            return new CrawlResult(false, reason, null, null, null, 0.0, null, null);
+            return new CrawlResult(false, reason, null, null, null, 0.0, null, null, null, null);
         }
 
         public static CrawlResult success(List<LoopSegment> segments, List<ICoolantLoopDevice> devices,
             Set<BlockPosCoord> pipePositions) {
-            return new CrawlResult(true, null, segments, devices, pipePositions, Double.MAX_VALUE, null, null);
+            return new CrawlResult(
+                true,
+                null,
+                segments,
+                devices,
+                pipePositions,
+                Double.MAX_VALUE,
+                null,
+                null,
+                null,
+                null);
         }
 
         public static CrawlResult success(List<LoopSegment> segments, List<ICoolantLoopDevice> devices,
@@ -142,6 +175,8 @@ public class LoopGraphCrawler {
                 pipePositions,
                 maxPumpPipeCapacityLPerSec,
                 loopMaterial,
+                null,
+                null,
                 null);
         }
 
@@ -156,7 +191,25 @@ public class LoopGraphCrawler {
                 pipePositions,
                 maxPumpPipeCapacityLPerSec,
                 loopMaterial,
-                pipeConfigs);
+                pipeConfigs,
+                null,
+                null);
+        }
+
+        public static CrawlResult success(List<LoopSegment> segments, List<ICoolantLoopDevice> devices,
+            Set<BlockPosCoord> pipePositions, double maxPumpPipeCapacityLPerSec, Materials loopMaterial,
+            List<PipeFlowConfig> pipeConfigs, Map<String, FlowNode> graphNodes, Map<String, List<String>> graphEdges) {
+            return new CrawlResult(
+                true,
+                null,
+                segments,
+                devices,
+                pipePositions,
+                maxPumpPipeCapacityLPerSec,
+                loopMaterial,
+                pipeConfigs,
+                graphNodes,
+                graphEdges);
         }
     }
 
@@ -1568,7 +1621,9 @@ public class LoopGraphCrawler {
                 visitedPipeAndDevicePositions,
                 maxPumpPipeCap,
                 detectedLoopMaterial,
-                pipeConfigs);
+                pipeConfigs,
+                graphNodes,
+                graphEdges);
             this.isDone = true;
         }
     }

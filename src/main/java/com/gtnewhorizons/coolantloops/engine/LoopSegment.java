@@ -205,4 +205,19 @@ public class LoopSegment {
 
         return deltaPMajor + deltaPMinor;
     }
+
+    /**
+     * Computes the Reynolds number Re = (rho * v * D) / mu for a given volumetric flow rate.
+     *
+     * @param volumetricFlowRate Volumetric flow rate Q in m^3/s
+     * @param fluid              Fluid properties
+     * @return Reynolds number (dimensionless)
+     */
+    public double computeReynoldsNumber(double volumetricFlowRate, CoolantFluidProperty fluid) {
+        if (Math.abs(volumetricFlowRate) <= 1e-9 || fluid == null || area <= 0.0) {
+            return 0.0;
+        }
+        double velocity = Math.abs(volumetricFlowRate) / area;
+        return (fluid.getDensity() * velocity * diameter) / fluid.getDynamicViscosity();
+    }
 }

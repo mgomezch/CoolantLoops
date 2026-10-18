@@ -20,6 +20,7 @@ import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
+import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
@@ -39,6 +40,7 @@ import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
+import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -50,6 +52,7 @@ import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.TurbineStatCalculator;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
@@ -127,6 +130,39 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public LoopGraphCrawler.CrawlSession getActiveCrawl() {
         return mActiveCrawl;
+    }
+
+    // Loop Graph Visualization & Cover Detection
+    protected LoopGraphCrawler.CrawlResult mLastCrawlResult = null;
+    protected boolean mSimulateComputerMonitorCover = false;
+
+    public LoopGraphCrawler.CrawlResult getLastCrawlResult() {
+        return mLastCrawlResult;
+    }
+
+    public void setSimulatedComputerMonitorCover(boolean simulate) {
+        this.mSimulateComputerMonitorCover = simulate;
+    }
+
+    public boolean hasComputerMonitorCover() {
+        if (mSimulateComputerMonitorCover) return true;
+        IGregTechTileEntity base = getBaseMetaTileEntity();
+        if (base == null) return false;
+        if (!ItemList.Cover_Screen.hasBeenSet()) return false;
+        ItemStack screenStack = ItemList.Cover_Screen.get(1L);
+        if (screenStack == null) return false;
+        for (ForgeDirection side : ForgeDirection.VALID_DIRECTIONS) {
+            ItemStack cover = base.getCoverItemAtSide(side);
+            if (cover != null && GTUtility.areStacksEqual(cover, screenStack, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public String getLoopGraphDataJson() {
+        return CoolantLoopGraphData.buildFrom(this)
+            .toJson();
     }
 
     public boolean isPowerFailed() {
@@ -628,6 +664,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public boolean applyCrawlResult(LoopGraphCrawler.CrawlResult result) {
         if (result == null || !result.isSuccess) {
+            mLastCrawlResult = null;
             mLoopFormed = false;
             mLoopState = LoopState.EMPTY;
             mCurrentFillLiters = 0L;
@@ -641,6 +678,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return false;
         }
 
+        mLastCrawlResult = result;
         mEngine.clearSegments();
         if (result.maxPumpPipeCapacityLPerSec > 0 && result.maxPumpPipeCapacityLPerSec != Double.MAX_VALUE) {
             mEngine.setMaxVolumetricFlowRate(result.maxPumpPipeCapacityLPerSec / 1000.0);
