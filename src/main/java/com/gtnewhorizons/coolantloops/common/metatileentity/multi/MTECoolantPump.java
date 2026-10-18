@@ -24,8 +24,6 @@ import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChan
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.util.CoolantPumpReservoir;
-import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument;
-import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
 import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 import com.gtnewhorizons.coolantloops.common.util.CoolantLocalization;
 import com.gtnewhorizons.coolantloops.common.util.RotorThermalHelper;
@@ -34,7 +32,6 @@ import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopPump;
-import com.gtnewhorizons.coolantloops.engine.ICoolantPassageHatch;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 import com.gtnewhorizons.modularui.api.widget.IWidgetBuilder;
@@ -537,6 +534,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 return mEngine.getMinLoopTempCelsius();
             }
         }
+        if (mReservoir != null) {
+            double resTemp = mReservoir.getReservoirTemperatureCelsius();
+            if (!Double.isNaN(resTemp)) {
+                return resTemp;
+            }
+        }
         return getBiomeTemperatureCelsius();
     }
 
@@ -824,6 +827,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             dev.setLoopPump(this);
         }
 
+        mReservoir.updateReservoirState();
+
         // Draw electrical power if allowed to work (soft hammer / redstone control)
         boolean isWorking = isAllowedToWork();
         if (!isWorking) {
@@ -978,21 +983,45 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             } else {
                 // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or
                 // accelerate!
-                double biomeTemp = getBiomeTemperatureCelsius();
-                if (biomeTemp < declaredMelting) {
+                double resTemp = mReservoir.getReservoirTemperatureCelsius();
+                if (Double.isNaN(resTemp)) {
+                    resTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                        reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                        reservoirFluid,
+                        currentProp,
+                        getBiomeTemperatureCelsius());
+                }
+                if (resTemp < declaredMelting) {
                     mLoopState = LoopState.STOPPED;
                     mEngine.setPumpPowered(false);
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
                     mLoopStatus = CoolantLocalization.format(
                         "coolantloops.pump.status.refuse_solidify",
-                        biomeTemp,
+                        resTemp,
                         declaredMelting,
                         currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     mEngine.step(0.05);
                     processCoastingThermalExchange();
                     return true;
-                }
+                } else if (!mEngine.getSegments()
+                    .isEmpty()) {
+                        double minLoopTemp = mEngine.getMinLoopTempCelsius();
+                        if (minLoopTemp < declaredMelting) {
+                            mLoopState = LoopState.STOPPED;
+                            mEngine.setPumpPowered(false);
+                            mEngine.setPumpMechanicalPowerWatts(0.0);
+                            mEngine.setBraking(false);
+                            mLoopStatus = CoolantLocalization.format(
+                                "coolantloops.pump.status.refuse_solidify_coolant",
+                                minLoopTemp,
+                                declaredMelting,
+                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                            mEngine.step(0.05);
+                            processCoastingThermalExchange();
+                            return true;
+                        }
+                    }
             }
         }
 
@@ -1145,10 +1174,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
             if (drained > 0) {
                 mCurrentFillLiters += drained;
-                double biomeTemp = getBiomeTemperatureCelsius();
+                double fillTemp = mReservoir.getReservoirTemperatureCelsius();
+                if (Double.isNaN(fillTemp)) {
+                    fillTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                        reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                        reservoirFluid,
+                        currentProp,
+                        getBiomeTemperatureCelsius());
+                }
                 for (LoopSegment seg : mEngine.getSegments()) {
-                    if (seg.getCurrentTemperatureCelsius() < biomeTemp) {
-                        seg.setCurrentTemperatureCelsius(biomeTemp);
+                    if (seg.getCurrentTemperatureCelsius() < fillTemp) {
+                        seg.setCurrentTemperatureCelsius(fillTemp);
                     }
                 }
                 if (mCurrentFillLiters >= mRequiredFillLiters) {
@@ -1204,14 +1240,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     triggerCatastrophicExplosion(mEngine.getFailureReason());
                     return false;
                 } else {
-                    double biomeTemp = getBiomeTemperatureCelsius();
+                    double resTemp = mReservoir.getReservoirTemperatureCelsius();
+                    if (Double.isNaN(resTemp)) {
+                        resTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                            reservoirFluid != null ? reservoirFluid.getFluid() : null,
+                            reservoirFluid,
+                            currentProp,
+                            getBiomeTemperatureCelsius());
+                    }
                     mLoopState = LoopState.STOPPED;
                     mEngine.setPumpPowered(false);
                     mEngine.setPumpMechanicalPowerWatts(0.0);
-                    if (biomeTemp < declaredMelting) {
+                    if (resTemp < declaredMelting) {
                         mLoopStatus = CoolantLocalization.format(
                             "coolantloops.pump.status.refuse_solidify",
-                            biomeTemp,
+                            resTemp,
                             declaredMelting,
                             currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     } else {

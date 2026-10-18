@@ -52,6 +52,117 @@ public class CoolantPumpReservoir {
         this.simulatedTankCapacityLiters = simulatedTankCapacityLiters;
     }
 
+    private double reservoirTemperatureCelsius = Double.NaN;
+    private long lastObservedTankLiters = 0L;
+
+    public double getReservoirTemperatureCelsius() {
+        if (Double.isNaN(reservoirTemperatureCelsius)) {
+            FluidStack f = getReservoirFluid();
+            if (f != null && f.amount > 0 && f.getFluid() != null) {
+                CoolantFluidProperty prop = pump.getEngine() != null ? pump.getEngine()
+                    .getFluid()
+                    : CoolantFluidProperty.get(
+                        f.getFluid()
+                            .getName());
+                reservoirTemperatureCelsius = CoolantFluidHelper
+                    .getBaselineInletTemperatureCelsius(f.getFluid(), f, prop, pump.getBiomeTemperatureCelsius());
+                return reservoirTemperatureCelsius;
+            }
+            if (simulatedCoolantLiters > 0) {
+                CoolantFluidProperty prop = pump.getEngine() != null ? pump.getEngine()
+                    .getFluid() : null;
+                reservoirTemperatureCelsius = CoolantFluidHelper
+                    .getBaselineInletTemperatureCelsius(null, null, prop, pump.getBiomeTemperatureCelsius());
+                return reservoirTemperatureCelsius;
+            }
+        }
+        return reservoirTemperatureCelsius;
+    }
+
+    public void setReservoirTemperatureCelsius(double temp) {
+        this.reservoirTemperatureCelsius = temp;
+    }
+
+    public TileTankBase getMasterTankTile() {
+        IGregTechTileEntity baseTE = pump.getBaseMetaTileEntity();
+        if (baseTE != null && baseTE.getWorld() != null) {
+            World world = baseTE.getWorld();
+            int x0 = baseTE.getXCoord();
+            int y0 = baseTE.getYCoord();
+            int z0 = baseTE.getZCoord();
+            ForgeDirection front = baseTE.getFrontFacing();
+            ForgeDirection back = front != null && front != ForgeDirection.UNKNOWN ? front.getOpposite()
+                : ForgeDirection.SOUTH;
+            ForgeDirection right = front != null && front != ForgeDirection.UNKNOWN
+                ? front.getRotation(ForgeDirection.UP)
+                : ForgeDirection.WEST;
+            for (int localX = 0; localX < pump.getWidth(); localX++) {
+                for (int localZ = 0; localZ < pump.getWidth(); localZ++) {
+                    int bx = x0 + right.offsetX * localX + back.offsetX * localZ;
+                    int bz = z0 + right.offsetZ * localX + back.offsetZ * localZ;
+                    for (int yOffset = 2; yOffset <= 3; yOffset++) {
+                        int y = y0 + yOffset;
+                        TileEntity tile = world.getTileEntity(bx, y, bz);
+                        if (tile instanceof TileTankBase) {
+                            TileTankBase tankTile = (TileTankBase) tile;
+                            TileTankBase master = (TileTankBase) tankTile.getMasterBlock();
+                            if (master != null) {
+                                return master;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void updateReservoirState() {
+        long currentLiters = getTotalCoolantLiters();
+        if (currentLiters <= 0) {
+            lastObservedTankLiters = 0L;
+            if (!Double.isNaN(reservoirTemperatureCelsius)) {
+                setReservoirTemperatureCelsius(Double.NaN);
+            }
+            return;
+        }
+
+        FluidStack f = getReservoirFluid();
+        CoolantFluidProperty prop = pump.getEngine() != null ? pump.getEngine()
+            .getFluid() : null;
+        if (prop == null && f != null && f.getFluid() != null) {
+            prop = CoolantFluidProperty.get(
+                f.getFluid()
+                    .getName());
+        }
+
+        if (lastObservedTankLiters <= 0 || Double.isNaN(reservoirTemperatureCelsius)) {
+            double baseline = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                f != null ? f.getFluid() : null,
+                f,
+                prop,
+                pump.getBiomeTemperatureCelsius());
+            setReservoirTemperatureCelsius(baseline);
+            lastObservedTankLiters = currentLiters;
+            return;
+        }
+
+        if (currentLiters > lastObservedTankLiters) {
+            long deltaLiters = currentLiters - lastObservedTankLiters;
+            double inletTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                f != null ? f.getFluid() : null,
+                f,
+                prop,
+                pump.getBiomeTemperatureCelsius());
+            double newTemp = ((lastObservedTankLiters * reservoirTemperatureCelsius) + (deltaLiters * inletTemp))
+                / currentLiters;
+            setReservoirTemperatureCelsius(newTemp);
+            lastObservedTankLiters = currentLiters;
+        } else if (currentLiters < lastObservedTankLiters) {
+            lastObservedTankLiters = currentLiters;
+        }
+    }
+
     public long getTotalTankCapacityLiters() {
         if (simulatedTankCapacityLiters > 0) {
             return simulatedTankCapacityLiters;
@@ -364,12 +475,20 @@ public class CoolantPumpReservoir {
             if (!(CoolantFluidHelper.isLava(availableFluid) && CoolantFluidHelper.isNetherWorld(world))) {
                 double declaredMelting = CoolantFluidHelper
                     .getDeclaredGregTechFluidTemperatureCelsius(availableFluid.getFluid(), availableFluid, prop);
-                double biomeTemp = pump.getBiomeTemperatureCelsius();
-                if (biomeTemp < declaredMelting) {
+                double resTemp = getReservoirTemperatureCelsius();
+                if (Double.isNaN(resTemp)) {
+                    resTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
+                        availableFluid.getFluid(),
+                        availableFluid,
+                        prop,
+                        pump.getBiomeTemperatureCelsius());
+                    setReservoirTemperatureCelsius(resTemp);
+                }
+                if (resTemp < declaredMelting) {
                     pump.setLoopStatus(
                         CoolantLocalization.format(
                             "coolantloops.pump.status.refuse_solidify",
-                            biomeTemp,
+                            resTemp,
                             declaredMelting,
                             prop.getFluidName()));
                     return false;
@@ -424,6 +543,17 @@ public class CoolantPumpReservoir {
     }
 
     public int drainFromReservoir(int liters) {
+        int drained = drainFromReservoirInternal(liters);
+        if (drained > 0) {
+            lastObservedTankLiters = getTotalCoolantLiters();
+            if (lastObservedTankLiters <= 0) {
+                setReservoirTemperatureCelsius(Double.NaN);
+            }
+        }
+        return drained;
+    }
+
+    private int drainFromReservoirInternal(int liters) {
         if (liters <= 0) return 0;
         IGregTechTileEntity te = pump.getBaseMetaTileEntity();
         if (te != null && te.getWorld() != null) {
@@ -477,6 +607,31 @@ public class CoolantPumpReservoir {
     }
 
     public int fillIntoReservoir(int liters) {
+        double loopTemp = pump.getEngine() != null ? pump.getEngine()
+            .getAvgLoopTempCelsius() : Double.NaN;
+        return fillIntoReservoir(liters, loopTemp);
+    }
+
+    public int fillIntoReservoir(int liters, double returningFluidTempCelsius) {
+        long prevLiters = lastObservedTankLiters > 0 ? lastObservedTankLiters : getTotalCoolantLiters();
+        int filled = fillIntoReservoirInternal(liters);
+        if (filled > 0) {
+            long newLiters = getTotalCoolantLiters();
+            if (!Double.isNaN(returningFluidTempCelsius)) {
+                if (prevLiters <= 0 || Double.isNaN(reservoirTemperatureCelsius)) {
+                    setReservoirTemperatureCelsius(returningFluidTempCelsius);
+                } else {
+                    double newTemp = ((prevLiters * reservoirTemperatureCelsius) + (filled * returningFluidTempCelsius))
+                        / newLiters;
+                    setReservoirTemperatureCelsius(newTemp);
+                }
+            }
+            lastObservedTankLiters = newLiters;
+        }
+        return filled;
+    }
+
+    private int fillIntoReservoirInternal(int liters) {
         if (liters <= 0) return 0;
         IGregTechTileEntity te = pump.getBaseMetaTileEntity();
         if (te != null && te.getWorld() != null) {
@@ -703,6 +858,10 @@ public class CoolantPumpReservoir {
         aNBT.setTag("mDissolvedGases", gasesTag);
         aNBT.setLong("mSimulatedCoolantLiters", simulatedCoolantLiters);
         aNBT.setLong("mSimulatedTankCapacityLiters", simulatedTankCapacityLiters);
+        if (!Double.isNaN(reservoirTemperatureCelsius)) {
+            aNBT.setDouble("mReservoirTemperatureCelsius", reservoirTemperatureCelsius);
+        }
+        aNBT.setLong("mLastObservedTankLiters", lastObservedTankLiters);
     }
 
     public void loadNBTData(NBTTagCompound aNBT) {
@@ -719,6 +878,12 @@ public class CoolantPumpReservoir {
         }
         if (aNBT.hasKey("mSimulatedTankCapacityLiters")) {
             simulatedTankCapacityLiters = aNBT.getLong("mSimulatedTankCapacityLiters");
+        }
+        if (aNBT.hasKey("mReservoirTemperatureCelsius")) {
+            reservoirTemperatureCelsius = aNBT.getDouble("mReservoirTemperatureCelsius");
+        }
+        if (aNBT.hasKey("mLastObservedTankLiters")) {
+            lastObservedTankLiters = aNBT.getLong("mLastObservedTankLiters");
         }
     }
 }

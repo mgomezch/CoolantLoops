@@ -59,6 +59,8 @@ class CoolantFluidPropertyTest {
         assertEquals(Double.NEGATIVE_INFINITY, CoolantFluidProperty.IC2_COOLANT.getFreezingPointCelsius());
         assertFalse(CoolantFluidProperty.SODIUM.canBoil());
         assertTrue(Double.isInfinite(CoolantFluidProperty.SODIUM.getBoilingPointCelsius()));
+        assertTrue(CoolantFluidProperty.SODIUM.isMolten());
+        assertEquals(97.8, CoolantFluidProperty.SODIUM.getFreezingPointCelsius(), 0.01);
     }
 
     @Test

@@ -32,7 +32,10 @@ public class CoolantFluidProperty {
             thermalConductivity,
             boilingPointCelsius,
             freezingPointCelsius,
-            "lava".equalsIgnoreCase(fluidName) || "molten.cheese".equalsIgnoreCase(fluidName),
+            "lava".equalsIgnoreCase(fluidName) || "molten.cheese".equalsIgnoreCase(fluidName)
+                || "sodium".equalsIgnoreCase(fluidName)
+                || (fluidName != null && fluidName.toLowerCase()
+                    .startsWith("molten.")),
             1.0);
     }
 

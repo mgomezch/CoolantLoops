@@ -212,6 +212,20 @@ public class CoolantLoopEngine {
         return min == Double.MAX_VALUE ? 20.0 : min;
     }
 
+    public double getAvgLoopTempCelsius() {
+        if (segments == null || segments.isEmpty()) {
+            return 20.0;
+        }
+        double totalVolume = 0.0;
+        double weightedTemp = 0.0;
+        for (LoopSegment s : segments) {
+            double v = s.getVolume();
+            totalVolume += v;
+            weightedTemp += s.getCurrentTemperatureCelsius() * v;
+        }
+        return totalVolume > 0.0 ? (weightedTemp / totalVolume) : 20.0;
+    }
+
     /**
      * Total fluid mass contained in all loop segments in kg.
      */

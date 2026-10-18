@@ -410,7 +410,8 @@ public class CoolantBathTest {
 
         // Verify serialization / deserialization round-trip
         java.util.Map<String, Object> map = devData.toMap();
-        com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData loaded = com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData.fromMap(map);
+        com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData loaded = com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData
+            .fromMap(map);
         assertEquals(500L, loaded.getBath().fillVolumePerSlotLiters);
         assertEquals(2.5, loaded.getBath().baseMinorLossK, 1e-4);
         assertEquals(0.5, loaded.getBath().itemMinorLossK, 1e-4);
@@ -420,19 +421,56 @@ public class CoolantBathTest {
         try {
             MTECoolantBath bath = new MTECoolantBath("test.bath");
             bath.mSlots = new CoolantBathSlot[12];
-            assertEquals(12 * 500L, bath.getFillVolumeLiters(), "12 slots with 500 L/slot must have 6,000 L fill volume");
+            assertEquals(
+                12 * 500L,
+                bath.getFillVolumeLiters(),
+                "12 slots with 500 L/slot must have 6,000 L fill volume");
 
             // Empty bath
             assertEquals(2.5, bath.getMinorLossK(), 1e-4, "Base K must be 2.5 from config");
 
             // 3 active items -> 2.5 + 0.5 * 3 = 4.0
-            bath.mSlots[0] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
-            bath.mSlots[1] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
-            bath.mSlots[2] = new CoolantBathSlot(new ItemStack(Items.iron_ingot), 1000, 20, 0, 1000, 500, 0.1, false, true, true, null);
+            bath.mSlots[0] = new CoolantBathSlot(
+                new ItemStack(Items.iron_ingot),
+                1000,
+                20,
+                0,
+                1000,
+                500,
+                0.1,
+                false,
+                true,
+                true,
+                null);
+            bath.mSlots[1] = new CoolantBathSlot(
+                new ItemStack(Items.iron_ingot),
+                1000,
+                20,
+                0,
+                1000,
+                500,
+                0.1,
+                false,
+                true,
+                true,
+                null);
+            bath.mSlots[2] = new CoolantBathSlot(
+                new ItemStack(Items.iron_ingot),
+                1000,
+                20,
+                0,
+                1000,
+                500,
+                0.1,
+                false,
+                true,
+                true,
+                null);
             assertEquals(4.0, bath.getMinorLossK(), 1e-4, "3 active items must give K = 2.5 + 0.5 * 3 = 4.0");
         } finally {
             // Restore default
-            com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.setDeviceData(new com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData());
+            com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry
+                .setDeviceData(new com.gtnewhorizons.coolantloops.common.config.data.CoolantDeviceData());
         }
     }
 
@@ -533,11 +571,7 @@ public class CoolantBathTest {
         assertEquals(original.targetTemp, restored.targetTemp, 1e-4);
         assertEquals(original.heatCapacity, restored.heatCapacity, 1e-4);
         assertNotNull(restored.transformedOutput);
-        assertEquals(
-            Items.feather,
-            restored.transformedOutput
-                .getItem());
+        assertEquals(Items.feather, restored.transformedOutput.getItem());
         assertEquals(0.5, restored.getProgressFraction(), 1e-2);
     }
 }
-

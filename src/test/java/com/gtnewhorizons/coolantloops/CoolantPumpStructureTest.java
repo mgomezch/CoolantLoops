@@ -14,6 +14,7 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
+import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
@@ -308,7 +309,7 @@ public class CoolantPumpStructureTest {
             MTECoolantPump.getDeclaredGregTechFluidTemperatureCelsius(moltenCheese, null, null),
             0.01);
 
-        // 1. Pump refuses to start / accelerate if cold (< 46.85 °C)
+        // 1. Pump refuses to start / accelerate if reservoir is cold (< 46.85 °C)
         MTECoolantPump pump = new MTECoolantPump("test_pump_molten");
         gregtech.api.interfaces.tileentity.IGregTechTileEntity mockPumpBase = Mockito
             .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
@@ -331,6 +332,8 @@ public class CoolantPumpStructureTest {
             .addSegment(coldSeg);
         pump.getEngine()
             .setFluid(com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.MOLTEN_CHEESE);
+        pump.getReservoir()
+            .setReservoirTemperatureCelsius(20.0); // reservoir cooled down below 46.85 °C
 
         assertTrue(pump.stepCoolantLoop());
         assertEquals(MTECoolantPump.LoopState.STOPPED, pump.getLoopState());
@@ -338,7 +341,9 @@ public class CoolantPumpStructureTest {
             pump.getLoopStatus()
                 .contains("below declared GregTech melting point"));
 
-        // 2. In a hot biome (e.g. Nether at ~55 °C > 46.85 °C), pump is allowed to start/circulate
+        // 2. When reservoir is at or above melting point (e.g. 55 °C > 46.85 °C), pump is allowed to start/circulate
+        pump.getReservoir()
+            .setReservoirTemperatureCelsius(55.0);
         pump.setSimulatedBiomeTemperatureCelsius(55.0);
         coldSeg.setCurrentTemperatureCelsius(55.0);
         assertTrue(pump.stepCoolantLoop());
@@ -368,6 +373,131 @@ public class CoolantPumpStructureTest {
         engine.setPumpMechanicalPowerWatts(10000.0);
         engine.step(0.05);
 
+        assertTrue(engine.isRuptured());
+        assertTrue(
+            engine.getFailureReason()
+                .contains("Catastrophic coolant solidification"));
+    }
+
+    @Test
+    public void testMoltenSodiumReservoirBaselineAndEnthalpyDilution() {
+        net.minecraftforge.fluids.Fluid sodiumFluid = new net.minecraftforge.fluids.Fluid("sodium");
+        sodiumFluid.setTemperature(371); // 371 K (97.85 °C)
+
+        assertTrue(CoolantFluidHelper.isMoltenFluid(sodiumFluid, null, CoolantFluidProperty.SODIUM));
+        assertEquals(
+            97.85,
+            CoolantFluidHelper
+                .getDeclaredGregTechFluidTemperatureCelsius(sodiumFluid, null, CoolantFluidProperty.SODIUM),
+            0.05);
+
+        // 1. In a cold overworld biome (e.g. 20 °C or even subzero -15 °C), fresh molten sodium baseline inlet temp is
+        // its melting point
+        assertEquals(
+            97.85,
+            CoolantFluidHelper.getBaselineInletTemperatureCelsius(sodiumFluid, null, CoolantFluidProperty.SODIUM, 20.0),
+            0.05);
+        assertEquals(
+            97.85,
+            CoolantFluidHelper
+                .getBaselineInletTemperatureCelsius(sodiumFluid, null, CoolantFluidProperty.SODIUM, -15.0),
+            0.05);
+        // In a scorching environment above melting point (e.g. 110 °C), baseline is the ambient temp
+        assertEquals(
+            110.0,
+            CoolantFluidHelper
+                .getBaselineInletTemperatureCelsius(sodiumFluid, null, CoolantFluidProperty.SODIUM, 110.0),
+            0.05);
+
+        // 2. Fresh pump with molten sodium reservoir initializes at baseline inlet temperature (97.85 °C)
+        MTECoolantPump pump = new MTECoolantPump("test_pump_sodium");
+        pump.setSimulatedBiomeTemperatureCelsius(20.0);
+        pump.getEngine()
+            .setFluid(CoolantFluidProperty.SODIUM);
+        pump.getReservoir()
+            .setSimulatedCoolantLiters(10000L);
+        pump.getReservoir()
+            .setSimulatedTankCapacityLiters(50000L);
+
+        pump.getReservoir()
+            .updateReservoirState();
+        assertEquals(
+            97.85,
+            pump.getReservoir()
+                .getReservoirTemperatureCelsius(),
+            0.05);
+
+        // 3. Reactor operation heats the reservoir up to 500 °C
+        pump.getReservoir()
+            .setReservoirTemperatureCelsius(500.0);
+        assertEquals(
+            500.0,
+            pump.getReservoir()
+                .getReservoirTemperatureCelsius(),
+            1e-6);
+
+        // 4. External fluid top-up: adding 10,000 L of fresh sodium (enters at 97.85 °C) dilutes enthalpy
+        // (10,000 * 500.0 + 10,000 * 97.85) / 20,000 = 298.925 °C
+        pump.getReservoir()
+            .setSimulatedCoolantLiters(20000L);
+        pump.getReservoir()
+            .updateReservoirState();
+        assertEquals(
+            298.925,
+            pump.getReservoir()
+                .getReservoirTemperatureCelsius(),
+            0.05);
+
+        // 5. Drawing 5,000 L into loop does not change reservoir temperature
+        int drained = pump.getReservoir()
+            .drainFromReservoir(5000);
+        assertEquals(5000, drained);
+        assertEquals(
+            15000L,
+            pump.getReservoir()
+                .getTotalCoolantLiters());
+        assertEquals(
+            298.925,
+            pump.getReservoir()
+                .getReservoirTemperatureCelsius(),
+            0.05);
+
+        // 6. Loop fluid returns at 600 °C: volume-weighted blending into reservoir
+        // (15,000 * 298.925 + 5,000 * 600.0) / 20,000 = (4,483,875 + 3,000,000) / 20,000 = 374.19375 °C
+        int filled = pump.getReservoir()
+            .fillIntoReservoir(5000, 600.0);
+        assertEquals(5000, filled);
+        assertEquals(
+            20000L,
+            pump.getReservoir()
+                .getTotalCoolantLiters());
+        assertEquals(
+            374.19,
+            pump.getReservoir()
+                .getReservoirTemperatureCelsius(),
+            0.05);
+
+        // 7. Exploit prevention: fresh fluid enters at melting point -> Delta-T above freezing is 0
+        // Attempting to extract heat without nuclear input drops T < 97.8 °C -> catastrophic rupture!
+        com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine engine = new com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine(
+            CoolantFluidProperty.SODIUM);
+        com.gtnewhorizons.coolantloops.engine.LoopSegment seg = new com.gtnewhorizons.coolantloops.engine.LoopSegment(
+            "sodium_seg",
+            10.0,
+            0.2,
+            0.0001,
+            1.0,
+            100.0,
+            1000.0,
+            97.85);
+        engine.addSegment(seg);
+        engine.setVolumetricFlowRate(0.05);
+        engine.setPumpPowered(true);
+        engine.setPumpMechanicalPowerWatts(10000.0);
+
+        // Drop 1 degree below freezing -> solidification rupture!
+        seg.setCurrentTemperatureCelsius(96.0);
+        engine.step(0.05);
         assertTrue(engine.isRuptured());
         assertTrue(
             engine.getFailureReason()

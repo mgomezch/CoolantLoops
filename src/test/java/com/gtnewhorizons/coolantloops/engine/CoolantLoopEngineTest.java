@@ -252,8 +252,7 @@ class CoolantLoopEngineTest {
     @Test
     void testLoopFreezingFailureWhenBelowFreezingPoint() {
         CoolantLoopEngine waterEngine = new CoolantLoopEngine(CoolantFluidProperty.WATER);
-        waterEngine.addSegment(
-            new LoopSegment("pipe_cold", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -5.0));
+        waterEngine.addSegment(new LoopSegment("pipe_cold", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -5.0));
         waterEngine.setPumpPowered(true);
         waterEngine.setPumpMechanicalPowerWatts(100.0);
         waterEngine.step(0.05);
@@ -269,10 +268,8 @@ class CoolantLoopEngineTest {
     @Test
     void testIC2CoolantImmunityToFreezingAtCryogenicTemperatures() {
         CoolantLoopEngine ic2Engine = new CoolantLoopEngine(CoolantFluidProperty.IC2_COOLANT);
-        ic2Engine.addSegment(
-            new LoopSegment("pipe_cryo_1", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -196.0));
-        ic2Engine.addSegment(
-            new LoopSegment("pipe_cryo_2", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -269.0));
+        ic2Engine.addSegment(new LoopSegment("pipe_cryo_1", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -196.0));
+        ic2Engine.addSegment(new LoopSegment("pipe_cryo_2", 5.0, 0.1, 0.00005, 0.5, 100.0, 1200.0, -269.0));
         ic2Engine.setPumpPowered(true);
         ic2Engine.setPumpMechanicalPowerWatts(1000.0);
         ic2Engine.step(0.05);
@@ -281,4 +278,3 @@ class CoolantLoopEngineTest {
         assertNull(ic2Engine.getFailureReason());
     }
 }
-

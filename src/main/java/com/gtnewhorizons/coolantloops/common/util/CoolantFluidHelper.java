@@ -178,6 +178,15 @@ public final class CoolantFluidHelper {
         return 20.0;
     }
 
+    public static double getBaselineInletTemperatureCelsius(Fluid fluid, FluidStack stack, CoolantFluidProperty prop,
+        double ambientTemp) {
+        if (isMoltenFluid(fluid, stack, prop)) {
+            double declaredMelting = getDeclaredGregTechFluidTemperatureCelsius(fluid, stack, prop);
+            return Math.max(ambientTemp, declaredMelting);
+        }
+        return ambientTemp;
+    }
+
     public static double getFluidStackTemperatureCelsius(FluidStack stack) {
         if (stack == null || stack.getFluid() == null) return 20.0;
         if (stack.tag != null) {

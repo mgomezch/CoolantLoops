@@ -178,7 +178,8 @@ public class CoolantBathRegistry {
         }
         // Fallback by checking item data associations or unlocalized names
         ItemData data = GTOreDictUnificator.getAssociation(stack);
-        if (data != null && data.mPrefix == OrePrefixes.cell && data.mMaterial != null
+        if (data != null && data.mPrefix == OrePrefixes.cell
+            && data.mMaterial != null
             && data.mMaterial.mMaterial != null) {
             String matName = data.mMaterial.mMaterial.mName.toLowerCase();
             if (matName.contains("liquidnitrogen")) {

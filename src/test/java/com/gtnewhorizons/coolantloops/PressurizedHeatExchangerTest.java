@@ -424,7 +424,11 @@ public class PressurizedHeatExchangerTest {
 
         // Gaseous nitrogen output at 1:160 expansion
         assertNotNull(outputHatch.getFluid());
-        assertEquals("nitrogen", outputHatch.getFluid().getFluid().getName());
+        assertEquals(
+            "nitrogen",
+            outputHatch.getFluid()
+                .getFluid()
+                .getName());
         assertEquals(n2Boiled * 160, outputHatch.getFluid().amount);
 
         // Coolant temperature dropped below initial 20 C toward -196 C
@@ -471,7 +475,11 @@ public class PressurizedHeatExchangerTest {
         assertTrue(heBoiled > 0, "Liquid helium must boil when coolant is warmer than -269 C");
 
         assertNotNull(outputHatch.getFluid());
-        assertEquals("helium", outputHatch.getFluid().getFluid().getName());
+        assertEquals(
+            "helium",
+            outputHatch.getFluid()
+                .getFluid()
+                .getName());
         assertEquals(heBoiled * 160, outputHatch.getFluid().amount);
         assertTrue(phe.getDeviceTemperatureCelsius() < -100.0);
     }

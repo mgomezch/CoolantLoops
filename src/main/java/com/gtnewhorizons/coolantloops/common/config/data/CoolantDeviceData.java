@@ -301,8 +301,8 @@ public class CoolantDeviceData {
     public static class CoolantBathData {
 
         public long fillVolumePerSlotLiters = 1000L; // Coolant fill volume per slot in Liters
-        public double baseMinorLossK = 1.0;          // Base minor loss coefficient of empty bath
-        public double itemMinorLossK = 1.0;          // Additional minor loss K per active item in bath
+        public double baseMinorLossK = 1.0; // Base minor loss coefficient of empty bath
+        public double itemMinorLossK = 1.0; // Additional minor loss K per active item in bath
 
         public Map<String, Object> toMap() {
             Map<String, Object> map = new LinkedHashMap<>();
