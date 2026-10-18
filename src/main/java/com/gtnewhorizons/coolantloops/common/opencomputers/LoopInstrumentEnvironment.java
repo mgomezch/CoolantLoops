@@ -282,6 +282,11 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
         return new Object[] { instrument.getCurrentGasFraction() };
     }
 
+    @Callback(doc = "function():number -- Returns dissolved gas percentage (0.0% to 100.0%).", direct = true)
+    public Object[] getDissolvedGasPercentage(Context context, Arguments args) {
+        return new Object[] { instrument.getCurrentGasPercentage() };
+    }
+
     @Callback(doc = "function():number -- Returns impeller wear percentage (0.0 to 100.0%).", direct = true)
     public Object[] getImpellerWear(Context context, Arguments args) {
         return new Object[] { instrument.getCurrentImpellerWearPercent() };

@@ -1326,11 +1326,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
         degradeRotor(requiredEU);
 
-        // Synchronize dissolved gas fraction across engine and all segments
-        double gasFrac = getDissolvedGasFraction();
-        mEngine.setDissolvedGasFraction(gasFrac);
-        for (LoopSegment seg : mEngine.getSegments()) {
-            seg.setDissolvedGasFraction(gasFrac);
+        // Synchronize absolute dissolved gases across engine and all segments
+        if (mEngine != null) {
+            Map<String, Long> gases = mReservoir.getDissolvedGases();
+            mEngine.setDissolvedGases(gases);
+            double gasFrac = getDissolvedGasFraction();
+            mEngine.setDissolvedGasFraction(gasFrac);
+            long loopLiters = mEngine.getTotalLoopVolumeLiters();
+            for (LoopSegment seg : mEngine.getSegments()) {
+                seg.setDissolvedGases(gases, loopLiters);
+                seg.setDissolvedGasFraction(gasFrac);
+            }
         }
 
         // Advance 1 tick (0.05 seconds) of fluid dynamics
@@ -1840,6 +1846,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     @Override
     public double getDissolvedGasFraction() {
         return mReservoir.getDissolvedGasFraction();
+    }
+
+    @Override
+    public double getDissolvedGasPercentage() {
+        return mReservoir.getDissolvedGasPercentage();
+    }
+
+    @Override
+    public long getTotalDissolvedGasLiters() {
+        return mReservoir.getTotalDissolvedGasLiters();
     }
 
     @Override

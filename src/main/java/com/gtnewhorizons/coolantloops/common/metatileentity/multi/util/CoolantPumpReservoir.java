@@ -759,20 +759,35 @@ public class CoolantPumpReservoir {
         dissolvedGases.merge(gasName, liters, Long::sum);
     }
 
-    public double getDissolvedGasFraction() {
-        long totalGas = 0;
+    public long getTotalDissolvedGasLiters() {
+        long total = 0L;
         for (long val : dissolvedGases.values()) {
-            totalGas += val;
+            total += val;
         }
+        return total;
+    }
+
+    public double getDissolvedGasFraction() {
+        long totalGas = getTotalDissolvedGasLiters();
+        if (totalGas <= 0L) return 0.0;
         long totalLiters = getTotalCoolantLiters();
-        if (totalLiters <= 0) return 0.0;
+        if (totalLiters <= 0L) return 0.0;
         double frac = (double) totalGas / (double) totalLiters;
         return Math.min(1.0, Math.max(0.0, frac));
     }
 
+    public double getDissolvedGasPercentage() {
+        return getDissolvedGasFraction() * 100.0;
+    }
+
     public long getDissolvedGasAmount(String gasName) {
         if (gasName == null) return 0L;
-        return dissolvedGases.getOrDefault(gasName, 0L);
+        for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(gasName)) {
+                return entry.getValue();
+            }
+        }
+        return 0L;
     }
 
     public Map<String, Long> getDissolvedGases() {

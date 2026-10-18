@@ -25,8 +25,29 @@ public interface ICoolantLoopPump {
 
     /**
      * Gets the volume fraction of dissolved gases relative to total coolant volume (0.0 to 1.0).
+     * Used for display percentages and cavitation wear calculations.
      */
     double getDissolvedGasFraction();
+
+    /**
+     * Gets the dissolved gas percentage (0.0% to 100.0%) for display purposes.
+     */
+    default double getDissolvedGasPercentage() {
+        return getDissolvedGasFraction() * 100.0;
+    }
+
+    /**
+     * Gets the total volume of all dissolved gases in liters across the loop system.
+     */
+    default long getTotalDissolvedGasLiters() {
+        Map<String, Long> gases = getDissolvedGases();
+        if (gases == null || gases.isEmpty()) return 0L;
+        long sum = 0L;
+        for (long v : gases.values()) {
+            sum += v;
+        }
+        return sum;
+    }
 
     /**
      * Gets the accumulated liters of a specific dissolved gas species.

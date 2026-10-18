@@ -2,7 +2,9 @@ package com.gtnewhorizons.coolantloops.engine;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 
@@ -35,7 +37,8 @@ public class CoolantLoopEngine {
     private String failureReason = null;
     private double peakLoopPressureBar = 0.0;
     private double peakLoopTempCelsius = 20.0;
-    private double dissolvedGasFraction = 0.0;
+    private final Map<String, Long> dissolvedGases = new LinkedHashMap<>();
+    private double fallbackGasFraction = 0.0;
     private boolean isBraking = false;
 
     public boolean isBraking() {
@@ -46,12 +49,99 @@ public class CoolantLoopEngine {
         this.isBraking = braking;
     }
 
+    public Map<String, Long> getDissolvedGases() {
+        return Collections.unmodifiableMap(dissolvedGases);
+    }
+
+    public long getDissolvedGasAmount(String gasName) {
+        if (gasName == null) return 0L;
+        for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(gasName)) {
+                return entry.getValue();
+            }
+        }
+        return 0L;
+    }
+
+    public long getTotalDissolvedGasLiters() {
+        long sum = 0L;
+        for (long v : dissolvedGases.values()) {
+            sum += v;
+        }
+        return sum;
+    }
+
+    public void addDissolvedGas(String gasName, long liters) {
+        if (gasName == null || liters <= 0L) return;
+        dissolvedGases.merge(gasName, liters, Long::sum);
+    }
+
+    public long extractDissolvedGas(String gasName, long maxLiters) {
+        if (gasName == null || maxLiters <= 0L) return 0L;
+        String matchedKey = null;
+        for (String k : dissolvedGases.keySet()) {
+            if (k.equalsIgnoreCase(gasName)) {
+                matchedKey = k;
+                break;
+            }
+        }
+        if (matchedKey == null) return 0L;
+        long current = dissolvedGases.getOrDefault(matchedKey, 0L);
+        long toExtract = Math.min(current, maxLiters);
+        if (toExtract > 0L) {
+            long remaining = current - toExtract;
+            if (remaining > 0L) {
+                dissolvedGases.put(matchedKey, remaining);
+            } else {
+                dissolvedGases.remove(matchedKey);
+            }
+        }
+        return toExtract;
+    }
+
+    public void setDissolvedGases(Map<String, Long> gases) {
+        this.dissolvedGases.clear();
+        if (gases != null) {
+            for (Map.Entry<String, Long> entry : gases.entrySet()) {
+                if (entry.getValue() != null && entry.getValue() > 0L) {
+                    this.dissolvedGases.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+    }
+
+    public long getTotalLoopVolumeLiters() {
+        double vM3 = 0.0;
+        for (LoopSegment s : segments) {
+            vM3 += s.getVolume();
+        }
+        return (long) Math.ceil(vM3 * 1000.0);
+    }
+
+    /**
+     * Converts absolute dissolved gas amounts into a volume fraction (0.0 to 1.0)
+     * for display purposes and cavitation damage calculations.
+     */
     public double getDissolvedGasFraction() {
-        return dissolvedGasFraction;
+        long totalGas = getTotalDissolvedGasLiters();
+        if (totalGas > 0L) {
+            long totalCoolant = getTotalLoopVolumeLiters();
+            if (totalCoolant > 0L) {
+                return Math.min(1.0, (double) totalGas / (double) totalCoolant);
+            }
+        }
+        return fallbackGasFraction;
+    }
+
+    /**
+     * Converts volume fraction into percentage (0.0% to 100.0%) for display purposes.
+     */
+    public double getDissolvedGasPercentage() {
+        return getDissolvedGasFraction() * 100.0;
     }
 
     public void setDissolvedGasFraction(double dissolvedGasFraction) {
-        this.dissolvedGasFraction = Math.max(0.0, Math.min(1.0, dissolvedGasFraction));
+        this.fallbackGasFraction = Math.max(0.0, Math.min(1.0, dissolvedGasFraction));
     }
 
     public CoolantLoopEngine(CoolantFluidProperty fluid) {

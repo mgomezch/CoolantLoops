@@ -1,6 +1,8 @@
 package com.gtnewhorizons.coolantloops.common.tileentity;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
 
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -232,6 +234,24 @@ public class TileEntityLoopInstrument extends TileEntity
 
     public double getCurrentGasFraction() {
         return currentGasFraction;
+    }
+
+    public double getCurrentGasPercentage() {
+        return currentGasFraction * 100.0;
+    }
+
+    public long getDissolvedGasAmount(String gasName) {
+        if (loopPump != null) {
+            return loopPump.getDissolvedGasAmount(gasName);
+        }
+        return 0L;
+    }
+
+    public Map<String, Long> getDissolvedGases() {
+        if (loopPump != null) {
+            return loopPump.getDissolvedGases();
+        }
+        return Collections.emptyMap();
     }
 
     public double getCurrentVelocityMs() {
