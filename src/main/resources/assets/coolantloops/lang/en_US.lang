@@ -233,8 +233,8 @@ gt.multiblock.coolant_bath.desc2=Variable 3-block tall rectangular cuboid (5x7 E
 gt.multiblock.coolant_bath.desc3=Operates purely by Newton's law of cooling with circulating loop coolant
 gt.multiblock.coolant_bath.desc4=Higher flow rate accelerates heat exchange; flow resistance scales with item load
 
-# Coolant Loop Flow Graph GUI
-coolantloops.gui.title.loop_graph=Coolant Loop Flow Graph
-coolantloops.gui.button.loop_graph=Coolant Loop Flow Graph
+# Coolant loop flow graph GUI
+coolantloops.gui.title.loop_graph=Coolant loop flow graph
+coolantloops.gui.button.loop_graph=Coolant loop flow graph
 coolantloops.gui.button.loop_graph.tooltip=Inspect coolant loop flow graph and telemetry
-coolantloops.gui.button.loop_graph.requires_monitor=Requires Computer Monitor Cover on Controller
+coolantloops.gui.button.loop_graph.requires_monitor=Requires computer monitor cover on controller

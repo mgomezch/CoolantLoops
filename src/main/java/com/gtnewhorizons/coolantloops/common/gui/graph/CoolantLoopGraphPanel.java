@@ -1,8 +1,5 @@
 package com.gtnewhorizons.coolantloops.common.gui.graph;
 
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.StatCollector;
-
 import com.cleanroommc.modularui.api.drawable.IKey;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
@@ -17,7 +14,6 @@ import com.gtnewhorizons.coolantloops.common.gui.PanelDragHandle;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 
 import gregtech.api.enums.ItemList;
-import gregtech.api.modularui2.common.CommonButtons;
 
 /**
  * Builds the floating, movable, resizable Coolant Loop Graph window.
@@ -28,6 +24,7 @@ public class CoolantLoopGraphPanel {
 
     public static ModularPanel createPanel(PanelSyncManager syncManager, ModularPanel parent, MTECoolantPump pump) {
         ModularPanel panel = new ModularPanel(PANEL_NAME) {
+
             @Override
             public boolean isDraggable() {
                 return false;
@@ -61,14 +58,9 @@ public class CoolantLoopGraphPanel {
                     .size(16, 16)
                     .displayAmount(false)
                     .marginRight(4))
-            // Title text & draggable header area
+            // Draggable header area
             .child(
-                new PanelDragHandle(panel)
-                    .title(
-                        IKey.str(
-                            EnumChatFormatting.BOLD + StatCollector.translateToLocal("coolantloops.gui.title.loop_graph")))
-                    .color(Color.WHITE.main)
-                    .expanded()
+                new PanelDragHandle(panel).expanded()
                     .height(14))
             // Zoom Out button
             .child(
@@ -119,6 +111,7 @@ public class CoolantLoopGraphPanel {
             // Fit to view button
             .child(
                 new ButtonWidget<>().size(20, 14)
+                    .marginRight(6)
                     .child(
                         IKey.str("Fit")
                             .asWidget()
@@ -128,21 +121,28 @@ public class CoolantLoopGraphPanel {
                     .onMousePressed(d -> {
                         graphWidget.fitToView();
                         return true;
+                    }))
+            // Close window button
+            .child(
+                new ButtonWidget<>().size(14, 14)
+                    .child(
+                        IKey.str("x")
+                            .asWidget()
+                            .center())
+                    .tooltipBuilder(t -> t.addLine("Close window"))
+                    .onMousePressed(d -> {
+                        panel.closeIfOpen();
+                        return true;
                     }));
 
         panel.child(
             Flow.column()
                 .full()
                 .padding(4)
-                .child(headerRow.marginRight(18))
+                .child(headerRow)
                 .child(
                     graphWidget.fullWidth()
                         .expanded()));
-
-        // Window close button (anchored top-right of panel)
-        panel.child(
-            CommonButtons.panelCloseButton()
-                .size(14, 14));
 
         return panel;
     }
