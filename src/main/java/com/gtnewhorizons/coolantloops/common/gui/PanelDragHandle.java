@@ -112,9 +112,16 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         this.movingArea.y = Math.max(0, Math.min(maxY, newY));
     }
 
+    private Alignment alignment = Alignment.CenterLeft;
+
+    public PanelDragHandle textAlign(Alignment alignment) {
+        this.alignment = alignment;
+        return this;
+    }
+
     @Override
-    public void onDragEnd(boolean cancelled) {
-        if (!cancelled && this.panel != null) {
+    public void onDragEnd(boolean success) {
+        if (success && this.panel != null) {
             Area screenArea = this.panel.getScreen().getScreenArea();
             int availW = screenArea.width - this.panel.getArea().width;
             int availH = screenArea.height - this.panel.getArea().height;
@@ -134,9 +141,17 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
     public void drawMovingState(ModularGuiContext ctx, float partialTicks) {
         if (this.panel == null) return;
         ctx.pushMatrix();
+        // ModularGuiContext.drawDraggable() applies this handle's TransformationMatrix.
+        // Un-translate by current transform so we are back at root screen space (0, 0).
+        int curX = ctx.transformX(0, 0);
+        int curY = ctx.transformY(0, 0);
+        ctx.translate(-curX, -curY);
+
+        // When WidgetTree.drawTree(this.panel) is invoked, panel.transform(ctx) translates by
+        // panel.getArea().rx and ry (its static position on screen).
+        // To position the panel at movingArea during drag, offset by (movingArea - staticArea).
         Area area = this.panel.getArea();
-        ctx.translate(-area.x, -area.y);
-        ctx.translate(this.movingArea.x, this.movingArea.y);
+        ctx.translate(this.movingArea.x - area.rx, this.movingArea.y - area.ry);
         WidgetTree.drawTree(this.panel, ctx, true, true);
         ctx.popMatrix();
     }
@@ -150,7 +165,7 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
             int c = this.textColor != null ? this.textColor.getAsInt() : theme.getTextColor();
             renderer.setColor(c);
             renderer.setShadow(theme.getTextShadow());
-            renderer.setAlignment(Alignment.CenterLeft, getArea().paddedWidth(), getArea().paddedHeight());
+            renderer.setAlignment(this.alignment != null ? this.alignment : Alignment.CenterLeft, getArea().paddedWidth(), getArea().paddedHeight());
             renderer.setScale(this.titleKey.getScale());
             renderer.setSimulate(false);
             renderer.draw(this.titleKey.getFormatted());

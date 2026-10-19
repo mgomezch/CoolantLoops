@@ -29,6 +29,11 @@ public class CoolantLoopGraphPanel {
             public boolean isDraggable() {
                 return false;
             }
+
+            @Override
+            public boolean keepPosOnDragResize() {
+                return false;
+            }
         }.relativeToScreen()
             .center()
             .size(380, 250)
@@ -75,9 +80,11 @@ public class CoolantLoopGraphPanel {
                         graphWidget.zoomOut();
                         return true;
                     }))
-            // Zoom level display
+            // Zoom level display (also draggable)
             .child(
-                new TextWidget<>(IKey.dynamic(() -> graphWidget.getZoomPercent() + "%")).color(Color.WHITE.main)
+                new PanelDragHandle(panel)
+                    .title(IKey.dynamic(() -> graphWidget.getZoomPercent() + "%"))
+                    .color(Color.WHITE.main)
                     .textAlign(Alignment.Center)
                     .size(32, 14)
                     .marginRight(2))
