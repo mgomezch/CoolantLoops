@@ -70,8 +70,7 @@ public class TileEntityLoopInstrument extends TileEntity
         "Lime", "Pink", "Gray", "Light Gray", "Cyan", "Purple", "Blue", "Brown", "Green", "Red", "Black" };
 
     public static final int BUNDLED_MODE_BROADCAST = 0;
-    public static final int BUNDLED_MODE_MULTI = 1;
-    public static final int BUNDLED_MODE_COUNT = 18;
+    public static final int BUNDLED_MODE_COUNT = 17;
 
     private ForgeDirection facing = ForgeDirection.NORTH;
     private TrackedMetric trackedMetric = TrackedMetric.FLOW_RATE;
@@ -79,6 +78,7 @@ public class TileEntityLoopInstrument extends TileEntity
     private int fineOutputStrength = 0;
     private int bundledMode = BUNDLED_MODE_BROADCAST;
     private final byte[] bundledSignal = new byte[16];
+    private double clientMeasuredValue = 0.0;
 
     private ICoolantLoopPump loopPump = null;
     private double currentImpellerWearPercent = 0.0;
@@ -151,15 +151,33 @@ public class TileEntityLoopInstrument extends TileEntity
         if (mode == BUNDLED_MODE_BROADCAST) {
             return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.bundled.broadcast");
         }
-        if (mode == BUNDLED_MODE_MULTI) {
-            return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.bundled.multi");
-        }
-        int dyeIdx = mode - 2;
+        int dyeIdx = mode - 1;
         if (dyeIdx >= 0 && dyeIdx < DYE_NAMES.length) {
             return com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .format("coolantloops.bundled.channel", dyeIdx, DYE_NAMES[dyeIdx]);
         }
         return "Unknown";
+    }
+
+    public static String formatMetricValue(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return "0";
+        }
+        double rounded = Math.round(value * 100.0) / 100.0;
+        if (rounded == (long) rounded) {
+            return String.valueOf((long) rounded);
+        }
+        java.text.DecimalFormat df = new java.text.DecimalFormat(
+            "0.##",
+            new java.text.DecimalFormatSymbols(java.util.Locale.US));
+        return df.format(rounded);
+    }
+
+    public double getDisplayValue() {
+        if (worldObj != null && worldObj.isRemote) {
+            return clientMeasuredValue;
+        }
+        return getCurrentValue();
     }
 
     public int getRedstoneOutput() {
@@ -405,29 +423,8 @@ public class TileEntityLoopInstrument extends TileEntity
         Arrays.fill(bundledSignal, (byte) 0);
         if (bundledMode == BUNDLED_MODE_BROADCAST) {
             Arrays.fill(bundledSignal, fineByte);
-        } else if (bundledMode == BUNDLED_MODE_MULTI) {
-            double normFlow = (currentVelocityMs > 0) ? Math.max(0.0, Math.min(1.0, currentVelocityMs / 10.0))
-                : Math.max(0.0, Math.min(1.0, getCurrentFlowRateLitersPerSecond() / 1000.0));
-            bundledSignal[0] = (byte) ((int) Math.round(Math.max(0.0, Math.min(1.0, normFlow)) * 255.0) & 0xFF);
-            bundledSignal[1] = (byte) ((int) Math
-                .round(Math.max(0.0, Math.min(1.0, currentTemperatureCelsius / 1000.0)) * 255.0) & 0xFF);
-            bundledSignal[2] = (byte) ((int) Math
-                .round(Math.max(0.0, Math.min(1.0, currentPressureBar / 100.0)) * 255.0) & 0xFF);
-            bundledSignal[3] = (byte) ((int) Math.round(Math.max(0.0, Math.min(1.0, currentGasFraction)) * 255.0)
-                & 0xFF);
-            bundledSignal[4] = (byte) ((int) Math
-                .round(Math.max(0.0, Math.min(1.0, getCurrentImpellerWearPercent() / 100.0)) * 255.0) & 0xFF);
-            bundledSignal[5] = (byte) ((int) Math
-                .round(Math.max(0.0, Math.min(1.0, getCurrentFillPercent() / 100.0)) * 255.0) & 0xFF);
-            long cap = (loopPump != null && loopPump.getReservoirCapacityLiters() > 0)
-                ? loopPump.getReservoirCapacityLiters()
-                : 1000000L;
-            bundledSignal[6] = (byte) ((int) Math
-                .round(Math.max(0.0, Math.min(1.0, (double) getCurrentReservoirLiters() / cap)) * 255.0) & 0xFF);
-            boolean isCirculating = loopPump != null && "CIRCULATING".equalsIgnoreCase(loopPump.getLoopStateName());
-            bundledSignal[7] = (byte) (isCirculating ? 255 : 0);
         } else {
-            int ch = bundledMode - 2;
+            int ch = bundledMode - 1;
             if (ch >= 0 && ch < 16) {
                 bundledSignal[ch] = fineByte;
             }
@@ -468,13 +465,6 @@ public class TileEntityLoopInstrument extends TileEntity
                 .setPos(7, 10)
                 .setSize(162, 85));
 
-        // Title
-        builder.widget(
-            new TextWidget(
-                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.get("coolantloops.gui.instrument.title"))
-                    .setDefaultColor(Color.rgb(0, 255, 128))
-                    .setPos(12, 14));
-
         // Row 1: Tracked Metric Selector
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleMetric(-1))
@@ -482,11 +472,11 @@ public class TileEntityLoopInstrument extends TileEntity
                 .addTooltip(
                     com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                         .get("coolantloops.gui.instrument.btn.prev_metric"))
-                .setPos(12, 26)
+                .setPos(12, 20)
                 .setSize(12, 12));
         builder.widget(
             new TextWidget(Text.localised("<")).setTextAlignment(Alignment.Center)
-                .setPos(12, 28)
+                .setPos(12, 22)
                 .setSize(12, 10));
         builder.widget(
             new TextWidget()
@@ -494,18 +484,18 @@ public class TileEntityLoopInstrument extends TileEntity
                     () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                         .format("coolantloops.gui.instrument.metric", trackedMetric.getDisplayName()))
                 .setDefaultColor(Color.rgb(100, 200, 255))
-                .setPos(28, 28));
+                .setPos(28, 22));
         builder.widget(
             new ButtonWidget().setOnClick((clickData, widget) -> cycleMetric(1))
                 .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD })
                 .addTooltip(
                     com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                         .get("coolantloops.gui.instrument.btn.next_metric"))
-                .setPos(153, 26)
+                .setPos(153, 20)
                 .setSize(12, 12));
         builder.widget(
             new TextWidget(Text.localised(">")).setTextAlignment(Alignment.Center)
-                .setPos(153, 28)
+                .setPos(153, 22)
                 .setSize(12, 10));
 
         // Row 2: Value Display
@@ -513,9 +503,9 @@ public class TileEntityLoopInstrument extends TileEntity
             new TextWidget()
                 .setStringSupplier(
                     () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
-                        .format("coolantloops.gui.instrument.measured", getCurrentValue(), trackedMetric.unit))
+                        .format("coolantloops.gui.instrument.measured", formatMetricValue(getDisplayValue()), trackedMetric.unit))
                 .setDefaultColor(Color.rgb(255, 220, 100))
-                .setPos(12, 42));
+                .setPos(12, 38));
 
         // Row 3: Output Signal
         builder.widget(
@@ -524,7 +514,7 @@ public class TileEntityLoopInstrument extends TileEntity
                     () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                         .format("coolantloops.gui.instrument.output", redstoneOutput, fineOutputStrength))
                 .setDefaultColor(Color.rgb(255, 80, 80))
-                .setPos(12, 56));
+                .setPos(12, 54));
 
         // Row 4: ProjectRed Bundled Cable Mode
         builder.widget(
@@ -572,6 +562,10 @@ public class TileEntityLoopInstrument extends TileEntity
             new FakeSyncWidget.IntegerSyncer(
                 () -> facing.ordinal(),
                 val -> this.facing = ForgeDirection.getOrientation(val)));
+        builder.widget(
+            new FakeSyncWidget.DoubleSyncer(
+                () -> getCurrentValue(),
+                val -> this.clientMeasuredValue = val));
 
         return builder.build();
     }
@@ -600,7 +594,18 @@ public class TileEntityLoopInstrument extends TileEntity
             this.fineOutputStrength = nbt.getInteger("fineRedstone");
         }
         if (nbt.hasKey("bundledMode")) {
-            this.bundledMode = nbt.getInteger("bundledMode");
+            int m = nbt.getInteger("bundledMode");
+            if (!nbt.getBoolean("bundledV2")) {
+                if (m == 1) {
+                    m = BUNDLED_MODE_BROADCAST;
+                } else if (m > 1) {
+                    m = m - 1;
+                }
+            }
+            if (m < 0 || m >= BUNDLED_MODE_COUNT) {
+                m = BUNDLED_MODE_BROADCAST;
+            }
+            this.bundledMode = m;
         }
         if (nbt.hasKey("temp")) {
             this.currentTemperatureCelsius = nbt.getDouble("temp");
@@ -634,6 +639,7 @@ public class TileEntityLoopInstrument extends TileEntity
         nbt.setInteger("redstone", redstoneOutput);
         nbt.setInteger("fineRedstone", fineOutputStrength);
         nbt.setInteger("bundledMode", bundledMode);
+        nbt.setBoolean("bundledV2", true);
         nbt.setDouble("temp", currentTemperatureCelsius);
         nbt.setDouble("flow", currentFlowRateM3s);
         nbt.setDouble("pressure", currentPressureBar);

@@ -87,7 +87,7 @@ coolantloops.gui.instrument.title=Pressurized instrumentation computer
 coolantloops.gui.instrument.btn.prev_metric=Previous metric
 coolantloops.gui.instrument.btn.next_metric=Next metric
 coolantloops.gui.instrument.metric=Metric: %s
-coolantloops.gui.instrument.measured=Measured: %.2f %s
+coolantloops.gui.instrument.measured=Measured: %s %s
 coolantloops.gui.instrument.output=Output: %d / 15 (fine: %d / 255)
 coolantloops.gui.instrument.btn.prev_bundled=Previous bundled mode
 coolantloops.gui.instrument.btn.next_bundled=Next bundled mode
@@ -101,8 +101,7 @@ coolantloops.metric.impeller_wear=Impeller wear
 coolantloops.metric.fill_level=Fill level
 coolantloops.metric.reservoir_level=Reservoir level
 
-coolantloops.bundled.broadcast=Broadcast (all channels)
-coolantloops.bundled.multi=Multi (Ch0: flow, Ch1: temp, Ch2: pres, Ch3: gas, Ch4: wear, Ch5: fill, Ch6: res, Ch7: state)
+coolantloops.bundled.broadcast=All channels
 coolantloops.bundled.channel=Channel %d (%s)
 
 coolantloops.chat.instrument.facing=Instrumentation computer facing: %s

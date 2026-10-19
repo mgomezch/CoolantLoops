@@ -198,36 +198,15 @@ class PressurizedInstrumentationComputerTest {
             assertEquals((byte) 127, bundled[i], "Channel " + i + " must have 8-bit broadcast signal 127");
         }
 
-        // 3. Multi mode (mode 1)
-        te.setBundledMode(TileEntityLoopInstrument.BUNDLED_MODE_MULTI);
-        seg.setDissolvedGasFraction(0.40);
-        te.setCurrentImpellerWearPercent(20.0);
-        te.setCurrentFillPercent(80.0);
-        te.setCurrentReservoirLiters(500000L);
-        te.processThermalExchange(5.0 * seg.getArea(), 1.0, CoolantFluidProperty.WATER, seg); // 5 m/s velocity
-        te.setCurrentPressureBar(50.0);
+        // 3. Channel 0 (White = mode 1)
+        te.setBundledMode(1);
+        byte[] whiteCh = te.getBundledSignal(ForgeDirection.EAST.ordinal());
+        assertNotNull(whiteCh);
+        assertEquals((byte) te.getFineOutputStrength(), whiteCh[0]);
+        assertEquals((byte) 0, whiteCh[1]);
 
-        byte[] multi = te.getBundledSignal(ForgeDirection.EAST.ordinal());
-        assertNotNull(multi);
-        // Ch0: Flow (5 m/s / 10 m/s = 0.5 * 255 = 127.5 -> 127/128)
-        assertEquals((byte) 128, multi[0]);
-        // Ch1: Temp (500 / 1000 = 0.5 * 255 = 127.5 -> 127/128)
-        assertEquals((byte) 128, multi[1]);
-        // Ch2: Pressure (50 bar / 100 bar = 0.5 * 255 = 127.5 -> 127/128)
-        assertEquals((byte) 128, multi[2]);
-        // Ch3: Gas (0.40 * 255 = 102)
-        assertEquals((byte) 102, multi[3]);
-        // Ch4: Wear (0.20 * 255 = 51)
-        assertEquals((byte) 51, multi[4]);
-        // Ch5: Fill (0.80 * 255 = 204)
-        assertEquals((byte) 204, multi[5]);
-        // Ch6: Reservoir (500,000 / 1,000,000 = 0.5 * 255 = 127.5 -> 128)
-        assertEquals((byte) 128, multi[6]);
-        // Ch7: State (0 when unformed/stopped)
-        assertEquals((byte) 0, multi[7]);
-
-        // 4. Specific dye channel mode (e.g. Red = channel 14 -> mode 16)
-        te.setBundledMode(16); // Channel 14
+        // 4. Specific dye channel mode (e.g. Red = channel 14 -> mode 15)
+        te.setBundledMode(15); // Channel 14
         byte[] redCh = te.getBundledSignal(ForgeDirection.EAST.ordinal());
         assertEquals((byte) 0, redCh[0]);
         assertEquals((byte) te.getFineOutputStrength(), redCh[14]);
@@ -291,7 +270,7 @@ class PressurizedInstrumentationComputerTest {
         TileEntityLoopInstrument te = new TileEntityLoopInstrument();
         te.setFacing(ForgeDirection.WEST);
         te.setTrackedMetric(TrackedMetric.PRESSURE);
-        te.setBundledMode(TileEntityLoopInstrument.BUNDLED_MODE_MULTI);
+        te.setBundledMode(15); // Channel 14 (Red)
         te.setCurrentPressureBar(42.5);
 
         NBTTagCompound nbt = new NBTTagCompound();
@@ -302,8 +281,36 @@ class PressurizedInstrumentationComputerTest {
 
         assertEquals(ForgeDirection.WEST, restored.getFacing());
         assertEquals(TrackedMetric.PRESSURE, restored.getTrackedMetric());
-        assertEquals(TileEntityLoopInstrument.BUNDLED_MODE_MULTI, restored.getBundledMode());
+        assertEquals(15, restored.getBundledMode());
         assertEquals(42.5, restored.getCurrentPressureBar(), 1e-4);
+
+        // Test legacy NBT migration: legacy multi mode (1) migrates to broadcast (0)
+        NBTTagCompound legacyNbtMulti = new NBTTagCompound();
+        legacyNbtMulti.setInteger("bundledMode", 1);
+        TileEntityLoopInstrument migratedMulti = new TileEntityLoopInstrument();
+        migratedMulti.readFromNBT(legacyNbtMulti);
+        assertEquals(0, migratedMulti.getBundledMode());
+
+        // Test legacy NBT migration: legacy channel 14 (mode 16) migrates to mode 15
+        NBTTagCompound legacyNbtCh14 = new NBTTagCompound();
+        legacyNbtCh14.setInteger("bundledMode", 16);
+        TileEntityLoopInstrument migratedCh14 = new TileEntityLoopInstrument();
+        migratedCh14.readFromNBT(legacyNbtCh14);
+        assertEquals(15, migratedCh14.getBundledMode());
+    }
+
+    @Test
+    void testFormatMetricValue() {
+        assertEquals("0", TileEntityLoopInstrument.formatMetricValue(0.0));
+        assertEquals("42", TileEntityLoopInstrument.formatMetricValue(42.0));
+        assertEquals("42.5", TileEntityLoopInstrument.formatMetricValue(42.5));
+        assertEquals("42.55", TileEntityLoopInstrument.formatMetricValue(42.55));
+        assertEquals("42.56", TileEntityLoopInstrument.formatMetricValue(42.556));
+        assertEquals("42.56", TileEntityLoopInstrument.formatMetricValue(42.559999999999));
+        assertEquals("0.1", TileEntityLoopInstrument.formatMetricValue(0.1));
+        assertEquals("0.05", TileEntityLoopInstrument.formatMetricValue(0.054));
+        assertEquals("0", TileEntityLoopInstrument.formatMetricValue(Double.NaN));
+        assertEquals("0", TileEntityLoopInstrument.formatMetricValue(Double.POSITIVE_INFINITY));
     }
 
     @Test

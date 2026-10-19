@@ -381,7 +381,7 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
     }
 
     @Callback(
-        doc = "function(mode:number):boolean -- Sets ProjectRed bundled channel mode (0: Broadcast, 1: Multi, 2-17: Color 0-15).",
+        doc = "function(mode:number):boolean -- Sets ProjectRed bundled channel mode (0: All channels, 1-16: Color 0-15).",
         direct = true)
     public Object[] setBundledMode(Context context, Arguments args) {
         int mode = args.checkInteger(0);
@@ -389,6 +389,6 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             instrument.setBundledMode(mode);
             return new Object[] { true };
         }
-        return new Object[] { false, "Bundled mode out of bounds (0 to 17)" };
+        return new Object[] { false, "Bundled mode out of bounds (0 to 16)" };
     }
 }
