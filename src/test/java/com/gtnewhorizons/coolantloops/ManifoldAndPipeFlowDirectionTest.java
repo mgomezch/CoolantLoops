@@ -65,8 +65,8 @@ public class ManifoldAndPipeFlowDirectionTest {
 
         manifold.registerBlockIcons(mockRegister);
 
-        // Verify the texture name requested is GregTech/IC2's Mining Pipe Tip (fullblock drill head)
-        assertEquals("coolantloops:manifold", captor.getValue());
+        // Verify the texture name requested delegates directly to IC2's Mining Pipe Tip (zero extracted PNG)
+        assertEquals("ic2:machine/blockMiningTip", captor.getValue());
 
         // Verify getIcon returns the registered icon on all sides
         for (int side = 0; side < 6; side++) {

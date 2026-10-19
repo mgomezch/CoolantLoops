@@ -64,7 +64,7 @@ public class BlockManifold extends BlockContainer {
     @Override
     @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
     public void registerBlockIcons(net.minecraft.client.renderer.texture.IIconRegister reg) {
-        this.blockIcon = reg.registerIcon("coolantloops:manifold");
+        this.blockIcon = reg.registerIcon("ic2:machine/blockMiningTip");
         this.mIcon = this.blockIcon;
     }
 
