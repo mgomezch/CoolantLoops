@@ -219,12 +219,14 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         ScaledResolution sr = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
         int scale = sr.getScaleFactor();
 
-        int absX = getArea().x;
-        int absY = getArea().y;
+        int absX = (context != null) ? context.transformX(0, 0) : getArea().x;
+        int absY = (context != null) ? context.transformY(0, 0) : getArea().y;
+        int absEndX = (context != null) ? context.transformX(rw, rh) : (absX + rw);
+        int absEndY = (context != null) ? context.transformY(rw, rh) : (absY + rh);
         int sx = absX * scale;
-        int sy = mc.displayHeight - (absY + rh) * scale;
-        int sw = rw * scale;
-        int sh = rh * scale;
+        int sy = mc.displayHeight - absEndY * scale;
+        int sw = Math.max(0, (absEndX - absX) * scale);
+        int sh = Math.max(0, (absEndY - absY) * scale);
 
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(sx, sy, sw, sh);
