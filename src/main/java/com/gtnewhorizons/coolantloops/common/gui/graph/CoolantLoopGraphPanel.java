@@ -9,11 +9,11 @@ import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.utils.Color;
 import com.cleanroommc.modularui.value.sync.PanelSyncManager;
 import com.cleanroommc.modularui.value.sync.StringSyncValue;
-import com.cleanroommc.modularui.widget.DragHandle;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ItemDisplayWidget;
 import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
+import com.gtnewhorizons.coolantloops.common.gui.PanelDragHandle;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 
 import gregtech.api.enums.ItemList;
@@ -27,7 +27,12 @@ public class CoolantLoopGraphPanel {
     public static final String PANEL_NAME = "coolantLoopGraphPanel";
 
     public static ModularPanel createPanel(PanelSyncManager syncManager, ModularPanel parent, MTECoolantPump pump) {
-        ModularPanel panel = new ModularPanel(PANEL_NAME).relativeToScreen()
+        ModularPanel panel = new ModularPanel(PANEL_NAME) {
+            @Override
+            public boolean isDraggable() {
+                return false;
+            }
+        }.relativeToScreen()
             .center()
             .size(380, 250)
             .resizeableOnDrag(true);
@@ -56,17 +61,14 @@ public class CoolantLoopGraphPanel {
                     .size(16, 16)
                     .displayAmount(false)
                     .marginRight(4))
-            // Title text
+            // Title text & draggable header area
             .child(
-                new TextWidget<>(
-                    IKey.str(
-                        EnumChatFormatting.BOLD + StatCollector.translateToLocal("coolantloops.gui.title.loop_graph")))
-                            .color(Color.WHITE.main)
-                            .height(14)
-                            .marginRight(6))
-            // Draggable header area
-            .child(
-                new DragHandle().expanded()
+                new PanelDragHandle(panel)
+                    .title(
+                        IKey.str(
+                            EnumChatFormatting.BOLD + StatCollector.translateToLocal("coolantloops.gui.title.loop_graph")))
+                    .color(Color.WHITE.main)
+                    .expanded()
                     .height(14))
             // Zoom Out button
             .child(
