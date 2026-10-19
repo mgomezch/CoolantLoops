@@ -21,6 +21,8 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public class RenderBlockManifold implements ISimpleBlockRenderingHandler {
 
+    public static final ThreadLocal<AxisAlignedBB> CURRENT_BOUNDS = new ThreadLocal<>();
+
     public static int renderID = -1;
 
     public static void init() {
@@ -54,44 +56,54 @@ public class RenderBlockManifold implements ISimpleBlockRenderingHandler {
             final float min = (1.0F - t) / 2.0F;
             final float max = 1.0F - min;
 
-            // Center small hub
-            renderer.setRenderBounds(min, min, min, max, max, max);
-            renderer.renderStandardBlock(block, x, y, z);
+            try {
+                // Center small hub
+                renderBox(renderer, block, x, y, z, min, min, min, max, max, max);
 
-            // Thin wire branches to connected sides
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST)) {
-                renderer.setRenderBounds(0.0F, min, min, min, max, max);
-                renderer.renderStandardBlock(block, x, y, z);
+                // Thin wire branches to connected sides
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.WEST)) {
+                    renderBox(renderer, block, x, y, z, 0.0F, min, min, min, max, max);
+                }
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST)) {
+                    renderBox(renderer, block, x, y, z, max, min, min, 1.0F, max, max);
+                }
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.DOWN)) {
+                    renderBox(renderer, block, x, y, z, min, 0.0F, min, max, min, max);
+                }
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.UP)) {
+                    renderBox(renderer, block, x, y, z, min, max, min, max, 1.0F, max);
+                }
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH)) {
+                    renderBox(renderer, block, x, y, z, min, min, 0.0F, max, max, min);
+                }
+                if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH)) {
+                    renderBox(renderer, block, x, y, z, min, min, max, max, max, 1.0F);
+                }
+                return true;
+            } finally {
+                CURRENT_BOUNDS.remove();
             }
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.EAST)) {
-                renderer.setRenderBounds(max, min, min, 1.0F, max, max);
-                renderer.renderStandardBlock(block, x, y, z);
-            }
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.DOWN)) {
-                renderer.setRenderBounds(min, 0.0F, min, max, min, max);
-                renderer.renderStandardBlock(block, x, y, z);
-            }
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.UP)) {
-                renderer.setRenderBounds(min, max, min, max, 1.0F, max);
-                renderer.renderStandardBlock(block, x, y, z);
-            }
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH)) {
-                renderer.setRenderBounds(min, min, 0.0F, max, max, min);
-                renderer.renderStandardBlock(block, x, y, z);
-            }
-            if (manifold.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH)) {
-                renderer.setRenderBounds(min, min, max, max, max, 1.0F);
-                renderer.renderStandardBlock(block, x, y, z);
-            }
-            return true;
         }
 
         List<AxisAlignedBB> boxes = manifold.getComponentBoundingBoxes(0, 0, 0);
-        for (AxisAlignedBB box : boxes) {
-            renderer.setRenderBounds(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
-            renderer.renderStandardBlock(block, x, y, z);
+        try {
+            for (AxisAlignedBB box : boxes) {
+                CURRENT_BOUNDS.set(box);
+                renderer.setRenderBounds(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+                renderer.renderStandardBlock(block, x, y, z);
+            }
+        } finally {
+            CURRENT_BOUNDS.remove();
         }
         return true;
+    }
+
+    private static void renderBox(RenderBlocks renderer, Block block, int x, int y, int z, double minX, double minY,
+        double minZ, double maxX, double maxY, double maxZ) {
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
+        CURRENT_BOUNDS.set(box);
+        renderer.setRenderBounds(minX, minY, minZ, maxX, maxY, maxZ);
+        renderer.renderStandardBlock(block, x, y, z);
     }
 
     @Override

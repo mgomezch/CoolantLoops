@@ -2,6 +2,7 @@ package com.gtnewhorizons.coolantloops.common.block;
 
 import java.util.List;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.creativetab.CreativeTabs;
@@ -59,6 +60,49 @@ public class BlockManifold extends BlockContainer {
     @Override
     public boolean isOpaqueCube() {
         return false;
+    }
+
+    @Override
+    @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public boolean shouldSideBeRendered(IBlockAccess world, int x, int y, int z, int side) {
+        AxisAlignedBB box = RenderBlockManifold.CURRENT_BOUNDS.get();
+        if (box != null) {
+            double eps = 1e-4;
+            boolean atBoundary = switch (side) {
+                case 0 -> box.minY <= eps;
+                case 1 -> box.maxY >= 1.0 - eps;
+                case 2 -> box.minZ <= eps;
+                case 3 -> box.maxZ >= 1.0 - eps;
+                case 4 -> box.minX <= eps;
+                case 5 -> box.maxX >= 1.0 - eps;
+                default -> false;
+            };
+
+            // Non-boundary facets (recessed inside the block volume) must never be culled.
+            if (!atBoundary) {
+                return true;
+            }
+
+            // Boundary facets adjacent to a full opaque cube are culled to prevent z-fighting.
+            Block neighbor = world.getBlock(x, y, z);
+            if (neighbor.isOpaqueCube()) {
+                return false;
+            }
+
+            // Boundary facets connecting to another connected manifold block are culled to form a seamless junction.
+            if (neighbor == this) {
+                TileEntity te = world.getTileEntity(x, y, z);
+                if (te instanceof TileEntityManifold neighborManifold) {
+                    ForgeDirection opp = ForgeDirection.getOrientation(side).getOpposite();
+                    if (neighborManifold.isConnected(opp)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+        return super.shouldSideBeRendered(world, x, y, z, side);
     }
 
     @Override
