@@ -9,10 +9,12 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityCreativeHeatReservoir;
+import com.gtnewhorizons.modularui.api.UIInfos;
 
 /**
  * Creative Heat Reservoir Block.
- * Shift-right clicking with empty hand cycles preset temperatures (100C, 300C, 600C, 1000C, 20C).
+ * Right-clicking opens the ModularUI window to configure target temperature and heat-transfer area.
+ * Sneak-right clicking with an empty hand cycles preset temperatures (20C, 100C, 300C, 600C, 1000C).
  */
 public class BlockCreativeHeatReservoir extends BlockContainer {
 
@@ -49,34 +51,36 @@ public class BlockCreativeHeatReservoir extends BlockContainer {
     @Override
     public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player, int side, float hitX,
         float hitY, float hitZ) {
-        if (!world.isRemote) {
-            TileEntity te = world.getTileEntity(x, y, z);
-            if (te instanceof TileEntityCreativeHeatReservoir) {
-                TileEntityCreativeHeatReservoir res = (TileEntityCreativeHeatReservoir) te;
-                if (player.isSneaking()) {
-                    // Cycle temperatures: 20 -> 100 -> 300 -> 600 -> 1000 -> 20
-                    double current = res.getDeviceTemperatureCelsius();
-                    double next;
-                    if (current < 50.0) next = 100.0;
-                    else if (current < 200.0) next = 300.0;
-                    else if (current < 450.0) next = 600.0;
-                    else if (current < 800.0) next = 1000.0;
-                    else next = 20.0;
+        TileEntity te = world.getTileEntity(x, y, z);
+        if (!(te instanceof TileEntityCreativeHeatReservoir)) {
+            return false;
+        }
 
-                    res.setTargetTemperatureCelsius(next);
-                    player.addChatMessage(
-                        new ChatComponentText(
-                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
-                                .format("coolantloops.chat.creative_reservoir.temp_set", next)));
-                } else {
-                    player.addChatMessage(
-                        new ChatComponentText(
-                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
-                                "coolantloops.chat.creative_reservoir.info",
-                                res.getDeviceTemperatureCelsius(),
-                                res.getHeatTransferArea())));
-                }
+        if (player != null && player.isSneaking()) {
+            if (player.getHeldItem() != null) {
+                return false;
             }
+            if (!world.isRemote) {
+                TileEntityCreativeHeatReservoir res = (TileEntityCreativeHeatReservoir) te;
+                double current = res.getDeviceTemperatureCelsius();
+                double next;
+                if (current < 50.0) next = 100.0;
+                else if (current < 200.0) next = 300.0;
+                else if (current < 450.0) next = 600.0;
+                else if (current < 800.0) next = 1000.0;
+                else next = 20.0;
+
+                res.setTargetTemperatureCelsius(next);
+                player.addChatMessage(
+                    new ChatComponentText(
+                        com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                            .format("coolantloops.chat.creative_reservoir.temp_set", next)));
+            }
+            return true;
+        }
+
+        if (!world.isRemote && player != null) {
+            UIInfos.TILE_MODULAR_UI.open(player, world, x, y, z);
         }
         return true;
     }

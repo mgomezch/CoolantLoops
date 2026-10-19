@@ -120,6 +120,18 @@ coolantloops.manifold.plane.xy=XY (north-south normal)
 coolantloops.chat.creative_reservoir.temp_set=Creative heat reservoir: Temperature set to %.1f °C
 coolantloops.chat.creative_reservoir.info=Creative heat reservoir: Current temp = %.1f °C, area = %.1f m^2 (sneak-click to cycle temp)
 
+# Creative heat reservoir GUI
+coolantloops.gui.creative_reservoir.title=Creative heat reservoir
+coolantloops.gui.creative_reservoir.temperature=Target temperature:
+coolantloops.gui.creative_reservoir.area=Heat-transfer area:
+coolantloops.gui.creative_reservoir.btn.decrease_temp=Decrease target temperature\nLeft-click: -10 °C\nShift-click: -100 °C\nCtrl-click: -1000 °C\nRight-click: -1 °C
+coolantloops.gui.creative_reservoir.btn.increase_temp=Increase target temperature\nLeft-click: +10 °C\nShift-click: +100 °C\nCtrl-click: +1000 °C\nRight-click: +1 °C
+coolantloops.gui.creative_reservoir.btn.decrease_area=Decrease heat-transfer area\nLeft-click: -1.0 m²\nShift-click: -10.0 m²\nCtrl-click: -100.0 m²\nRight-click: -0.1 m²
+coolantloops.gui.creative_reservoir.btn.increase_area=Increase heat-transfer area\nLeft-click: +1.0 m²\nShift-click: +10.0 m²\nCtrl-click: +100.0 m²\nRight-click: +0.1 m²
+coolantloops.gui.creative_reservoir.input.temp_tooltip=Target temperature in °C (min: -273.15 °C)\nRight-click to clear
+coolantloops.gui.creative_reservoir.input.area_tooltip=Heat-transfer area in m² (min: 0.1 m²)\nRight-click to clear
+coolantloops.gui.creative_reservoir.status=Setting: %.1f °C | Area: %.2f m²
+
 # Scanner / Info Data for Coolant Loop Pump
 gt.scanner.coolant_pump.state=State: %s
 gt.scanner.coolant_pump.discharge_hatch=Discharge hatch: %s
