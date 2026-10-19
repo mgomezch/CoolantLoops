@@ -81,6 +81,48 @@ public class LoopSegment {
     }
 
     private long capacityLiters = 0L;
+    private int blockX = Integer.MIN_VALUE;
+    private int blockY = Integer.MIN_VALUE;
+    private int blockZ = Integer.MIN_VALUE;
+
+    public void setPosition(int x, int y, int z) {
+        this.blockX = x;
+        this.blockY = y;
+        this.blockZ = z;
+    }
+
+    public boolean hasPosition() {
+        if (blockX != Integer.MIN_VALUE) {
+            return true;
+        }
+        if (id != null && id.startsWith("pipe_")) {
+            String[] parts = id.split("_");
+            if (parts.length == 4) {
+                try {
+                    blockX = Integer.parseInt(parts[1]);
+                    blockY = Integer.parseInt(parts[2]);
+                    blockZ = Integer.parseInt(parts[3]);
+                    return true;
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return false;
+    }
+
+    public int getBlockX() {
+        if (!hasPosition()) return 0;
+        return blockX;
+    }
+
+    public int getBlockY() {
+        if (!hasPosition()) return 0;
+        return blockY;
+    }
+
+    public int getBlockZ() {
+        if (!hasPosition()) return 0;
+        return blockZ;
+    }
 
     public long getCapacityLiters() {
         if (capacityLiters > 0) {

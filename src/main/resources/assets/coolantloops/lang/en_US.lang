@@ -184,7 +184,7 @@ coolantloops.pump.status.loop_active=Loop active: %d pipe segments, %d devices (
 coolantloops.pump.status.refuse_solidify_coolant=Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.
 
 coolantloops.pump.status.catastrophic_fuel=Catastrophic pump failure: %s is a liquid nuclear fuel, not a coolant! Impeller disintegrated!
-coolantloops.pump.status.catastrophic_solidification=Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.
+coolantloops.pump.status.catastrophic_solidification=Catastrophic coolant solidification: Coolant temperature (%.1f °C) dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug ruptured loop.
 coolantloops.pump.status.catastrophic_melt=Catastrophic pump failure: Coolant temperature (%.1f °C) exceeded impeller melting point (%.1f °C) for %s! Impeller melted!
 
 # Rotor Tooltip Impeller Thermal Limits

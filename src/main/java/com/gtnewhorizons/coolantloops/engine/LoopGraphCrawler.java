@@ -854,16 +854,17 @@ public class LoopGraphCrawler {
                             if (!devices.contains(tile)) {
                                 devices.add(tile);
                             }
-                            segments.add(
-                                new LoopSegment(
-                                    tile.getDeviceId(),
-                                    1.0,
-                                    0.10,
-                                    0.000045,
-                                    tile.getMinorLossK(),
-                                    500.0,
-                                    2000.0,
-                                    tile.getDeviceTemperatureCelsius()));
+                            LoopSegment manSeg = new LoopSegment(
+                                tile.getDeviceId(),
+                                1.0,
+                                0.10,
+                                0.000045,
+                                tile.getMinorLossK(),
+                                500.0,
+                                2000.0,
+                                tile.getDeviceTemperatureCelsius());
+                            manSeg.setPosition(tile.xCoord, tile.yCoord, tile.zCoord);
+                            segments.add(manSeg);
                         }
                         allManifoldGroups.add(mg);
 
@@ -1044,6 +1045,7 @@ public class LoopGraphCrawler {
                         seg.setCapacityLiters(pipe.mCapacity);
                     }
                     seg.setFlowSizeWeight(getPipeSizeWeight(pipe.mThickNess) * Math.max(1, pipe.mPipeAmount));
+                    seg.setPosition(step.x, step.y, step.z);
                     segments.add(seg);
 
                     String pipeNodeId = String.format("pipe_%d_%d_%d", step.x, step.y, step.z);
@@ -1130,6 +1132,7 @@ public class LoopGraphCrawler {
                                 500.0,
                                 2000.0,
                                 phe.getDeviceTemperatureCelsius());
+                            devSeg.setPosition(step.x, step.y, step.z);
                             segments.add(devSeg);
 
                             MTEHatchPressurizedFluid outlet = phe.getPrimaryOutlet();
@@ -1177,6 +1180,7 @@ public class LoopGraphCrawler {
                                 500.0,
                                 2000.0,
                                 degasser.getDeviceTemperatureCelsius());
+                            devSeg.setPosition(step.x, step.y, step.z);
                             segments.add(devSeg);
 
                             MTEHatchPressurizedFluid outlet = degasser.getPrimaryOutlet();
@@ -1226,6 +1230,7 @@ public class LoopGraphCrawler {
                                 bath.getDeviceTemperatureCelsius());
                             devSeg.setCapacityLiters(bath.getFillVolumeLiters());
                             devSeg.setCustomVolumeM3(bath.getFillVolumeLiters() / 1000.0);
+                            devSeg.setPosition(step.x, step.y, step.z);
                             segments.add(devSeg);
 
                             MTEHatchPressurizedFluid outlet = bath.getPrimaryOutlet();
@@ -1285,6 +1290,7 @@ public class LoopGraphCrawler {
                             500.0,
                             3200.0,
                             passage.getDeviceTemperatureCelsius());
+                        devSeg.setPosition(step.x, step.y, step.z);
                         segments.add(devSeg);
 
                         visitedPipeAndDevicePositions
@@ -1344,6 +1350,7 @@ public class LoopGraphCrawler {
                         500.0,
                         2000.0,
                         device.getDeviceTemperatureCelsius());
+                    devSeg.setPosition(step.x, step.y, step.z);
                     segments.add(devSeg);
 
                     addGraphNode(graphNodes, device.getDeviceId(), NodeType.DEVICE, device);

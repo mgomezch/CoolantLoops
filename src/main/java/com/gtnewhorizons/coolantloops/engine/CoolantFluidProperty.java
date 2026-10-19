@@ -19,6 +19,7 @@ public class CoolantFluidProperty {
     private final double freezingPointCelsius; // deg C at 1 atm
     private final boolean isMolten;
     private final double radiolysisMultiplier;
+    private final boolean spillOnRupture;
 
     private static final Map<String, CoolantFluidProperty> REGISTRY = new HashMap<>();
 
@@ -36,12 +37,29 @@ public class CoolantFluidProperty {
                 || "sodium".equalsIgnoreCase(fluidName)
                 || (fluidName != null && fluidName.toLowerCase()
                     .startsWith("molten.")),
-            1.0);
+            1.0,
+            true);
     }
 
     public CoolantFluidProperty(String fluidName, double density, double dynamicViscosity, double specificHeat,
         double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
         double radiolysisMultiplier) {
+        this(
+            fluidName,
+            density,
+            dynamicViscosity,
+            specificHeat,
+            thermalConductivity,
+            boilingPointCelsius,
+            freezingPointCelsius,
+            isMolten,
+            radiolysisMultiplier,
+            true);
+    }
+
+    public CoolantFluidProperty(String fluidName, double density, double dynamicViscosity, double specificHeat,
+        double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
+        double radiolysisMultiplier, boolean spillOnRupture) {
         this.fluidName = fluidName;
         this.density = density;
         this.dynamicViscosity = dynamicViscosity;
@@ -51,6 +69,7 @@ public class CoolantFluidProperty {
         this.freezingPointCelsius = freezingPointCelsius;
         this.isMolten = isMolten;
         this.radiolysisMultiplier = radiolysisMultiplier;
+        this.spillOnRupture = spillOnRupture;
     }
 
     public static void register(CoolantFluidProperty property) {
@@ -216,6 +235,10 @@ public class CoolantFluidProperty {
 
     public double getRadiolysisMultiplier() {
         return radiolysisMultiplier;
+    }
+
+    public boolean isSpillOnRupture() {
+        return spillOnRupture;
     }
 
     public double getDeclaredTemperatureCelsius() {

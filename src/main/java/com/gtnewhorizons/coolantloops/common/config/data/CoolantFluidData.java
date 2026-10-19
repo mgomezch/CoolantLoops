@@ -21,6 +21,7 @@ public class CoolantFluidData {
         private double freezingPointCelsius = 0.0;
         private boolean isMolten = false;
         private double radiolysisMultiplier = 1.0;
+        private boolean spillOnRupture = true;
         private List<String> aliases = new ArrayList<>();
 
         public FluidPropertyEntry() {}
@@ -28,6 +29,13 @@ public class CoolantFluidData {
         public FluidPropertyEntry(String fluidName, double density, double dynamicViscosity, double specificHeat,
             double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
             double radiolysisMultiplier, List<String> aliases) {
+            this(fluidName, density, dynamicViscosity, specificHeat, thermalConductivity, boilingPointCelsius,
+                freezingPointCelsius, isMolten, radiolysisMultiplier, true, aliases);
+        }
+
+        public FluidPropertyEntry(String fluidName, double density, double dynamicViscosity, double specificHeat,
+            double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
+            double radiolysisMultiplier, boolean spillOnRupture, List<String> aliases) {
             this.fluidName = fluidName;
             this.density = density;
             this.dynamicViscosity = dynamicViscosity;
@@ -37,6 +45,7 @@ public class CoolantFluidData {
             this.freezingPointCelsius = freezingPointCelsius;
             this.isMolten = isMolten;
             this.radiolysisMultiplier = radiolysisMultiplier;
+            this.spillOnRupture = spillOnRupture;
             if (aliases != null) {
                 this.aliases.addAll(aliases);
             }
@@ -53,6 +62,7 @@ public class CoolantFluidData {
             map.put("freezingPointCelsius", freezingPointCelsius);
             map.put("isMolten", isMolten);
             map.put("radiolysisMultiplier", radiolysisMultiplier);
+            map.put("spillOnRupture", spillOnRupture);
             map.put("aliases", aliases);
             return map;
         }
@@ -94,6 +104,11 @@ public class CoolantFluidData {
             if (map.containsKey("isMolten")) entry.isMolten = Boolean.TRUE.equals(map.get("isMolten"));
             if (map.containsKey("radiolysisMultiplier"))
                 entry.radiolysisMultiplier = ((Number) map.get("radiolysisMultiplier")).doubleValue();
+            if (map.containsKey("spillOnRupture")) {
+                entry.spillOnRupture = Boolean.TRUE.equals(map.get("spillOnRupture"));
+            } else if (map.containsKey("spill_on_rupture")) {
+                entry.spillOnRupture = Boolean.TRUE.equals(map.get("spill_on_rupture"));
+            }
 
             if (map.containsKey("aliases") && map.get("aliases") instanceof List) {
                 entry.aliases = new ArrayList<>();
@@ -174,6 +189,14 @@ public class CoolantFluidData {
 
         public void setRadiolysisMultiplier(double radiolysisMultiplier) {
             this.radiolysisMultiplier = radiolysisMultiplier;
+        }
+
+        public boolean isSpillOnRupture() {
+            return spillOnRupture;
+        }
+
+        public void setSpillOnRupture(boolean spillOnRupture) {
+            this.spillOnRupture = spillOnRupture;
         }
 
         public List<String> getAliases() {

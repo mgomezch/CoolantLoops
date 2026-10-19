@@ -34,6 +34,7 @@ public class CoolantLoopEngine {
 
     // Simulation status
     private boolean isRuptured = false;
+    private LoopSegment rupturedSegment = null;
     private String failureReason = null;
     private double peakLoopPressureBar = 0.0;
     private double peakLoopTempCelsius = 20.0;
@@ -182,6 +183,7 @@ public class CoolantLoopEngine {
         volumetricFlowRate = 0.0;
         maxVolumetricFlowRate = Double.MAX_VALUE;
         isRuptured = false;
+        rupturedSegment = null;
         failureReason = null;
     }
 
@@ -262,6 +264,17 @@ public class CoolantLoopEngine {
 
     public void setRuptured(boolean ruptured) {
         this.isRuptured = ruptured;
+        if (!ruptured) {
+            this.rupturedSegment = null;
+        }
+    }
+
+    public LoopSegment getRupturedSegment() {
+        return rupturedSegment;
+    }
+
+    public void setRupturedSegment(LoopSegment rupturedSegment) {
+        this.rupturedSegment = rupturedSegment;
     }
 
     public String getFailureReason() {
@@ -420,6 +433,7 @@ public class CoolantLoopEngine {
             // Burst limit check
             if (pressureBar > segment.getMaxPressureBar()) {
                 isRuptured = true;
+                rupturedSegment = segment;
                 failureReason = String.format(
                     "Pipe segment %s burst! Pressure %.2f bar exceeded maximum rating %.2f bar",
                     segment.getId(),
@@ -431,6 +445,7 @@ public class CoolantLoopEngine {
             // Thermal limit check
             if (segment.getCurrentTemperatureCelsius() > segment.getMaxTemperatureCelsius()) {
                 isRuptured = true;
+                rupturedSegment = segment;
                 failureReason = String.format(
                     "Pipe segment %s melted! Temperature %.1f C exceeded maximum rating %.1f C",
                     segment.getId(),
@@ -439,8 +454,8 @@ public class CoolantLoopEngine {
                 return;
             }
 
-            // Solidification/freezing check for loop coolant (clogged circulating loop explodes)
-            if (fluid != null) {
+            // Solidification/freezing check for loop coolant
+            if (fluid != null && !fluid.isLava()) {
                 double freezingTemp = fluid.getFreezingPointCelsius();
                 if (fluid.isMolten()) {
                     freezingTemp = Math.max(freezingTemp, fluid.getDeclaredTemperatureCelsius());
@@ -448,16 +463,17 @@ public class CoolantLoopEngine {
                 if (freezingTemp != Double.NEGATIVE_INFINITY && Double.isFinite(freezingTemp)
                     && segment.getCurrentTemperatureCelsius() < freezingTemp) {
                     isRuptured = true;
+                    rupturedSegment = segment;
                     if (fluid.isMolten()) {
                         failureReason = String.format(
-                            "Catastrophic coolant solidification: Coolant temperature (%.1f °C) in segment %s dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug clogged circulating loop.",
+                            "Catastrophic coolant solidification: Coolant temperature (%.1f °C) in segment %s dropped below declared GregTech melting point (%.1f °C) for %s! Solidified plug ruptured loop.",
                             segment.getCurrentTemperatureCelsius(),
                             segment.getId(),
                             freezingTemp,
                             fluid.getFluidName());
                     } else {
                         failureReason = String.format(
-                            "Catastrophic coolant freezing: Coolant temperature (%.1f °C) in segment %s dropped below freezing point (%.1f °C) for %s! Solidified ice/plug clogged and ruptured circulating loop.",
+                            "Catastrophic coolant freezing: Coolant temperature (%.1f °C) in segment %s dropped below freezing point (%.1f °C) for %s! Solidified ice/plug ruptured loop.",
                             segment.getCurrentTemperatureCelsius(),
                             segment.getId(),
                             freezingTemp,

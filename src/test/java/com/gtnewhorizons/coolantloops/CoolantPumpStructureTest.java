@@ -1172,4 +1172,219 @@ public class CoolantPumpStructureTest {
                         .getFluid()),
                 Mockito.any());
     }
+
+    @Test
+    public void testUnpoweredPumpRupturesCatastrophically() {
+        // Test that loop rupture occurs regardless of whether the pump is powered or unpowered
+        MTECoolantPump pump = new MTECoolantPump("test_pump_unpowered_rupture");
+        IGregTechTileEntity mockPumpBase = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(false); // unpowered / stopped by user
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+
+        LoopSegment seg = new LoopSegment("sodium_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 50.0); // 50 °C < 97.8 °C (freezing point of sodium)
+        pump.getEngine()
+            .addSegment(seg);
+        pump.getEngine()
+            .setFluid(CoolantFluidProperty.SODIUM);
+        pump.setCurrentFillLiters(1000L);
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+
+        boolean stepResult = pump.stepCoolantLoop();
+        assertFalse(stepResult, "Unpowered loop with solidified fluid must fail");
+        assertTrue(
+            pump.getEngine()
+                .isRuptured(),
+            "Engine must be marked ruptured");
+        assertEquals(MTECoolantPump.LoopState.FAILED, pump.getLoopState(), "Pump state must be FAILED");
+        assertNotNull(
+            pump.getEngine()
+                .getRupturedSegment());
+        assertEquals(
+            "sodium_seg",
+            pump.getEngine()
+                .getRupturedSegment()
+                .getId());
+    }
+
+    @Test
+    public void testFluidSpillOnRupturePlacesSourceBlocksAndNotifiesNeighbors() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_fluid_spill");
+        IGregTechTileEntity mockPumpBase = Mockito.mock(IGregTechTileEntity.class);
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        mockWorld.isRemote = false;
+
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.getWorld())
+            .thenReturn(mockWorld);
+        Mockito.when(mockPumpBase.getXCoord())
+            .thenReturn(10);
+        Mockito.when(mockPumpBase.getYCoord())
+            .thenReturn((short) 64);
+        Mockito.when(mockPumpBase.getZCoord())
+            .thenReturn(10);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+
+        // Fluid water can be placed in world
+        net.minecraftforge.fluids.Fluid waterFluid = net.minecraftforge.fluids.FluidRegistry.WATER;
+        assertNotNull(waterFluid);
+        assertTrue(waterFluid.canBePlacedInWorld());
+        net.minecraft.block.Block fluidBlock = waterFluid.getBlock();
+        assertNotNull(fluidBlock);
+
+        // Adjacent position (11, 64, 10) is an empty air block
+        Mockito.when(mockWorld.isAirBlock(11, 64, 10))
+            .thenReturn(true);
+
+        LoopSegment seg = new LoopSegment("burst_seg", 10.0, 0.2, 0.0001, 1.0, 5.0, 1000.0, 20.0);
+        seg.setPosition(10, 64, 10);
+        pump.getEngine()
+            .addSegment(seg);
+        pump.getEngine()
+            .setFluid(CoolantFluidProperty.WATER);
+        pump.setCurrentFillLiters(1000L);
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+
+        // Simulate overpressure burst (> 5 bar rating)
+        pump.getEngine()
+            .setVolumetricFlowRate(1.0);
+        pump.getEngine()
+            .setRuptured(true);
+        pump.getEngine()
+            .setRupturedSegment(seg);
+        pump.getEngine()
+            .setFailureReason("Pipe segment burst");
+
+        // Ruptures and spills fluid
+        boolean result = pump.stepCoolantLoop();
+        assertFalse(result);
+        assertEquals(MTECoolantPump.LoopState.FAILED, pump.getLoopState());
+
+        // Verify fluid placement and block update
+        Mockito.verify(mockWorld, Mockito.atLeastOnce())
+            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(fluidBlock), Mockito.eq(0), Mockito.eq(3));
+        Mockito.verify(mockWorld, Mockito.atLeastOnce())
+            .notifyBlocksOfNeighborChange(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(fluidBlock));
+        Mockito.verify(mockWorld, Mockito.atLeastOnce())
+            .markBlockForUpdate(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt());
+    }
+
+    @Test
+    public void testSpillOnRuptureDisabledConfig() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_no_spill");
+        IGregTechTileEntity mockPumpBase = Mockito.mock(IGregTechTileEntity.class);
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        mockWorld.isRemote = false;
+
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.getWorld())
+            .thenReturn(mockWorld);
+        Mockito.when(mockPumpBase.getXCoord())
+            .thenReturn(10);
+        Mockito.when(mockPumpBase.getYCoord())
+            .thenReturn((short) 64);
+        Mockito.when(mockPumpBase.getZCoord())
+            .thenReturn(10);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+
+        Mockito.when(mockWorld.isAirBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(true);
+
+        // Custom property with spillOnRupture = false
+        CoolantFluidProperty noSpillProp = new CoolantFluidProperty(
+            "water_no_spill",
+            1000.0,
+            0.001,
+            4184.0,
+            0.606,
+            100.0,
+            0.0,
+            false,
+            1.0,
+            false);
+        CoolantFluidProperty.register(noSpillProp);
+
+        LoopSegment seg = new LoopSegment("burst_seg", 10.0, 0.2, 0.0001, 1.0, 5.0, 1000.0, 20.0);
+        pump.getEngine()
+            .addSegment(seg);
+        pump.getEngine()
+            .setFluid(noSpillProp);
+        pump.setCurrentFillLiters(1000L);
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+
+        pump.getEngine()
+            .setRuptured(true);
+        pump.getEngine()
+            .setFailureReason("Pipe burst");
+
+        boolean result = pump.stepCoolantLoop();
+        assertFalse(result);
+        assertEquals(MTECoolantPump.LoopState.FAILED, pump.getLoopState());
+
+        // Verify setBlock was NEVER called because spillOnRupture is false
+        Mockito.verify(mockWorld, Mockito.never())
+            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.any(), Mockito.anyInt(), Mockito.anyInt());
+    }
+
+    @Test
+    public void testSpillOnRuptureGracefullySkipsWhenNoAirBlocks() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_no_air");
+        IGregTechTileEntity mockPumpBase = Mockito.mock(IGregTechTileEntity.class);
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        mockWorld.isRemote = false;
+
+        Mockito.when(mockPumpBase.isAllowedToWork())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.isServerSide())
+            .thenReturn(true);
+        Mockito.when(mockPumpBase.getWorld())
+            .thenReturn(mockWorld);
+        Mockito.when(mockPumpBase.getXCoord())
+            .thenReturn(10);
+        Mockito.when(mockPumpBase.getYCoord())
+            .thenReturn((short) 64);
+        Mockito.when(mockPumpBase.getZCoord())
+            .thenReturn(10);
+        pump.setBaseMetaTileEntity(mockPumpBase);
+        pump.setLoopFormed(true);
+
+        // No air blocks and no replaceable blocks around
+        Mockito.when(mockWorld.isAirBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(false);
+        net.minecraft.block.Block solidBlock = Mockito.mock(net.minecraft.block.Block.class);
+        Mockito.when(solidBlock.isReplaceable(Mockito.any(), Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(false);
+        Mockito.when(mockWorld.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(solidBlock);
+
+        LoopSegment seg = new LoopSegment("burst_seg", 10.0, 0.2, 0.0001, 1.0, 5.0, 1000.0, 20.0);
+        pump.getEngine()
+            .addSegment(seg);
+        pump.getEngine()
+            .setFluid(CoolantFluidProperty.WATER);
+        pump.setCurrentFillLiters(1000L);
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+
+        pump.getEngine()
+            .setRuptured(true);
+        pump.getEngine()
+            .setFailureReason("Pipe burst");
+
+        // Should not throw any exception
+        assertDoesNotThrow(() -> pump.stepCoolantLoop());
+        assertEquals(MTECoolantPump.LoopState.FAILED, pump.getLoopState());
+        Mockito.verify(mockWorld, Mockito.never())
+            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.any(), Mockito.anyInt(), Mockito.anyInt());
+    }
 }

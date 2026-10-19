@@ -139,7 +139,12 @@ public class CoolantLoopDataRegistry {
     private static void loadFluids() {
         File file = new File(configFolder, "fluids.yaml");
         if (!file.exists()) {
-            writeDefaultFluids(file);
+            File alt = new File(configFolder, "coolants.yaml");
+            if (alt.exists()) {
+                file = alt;
+            } else {
+                writeDefaultFluids(file);
+            }
         }
         try (InputStreamReader reader = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
             Yaml yaml = createYaml();
@@ -169,6 +174,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 0.0\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"minecraft:water\"\n"
             + "\n"
@@ -182,6 +188,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 0.0\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"distilledwater\"\n"
             + "      - \"distilled_water\"\n"
@@ -197,6 +204,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 3.8\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"heavy_water\"\n"
             + "      - \"water.heavy\"\n"
@@ -211,6 +219,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: -25.0\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"coolant\"\n"
             + "\n"
@@ -224,6 +233,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 97.8\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"fluid.sodium\"\n"
             + "      - \"liquid.sodium\"\n"
@@ -238,6 +248,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 46.85\n"
             + "    isMolten: true\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"cheese\"\n"
             + "      - \"moltencheese\"\n"
@@ -252,6 +263,7 @@ public class CoolantLoopDataRegistry {
             + "    freezingPointCelsius: 1000.0\n"
             + "    isMolten: true\n"
             + "    radiolysisMultiplier: 1.0\n"
+            + "    spillOnRupture: true\n"
             + "    aliases:\n"
             + "      - \"fluid.lava\"\n"
             + "      - \"minecraft:lava\"\n"
@@ -437,7 +449,8 @@ public class CoolantLoopDataRegistry {
                 && isClose(canonical.getDynamicViscosity(), prop.getDynamicViscosity())
                 && isClose(canonical.getSpecificHeat(), prop.getSpecificHeat())
                 && isClose(canonical.getThermalConductivity(), prop.getThermalConductivity())
-                && canonical.isMolten() == prop.isMolten()) {
+                && canonical.isMolten() == prop.isMolten()
+                && canonical.isSpillOnRupture() == prop.isSpillOnRupture()) {
                 runtimeProp = canonical;
             } else {
                 runtimeProp = new CoolantFluidProperty(
@@ -449,7 +462,8 @@ public class CoolantLoopDataRegistry {
                     prop.getBoilingPointCelsius(),
                     prop.getFreezingPointCelsius(),
                     prop.isMolten(),
-                    prop.getRadiolysisMultiplier());
+                    prop.getRadiolysisMultiplier(),
+                    prop.isSpillOnRupture());
             }
 
             // Register primary name

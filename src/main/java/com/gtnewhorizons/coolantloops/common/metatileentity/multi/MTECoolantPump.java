@@ -1,8 +1,11 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
@@ -12,6 +15,8 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -790,8 +795,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setPumpMechanicalPowerWatts(0.0);
         mEngine.setBraking(false);
         mLoopStatus = ShutDownReasonRegistry.POWER_LOSS.getDisplayString();
+        return stepCoastingAndCheckRupture();
+    }
+
+    protected boolean stepCoastingAndCheckRupture() {
         mEngine.step(0.05);
         processCoastingThermalExchange();
+        if (mEngine.isRuptured()) {
+            triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
+            return false;
+        }
         return true;
     }
 
@@ -865,6 +878,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return true;
         }
 
+        if (mEngine.isRuptured()) {
+            triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
+            return false;
+        }
+
         IGregTechTileEntity baseTE = getBaseMetaTileEntity();
         if (baseTE == null) {
             return true;
@@ -900,9 +918,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mLoopStatus = CoolantLocalization
                     .format("coolantloops.pump.status.disabled_coasting", mEngine.getVolumetricFlowRate() * 1000.0);
             }
-            mEngine.step(0.05); // Fluid inertia coast-down
-            processCoastingThermalExchange();
-            return true; // Pauses/stops cleanly without explosion!
+            return stepCoastingAndCheckRupture();
         }
 
         // Validate fluid in reservoir / loop: liquid nuclear fuel fails pump and destroys impeller immediately!
@@ -912,9 +928,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 failOnLiquidNuclearFuel(
                     reservoirFluid.getFluid()
                         .getName());
-                mEngine.step(0.05);
-                processCoastingThermalExchange();
-                return true;
+                return stepCoastingAndCheckRupture();
             }
             if (isPlainRegularWater(reservoirFluid)) {
                 mLoopState = LoopState.STOPPED;
@@ -922,8 +936,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.setPumpMechanicalPowerWatts(0.0);
                 mEngine.setBraking(false);
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_water");
-                mEngine.step(0.05);
-                processCoastingThermalExchange();
                 return true;
             }
             if (isGaseousFluid(reservoirFluid)) {
@@ -935,8 +947,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     "coolantloops.pump.status.refuse_gas",
                     reservoirFluid.getFluid()
                         .getName());
-                mEngine.step(0.05);
-                processCoastingThermalExchange();
                 return true;
             }
             if (isLava(reservoirFluid)) {
@@ -947,8 +957,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
                     mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_lava");
-                    mEngine.step(0.05);
-                    processCoastingThermalExchange();
                     return true;
                 }
             }
@@ -959,9 +967,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 failOnLiquidNuclearFuel(
                     mEngine.getFluid()
                         .getFluidName());
-                mEngine.step(0.05);
-                processCoastingThermalExchange();
-                return true;
+                return stepCoastingAndCheckRupture();
             }
             if (mEngine.getFluid()
                 .isPlainWater()) {
@@ -970,8 +976,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mEngine.setPumpMechanicalPowerWatts(0.0);
                 mEngine.setBraking(false);
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_water");
-                mEngine.step(0.05);
-                processCoastingThermalExchange();
                 return true;
             }
             if (mEngine.getFluid()
@@ -983,8 +987,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setPumpMechanicalPowerWatts(0.0);
                     mEngine.setBraking(false);
                     mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.refuse_lava");
-                    mEngine.step(0.05);
-                    processCoastingThermalExchange();
                     return true;
                 }
             }
@@ -1012,9 +1014,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 reservoirFluid,
                 currentProp);
 
-            // Active circulation check: if circulating, dropping below melting point causes catastrophic solidification
-            // explosion!
-            if (mLoopState == LoopState.CIRCULATING || mEngine.getVolumetricFlowRate() > 1e-5) {
+            // If the loop contains fluid and temperature drops below melting point, catastrophic solidification rupture!
+            if (mCurrentFillLiters > 0 && !mEngine.getSegments().isEmpty()) {
                 double minLoopTemp = mEngine.getMinLoopTempCelsius();
                 if (minLoopTemp < declaredMelting) {
                     mEngine.setRuptured(true);
@@ -1024,12 +1025,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                             minLoopTemp,
                             declaredMelting,
                             currentProp != null ? currentProp.getFluidName() : "molten fluid"));
-                    triggerCatastrophicExplosion(mEngine.getFailureReason());
+                    triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
                     return false;
                 }
             } else {
-                // Not circulating (stopped, decelerating, filling, or about to accelerate): refuse to fill or
-                // accelerate!
+                // Loop is empty (before initial fill): refuse to fill if reservoir or segments are below melting point
                 double resTemp = mReservoir.getReservoirTemperatureCelsius();
                 if (Double.isNaN(resTemp)) {
                     resTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
@@ -1048,27 +1048,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         resTemp,
                         declaredMelting,
                         currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                    mEngine.step(0.05);
-                    processCoastingThermalExchange();
                     return true;
-                } else if (!mEngine.getSegments()
-                    .isEmpty()) {
-                        double minLoopTemp = mEngine.getMinLoopTempCelsius();
-                        if (minLoopTemp < declaredMelting) {
-                            mLoopState = LoopState.STOPPED;
-                            mEngine.setPumpPowered(false);
-                            mEngine.setPumpMechanicalPowerWatts(0.0);
-                            mEngine.setBraking(false);
-                            mLoopStatus = CoolantLocalization.format(
-                                "coolantloops.pump.status.refuse_solidify_coolant",
-                                minLoopTemp,
-                                declaredMelting,
-                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                            mEngine.step(0.05);
-                            processCoastingThermalExchange();
-                            return true;
-                        }
+                } else if (!mEngine.getSegments().isEmpty()) {
+                    double minLoopTemp = mEngine.getMinLoopTempCelsius();
+                    if (minLoopTemp < declaredMelting) {
+                        mLoopState = LoopState.STOPPED;
+                        mEngine.setPumpPowered(false);
+                        mEngine.setPumpMechanicalPowerWatts(0.0);
+                        mEngine.setBraking(false);
+                        mLoopStatus = CoolantLocalization.format(
+                            "coolantloops.pump.status.refuse_solidify_coolant",
+                            minLoopTemp,
+                            declaredMelting,
+                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                        return true;
                     }
+                }
             }
         }
 
@@ -1079,9 +1074,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             mEngine.setPumpMechanicalPowerWatts(0.0);
             mEngine.setBraking(false);
             mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.missing_rotor");
-            mEngine.step(0.05); // Fluid inertia coast-down
-            processCoastingThermalExchange();
-            return true;
+            return stepCoastingAndCheckRupture();
         }
 
         // Impeller melting check: if fluid temperature exceeds impeller melting point, melt catastrophically!
@@ -1090,9 +1083,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         double th = RotorThermalHelper.calculateHomologousTemperature(pumpFluidTemp, rotorMat);
         if (RotorThermalHelper.isMelted(th)) {
             failOnImpellerMelting(pumpFluidTemp, rotorMat);
-            mEngine.step(0.05);
-            processCoastingThermalExchange();
-            return true;
+            return stepCoastingAndCheckRupture();
         }
 
         // Check if high-pressure output hatch is disabled by machine controller cover
@@ -1125,6 +1116,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
                 // Advance fluid mechanics with active motor braking
                 mEngine.step(0.05);
+
+                if (mEngine.isRuptured()) {
+                    triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
+                    return false;
+                }
 
                 if (mEngine.getVolumetricFlowRate() <= 1e-5) {
                     mEngine.setVolumetricFlowRate(0.0);
@@ -1276,43 +1272,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 reservoirFluid,
                 currentProp);
             if (minLoopTemp < declaredMelting) {
-                if (mEngine.getVolumetricFlowRate() > 1e-5) {
-                    mEngine.setRuptured(true);
-                    mEngine.setFailureReason(
-                        CoolantLocalization.format(
-                            "coolantloops.pump.status.catastrophic_solidification",
-                            minLoopTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid"));
-                    triggerCatastrophicExplosion(mEngine.getFailureReason());
-                    return false;
-                } else {
-                    double resTemp = mReservoir.getReservoirTemperatureCelsius();
-                    if (Double.isNaN(resTemp)) {
-                        resTemp = CoolantFluidHelper.getBaselineInletTemperatureCelsius(
-                            reservoirFluid != null ? reservoirFluid.getFluid() : null,
-                            reservoirFluid,
-                            currentProp,
-                            getBiomeTemperatureCelsius());
-                    }
-                    mLoopState = LoopState.STOPPED;
-                    mEngine.setPumpPowered(false);
-                    mEngine.setPumpMechanicalPowerWatts(0.0);
-                    if (resTemp < declaredMelting) {
-                        mLoopStatus = CoolantLocalization.format(
-                            "coolantloops.pump.status.refuse_solidify",
-                            resTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                    } else {
-                        mLoopStatus = CoolantLocalization.format(
-                            "coolantloops.pump.status.refuse_solidify_coolant",
-                            minLoopTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                    }
-                    return true;
-                }
+                mEngine.setRuptured(true);
+                mEngine.setFailureReason(
+                    CoolantLocalization.format(
+                        "coolantloops.pump.status.catastrophic_solidification",
+                        minLoopTemp,
+                        declaredMelting,
+                        currentProp != null ? currentProp.getFluidName() : "molten fluid"));
+                triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
+                return false;
             }
         }
 
@@ -1356,9 +1324,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             dev.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), seg);
         }
 
-        // Check for catastrophic rupture (only during active circulation under catastrophic overpressure)
+        // Check for catastrophic rupture
         if (mEngine.isRuptured()) {
-            triggerCatastrophicExplosion(mEngine.getFailureReason());
+            triggerCatastrophicExplosion(mEngine.getFailureReason(), mEngine.getRupturedSegment());
             return false;
         }
 
@@ -1374,20 +1342,116 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
      * Trigger catastrophic pump explosion and drain 80% of fluid from the Railcraft tank.
      */
     protected void triggerCatastrophicExplosion(String reason) {
+        triggerCatastrophicExplosion(reason, mEngine != null ? mEngine.getRupturedSegment() : null);
+    }
+
+    protected void triggerCatastrophicExplosion(String reason, LoopSegment rupturedSegment) {
+        // Drain 80% of fluid from tank above
+        drainFromReservoir((int) (getTotalCoolantLiters() * 0.80));
+
         IGregTechTileEntity te = getBaseMetaTileEntity();
-        if (te != null && !te.getWorld().isRemote) {
+        if (te != null && te.getWorld() != null && !te.getWorld().isRemote) {
             World world = te.getWorld();
             int x = te.getXCoord();
             int y = te.getYCoord();
             int z = te.getZCoord();
 
-            // Drain 80% of fluid from tank above
-            drainFromReservoir((int) (getTotalCoolantLiters() * 0.80));
-
             // Explosion scaled to peak loop pressure
             float explosionStrength = Math.min(25.0f, (float) (4.0f + mEngine.getPeakLoopPressureBar() / 10.0));
-            world.createExplosion(null, x + 0.5, y + 1.5, z + 0.5, explosionStrength, true);
-            te.doExplosion((long) (explosionStrength * 1000));
+            if (GregTechAPI.sMachineExplosions) {
+                world.createExplosion(null, x + 0.5, y + 1.5, z + 0.5, explosionStrength, true);
+                te.doExplosion((long) (explosionStrength * 1000));
+            }
+
+            spillCoolantFluid(world, rupturedSegment);
+        }
+
+        mLoopState = LoopState.FAILED;
+        mEngine.setPumpPowered(false);
+        mEngine.setPumpMechanicalPowerWatts(0.0);
+        mEngine.setBraking(false);
+        mLoopStatus = reason;
+    }
+
+    protected void spillCoolantFluid(World world, LoopSegment rupturedSegment) {
+        if (world == null || world.isRemote) {
+            return;
+        }
+
+        CoolantFluidProperty prop = mEngine.getFluid();
+        FluidStack reservoirFluid = getReservoirFluid();
+        if (prop == null && reservoirFluid != null && reservoirFluid.getFluid() != null) {
+            prop = CoolantFluidProperty.get(reservoirFluid.getFluid().getName());
+        }
+
+        // Check per-fluid configuration
+        if (prop != null && !prop.isSpillOnRupture()) {
+            return;
+        }
+
+        Fluid forgeFluid = null;
+        if (reservoirFluid != null && reservoirFluid.getFluid() != null) {
+            forgeFluid = reservoirFluid.getFluid();
+        } else if (prop != null) {
+            forgeFluid = FluidRegistry.getFluid(prop.getFluidName());
+        }
+
+        if (forgeFluid == null || !forgeFluid.canBePlacedInWorld()) {
+            return;
+        }
+
+        Block fluidBlock = forgeFluid.getBlock();
+        if (fluidBlock == null) {
+            return;
+        }
+
+        List<LoopGraphCrawler.BlockPosCoord> candidateOrigins = new ArrayList<>();
+        if (rupturedSegment != null && rupturedSegment.hasPosition()) {
+            candidateOrigins.add(new LoopGraphCrawler.BlockPosCoord(
+                rupturedSegment.getBlockX(),
+                rupturedSegment.getBlockY(),
+                rupturedSegment.getBlockZ()));
+        }
+
+        IGregTechTileEntity te = getBaseMetaTileEntity();
+        if (te != null) {
+            candidateOrigins.add(new LoopGraphCrawler.BlockPosCoord(
+                te.getXCoord(),
+                te.getYCoord(),
+                te.getZCoord()));
+        }
+
+        List<LoopGraphCrawler.BlockPosCoord> validSpillPositions = new ArrayList<>();
+        Set<LoopGraphCrawler.BlockPosCoord> seen = new HashSet<>();
+
+        for (LoopGraphCrawler.BlockPosCoord origin : candidateOrigins) {
+            for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+                int cx = origin.x + dir.offsetX;
+                int cy = origin.y + dir.offsetY;
+                int cz = origin.z + dir.offsetZ;
+                LoopGraphCrawler.BlockPosCoord candidate = new LoopGraphCrawler.BlockPosCoord(cx, cy, cz);
+                if (seen.add(candidate)) {
+                    if (world.isAirBlock(cx, cy, cz)
+                        || (world.getBlock(cx, cy, cz) != null && world.getBlock(cx, cy, cz).isReplaceable(world, cx, cy, cz))) {
+                        validSpillPositions.add(candidate);
+                    }
+                }
+            }
+        }
+
+        if (validSpillPositions.isEmpty()) {
+            return;
+        }
+
+        Collections.shuffle(validSpillPositions);
+        int randOffset = (world.rand != null) ? world.rand.nextInt(2) : 0;
+        int spillCount = Math.min(validSpillPositions.size(), 1 + randOffset);
+
+        for (int i = 0; i < spillCount; i++) {
+            LoopGraphCrawler.BlockPosCoord pos = validSpillPositions.get(i);
+            world.setBlock(pos.x, pos.y, pos.z, fluidBlock, 0, 3);
+            world.notifyBlocksOfNeighborChange(pos.x, pos.y, pos.z, fluidBlock);
+            world.markBlockForUpdate(pos.x, pos.y, pos.z);
         }
     }
 
