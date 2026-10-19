@@ -160,6 +160,24 @@ public class CoolantLoopPowerAndGuiTest {
         return (boolean) m.invoke(gui);
     }
 
+    private boolean invokeShouldDisplayVoidExcess(MTEMultiBlockBaseGui<?> gui) throws Exception {
+        Method m = MTEMultiBlockBaseGui.class.getDeclaredMethod("shouldDisplayVoidExcess");
+        m.setAccessible(true);
+        return (boolean) m.invoke(gui);
+    }
+
+    private boolean invokeShouldDisplayInputSeparation(MTEMultiBlockBaseGui<?> gui) throws Exception {
+        Method m = MTEMultiBlockBaseGui.class.getDeclaredMethod("shouldDisplayInputSeparation");
+        m.setAccessible(true);
+        return (boolean) m.invoke(gui);
+    }
+
+    private boolean invokeShouldDisplayBatchMode(MTEMultiBlockBaseGui<?> gui) throws Exception {
+        Method m = MTEMultiBlockBaseGui.class.getDeclaredMethod("shouldDisplayBatchMode");
+        m.setAccessible(true);
+        return (boolean) m.invoke(gui);
+    }
+
     private MTEMultiBlockBaseGui<?> getGuiViaReflection(Object multiblock) throws Exception {
         Method m = multiblock.getClass()
             .getDeclaredMethod("getGui");
@@ -191,10 +209,27 @@ public class CoolantLoopPowerAndGuiTest {
         assertFalse(invokeShouldDisplayRecipeLock(pheGui), "Heat Exchanger GUI must hide lock recipe button");
         assertFalse(invokeShouldDisplayRecipeLock(degasserGui), "Degasser GUI must hide lock recipe button");
 
-        // Verify supportsSingleRecipeLocking returns false
+        // Verify void excess, input separation, and batch mode buttons are hidden
+        assertFalse(invokeShouldDisplayVoidExcess(pumpGui), "Pump GUI must hide void excess button");
+        assertFalse(invokeShouldDisplayVoidExcess(pheGui), "Heat Exchanger GUI must hide void excess button");
+        assertFalse(invokeShouldDisplayVoidExcess(degasserGui), "Degasser GUI must hide void excess button");
+
+        assertFalse(invokeShouldDisplayInputSeparation(pumpGui), "Pump GUI must hide input separation button");
+        assertFalse(invokeShouldDisplayInputSeparation(pheGui), "Heat Exchanger GUI must hide input separation button");
+        assertFalse(invokeShouldDisplayInputSeparation(degasserGui), "Degasser GUI must hide input separation button");
+
+        assertFalse(invokeShouldDisplayBatchMode(pumpGui), "Pump GUI must hide batch mode button");
+        assertFalse(invokeShouldDisplayBatchMode(pheGui), "Heat Exchanger GUI must hide batch mode button");
+        assertFalse(invokeShouldDisplayBatchMode(degasserGui), "Degasser GUI must hide batch mode button");
+
+        // Verify supportsSingleRecipeLocking, supportsVoidProtection, supportsInputSeparation, supportsBatchMode return false
         assertFalse(pump.supportsSingleRecipeLocking());
         assertFalse(phe.supportsSingleRecipeLocking());
         assertFalse(degasser.supportsSingleRecipeLocking());
+
+        assertFalse(pump.supportsVoidProtection());
+        assertFalse(pump.supportsInputSeparation());
+        assertFalse(pump.supportsBatchMode());
 
         // Verify supportsPowerPanel returns true
         assertTrue(pump.supportsPowerPanel(), "Pump must support power dialog");

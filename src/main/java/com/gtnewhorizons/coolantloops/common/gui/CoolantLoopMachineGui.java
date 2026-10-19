@@ -34,6 +34,21 @@ public class CoolantLoopMachineGui<T extends MTEMultiBlockBase> extends MTEMulti
     }
 
     @Override
+    protected boolean shouldDisplayVoidExcess() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldDisplayInputSeparation() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldDisplayBatchMode() {
+        return false;
+    }
+
+    @Override
     protected boolean shouldDisplayRecipeLock() {
         return false;
     }

@@ -1864,6 +1864,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     @Override
+    public boolean supportsVoidProtection() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsInputSeparation() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsBatchMode() {
+        return false;
+    }
+
+    @Override
     public ButtonWidget createLockToSingleRecipeButton(IWidgetBuilder<?> builder) {
         return (ButtonWidget) new ButtonWidget().setSize(0, 0)
             .setEnabled(false);
