@@ -23,9 +23,11 @@ public class ModMetaTileEntitiesCollisionTest {
 
         Set<Integer> coolantLoopIds = new HashSet<>();
         coolantLoopIds.add(ModMetaTileEntities.PUMP_ID);
-        coolantLoopIds.add(ModMetaTileEntities.PRESSURIZED_HATCH_ID);
+        coolantLoopIds.add(ModMetaTileEntities.PRESSURIZED_HATCH_INPUT_ID);
+        coolantLoopIds.add(ModMetaTileEntities.PRESSURIZED_HATCH_OUTPUT_ID);
         coolantLoopIds.add(ModMetaTileEntities.HEAT_EXCHANGER_ID);
         coolantLoopIds.add(ModMetaTileEntities.DEGASSER_ID);
+        coolantLoopIds.add(ModMetaTileEntities.COOLANT_BATH_ID);
 
         int totalPipes = ModMetaTileEntities.COOLANT_PIPE_MATERIALS.length
             * ModMetaTileEntities.PIPE_THICKNESSES.length;

@@ -13,6 +13,7 @@ import gregtech.api.enums.GTValues;
 import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.OrePrefixes;
+import gregtech.api.enums.ToolDictNames;
 import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTOreDictUnificator;
 
@@ -45,6 +46,22 @@ public class ModRecipes {
                 new ItemStack(ModBlocks.loopInstrument, 1),
                 GTModHandler.RecipeBits.NOT_REMOVABLE | GTModHandler.RecipeBits.REVERSIBLE,
                 new Object[] { " G ", " P ", " C ", 'G', smallSteelGear, 'P', steelPipe, 'C', comparator });
+        }
+
+        // Pressurized input/output hatch screwdriver conversion
+        if (ModMetaTileEntities.pressurizedInputHatch != null && ModMetaTileEntities.pressurizedOutputHatch != null) {
+            ItemStack inputHatch = ModMetaTileEntities.pressurizedInputHatch.getStackForm(1L);
+            ItemStack outputHatch = ModMetaTileEntities.pressurizedOutputHatch.getStackForm(1L);
+
+            // Input hatch + Screwdriver -> Output hatch
+            GTModHandler.addShapelessCraftingRecipe(
+                outputHatch.copy(),
+                new Object[] { inputHatch.copy(), ToolDictNames.craftingToolScrewdriver });
+
+            // Output hatch + Screwdriver -> Input hatch
+            GTModHandler.addShapelessCraftingRecipe(
+                inputHatch.copy(),
+                new Object[] { outputHatch.copy(), ToolDictNames.craftingToolScrewdriver });
         }
 
         registerCoolantPipeCraftingRecipes();
@@ -144,8 +161,8 @@ public class ModRecipes {
             }
         }
 
-        // 2. Pressurized Fluid Hatch (EV)
-        if (ModMetaTileEntities.pressurizedFluidHatch != null) {
+        // 2. Pressurized Input Hatch (EV)
+        if (ModMetaTileEntities.pressurizedInputHatch != null) {
             ItemStack evHull = ItemList.Hull_EV.get(1L);
             ItemStack evPump = ItemList.Electric_Pump_EV.get(1L);
             ItemStack normalPipe = GTOreDictUnificator.get(OrePrefixes.pipeMedium, Materials.Titanium, 1L);
@@ -154,7 +171,7 @@ public class ModRecipes {
             if (evHull != null && evPump != null && normalPipe != null && plate != null) {
                 GTValues.RA.stdBuilder()
                     .itemInputs(evHull, evPump, normalPipe, plate)
-                    .itemOutputs(ModMetaTileEntities.pressurizedFluidHatch.getStackForm(1L))
+                    .itemOutputs(ModMetaTileEntities.pressurizedInputHatch.getStackForm(1L))
                     .duration(20 * SECONDS)
                     .eut(1920)
                     .addTo(assemblerRecipes);

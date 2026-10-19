@@ -3,6 +3,8 @@ package com.gtnewhorizons.coolantloops.common.metatileentity;
 import net.minecraft.item.ItemStack;
 
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 
@@ -12,17 +14,21 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 public class ModMetaTileEntities {
 
     public static MTECoolantPump coolantPump;
+    public static MTEHatchPressurizedInput pressurizedInputHatch;
+    public static MTEHatchPressurizedOutput pressurizedOutputHatch;
     public static MTEHatchPressurizedFluid pressurizedFluidHatch;
     public static com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger pressurizedHeatExchanger;
     public static com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser pressurizedDegasser;
     public static com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantBath coolantBath;
 
     public static final int PUMP_ID = 32120;
+    public static final int PRESSURIZED_HATCH_INPUT_ID = 32121;
     public static final int PRESSURIZED_HATCH_ID = 32121;
     public static final int HEAT_EXCHANGER_ID = 32122;
     public static final int DEGASSER_ID = 32123;
     public static final int COOLANT_BATH_ID = 32124;
     public static final int COOLANT_PIPE_START_ID = 32125;
+    public static final int PRESSURIZED_HATCH_OUTPUT_ID = 32160;
 
     public static final Materials[] COOLANT_PIPE_MATERIALS = new Materials[] { Materials.CastIron, Materials.Steel,
         Materials.StainlessSteel, Materials.Titanium, Materials.TungstenSteel, Materials.Osmium, Materials.Neutronium };
@@ -58,17 +64,24 @@ public class ModMetaTileEntities {
     public static final ItemStack[][] coolantPipeItems = new ItemStack[COOLANT_PIPE_MATERIALS.length][PIPE_THICKNESSES.length];
 
     public static void init() {
-        coolantPump = new MTECoolantPump(PUMP_ID, "multimachine.coolantpump", "Coolant Loop Pump");
-        pressurizedFluidHatch = new MTEHatchPressurizedFluid(
-            PRESSURIZED_HATCH_ID,
-            "hatch.pressurizedfluid",
-            "Pressurized Fluid Hatch",
+        coolantPump = new MTECoolantPump(PUMP_ID, "multimachine.coolantpump", "Coolant loop pump");
+        pressurizedInputHatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput(
+            PRESSURIZED_HATCH_INPUT_ID,
+            "hatch.pressurizedfluid.input",
+            "Pressurized input hatch",
             4 // EV Tier
         );
+        pressurizedOutputHatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput(
+            PRESSURIZED_HATCH_OUTPUT_ID,
+            "hatch.pressurizedfluid.output",
+            "Pressurized output hatch",
+            4 // EV Tier
+        );
+        pressurizedFluidHatch = pressurizedInputHatch;
         pressurizedHeatExchanger = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger(
             HEAT_EXCHANGER_ID,
             "multimachine.pressurizedheatexchanger",
-            "Pressurized Heat Exchanger");
+            "Pressurized heat exchanger");
         pressurizedDegasser = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser(
             DEGASSER_ID,
             "multimachine.pressurizeddegasser",

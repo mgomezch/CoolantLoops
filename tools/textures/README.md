@@ -7,6 +7,8 @@
 | `textures/blocks/instrument_front.png` | `GenerateTextures.java` | 16×16 telemetry panel: metallic front face, circular dial gauge with needle pointer, gold contact pins, and dual status LEDs (cyan link spark `#00E5FF` and ruby redstone trigger `#FF2525`). |
 | `textures/blocks/creative_heat_reservoir.png` | `GenerateTextures.java` | 16×16 high-temperature ceramic containment block: dark tungsten-carbide casing, heavy containment grill crossbars, and incandescent radiant heat core with radial gradient ($r \le 1.5$: `#FFF5B4` white-hot $\to$ `#FF8C0F` orange $\to$ `#C82808` crimson). |
 | `textures/blocks/pipe_insulation.png` | `GenerateTextures.java` | 16×16 seamless periodic weave noise `sin(x*π/8)*cos(y*π/8)*8 + sin(x*π/4)*sin(y*π/4)*5` with 4-pixel orthogonal weave ribs, semi-transparent alpha channel (`a=190`). |
+| `textures/blocks/overlay_pressurized_in.png` | `GenerateTextures.java` | 16×16 pressurized input hatch overlay: 4 directional chevron arrowheads in royal purple (`#9333EA`) pointing inward toward center `(7.5, 7.5)`. |
+| `textures/blocks/overlay_pressurized_out.png` | `GenerateTextures.java` | 16×16 pressurized output hatch overlay: 4 directional chevron arrowheads in royal purple (`#9333EA`) pointing outward away from center `(7.5, 7.5)`. |
 
 Manual regeneration:
 

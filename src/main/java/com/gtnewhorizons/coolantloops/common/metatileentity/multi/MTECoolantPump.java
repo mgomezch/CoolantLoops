@@ -403,31 +403,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             }
 
             for (MTEHatchPressurizedFluid ph : pressHatches) {
-                if (ph.getMode() == MTEHatchPressurizedFluid.HatchMode.DISCHARGE && mDischargeHatch == null) {
-                    mDischargeHatch = ph;
-                } else if (ph.getMode() == MTEHatchPressurizedFluid.HatchMode.SUCTION && mSuctionHatch == null) {
-                    mSuctionHatch = ph;
-                }
-            }
-            if (mDischargeHatch == null || mSuctionHatch == null) {
-                for (MTEHatchPressurizedFluid ph : pressHatches) {
-                    IGregTechTileEntity bte = ph.getBaseMetaTileEntity();
-                    if (bte.getXCoord() > x && mDischargeHatch == null) {
+                if (ph.isOutput()) {
+                    if (mDischargeHatch == null) {
                         mDischargeHatch = ph;
-                        ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-                    } else if (bte.getXCoord() < x && mSuctionHatch == null) {
+                    } else {
+                        mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
+                        return false;
+                    }
+                } else if (ph.isInput()) {
+                    if (mSuctionHatch == null) {
                         mSuctionHatch = ph;
-                        ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
+                    } else {
+                        mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
+                        return false;
                     }
                 }
-            }
-            if (mDischargeHatch == null && !pressHatches.isEmpty()) {
-                mDischargeHatch = pressHatches.get(0);
-                mDischargeHatch.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-            }
-            if (mSuctionHatch == null && pressHatches.size() > 1) {
-                mSuctionHatch = pressHatches.get(1);
-                mSuctionHatch.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
             }
 
             if (mDischargeHatch == null || mSuctionHatch == null) {
@@ -1014,8 +1004,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 reservoirFluid,
                 currentProp);
 
-            // If the loop contains fluid and temperature drops below melting point, catastrophic solidification rupture!
-            if (mCurrentFillLiters > 0 && !mEngine.getSegments().isEmpty()) {
+            // If the loop contains fluid and temperature drops below melting point, catastrophic solidification
+            // rupture!
+            if (mCurrentFillLiters > 0 && !mEngine.getSegments()
+                .isEmpty()) {
                 double minLoopTemp = mEngine.getMinLoopTempCelsius();
                 if (minLoopTemp < declaredMelting) {
                     mEngine.setRuptured(true);
@@ -1049,21 +1041,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         declaredMelting,
                         currentProp != null ? currentProp.getFluidName() : "molten fluid");
                     return true;
-                } else if (!mEngine.getSegments().isEmpty()) {
-                    double minLoopTemp = mEngine.getMinLoopTempCelsius();
-                    if (minLoopTemp < declaredMelting) {
-                        mLoopState = LoopState.STOPPED;
-                        mEngine.setPumpPowered(false);
-                        mEngine.setPumpMechanicalPowerWatts(0.0);
-                        mEngine.setBraking(false);
-                        mLoopStatus = CoolantLocalization.format(
-                            "coolantloops.pump.status.refuse_solidify_coolant",
-                            minLoopTemp,
-                            declaredMelting,
-                            currentProp != null ? currentProp.getFluidName() : "molten fluid");
-                        return true;
+                } else if (!mEngine.getSegments()
+                    .isEmpty()) {
+                        double minLoopTemp = mEngine.getMinLoopTempCelsius();
+                        if (minLoopTemp < declaredMelting) {
+                            mLoopState = LoopState.STOPPED;
+                            mEngine.setPumpPowered(false);
+                            mEngine.setPumpMechanicalPowerWatts(0.0);
+                            mEngine.setBraking(false);
+                            mLoopStatus = CoolantLocalization.format(
+                                "coolantloops.pump.status.refuse_solidify_coolant",
+                                minLoopTemp,
+                                declaredMelting,
+                                currentProp != null ? currentProp.getFluidName() : "molten fluid");
+                            return true;
+                        }
                     }
-                }
             }
         }
 
@@ -1381,7 +1374,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         CoolantFluidProperty prop = mEngine.getFluid();
         FluidStack reservoirFluid = getReservoirFluid();
         if (prop == null && reservoirFluid != null && reservoirFluid.getFluid() != null) {
-            prop = CoolantFluidProperty.get(reservoirFluid.getFluid().getName());
+            prop = CoolantFluidProperty.get(
+                reservoirFluid.getFluid()
+                    .getName());
         }
 
         // Check per-fluid configuration
@@ -1407,18 +1402,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         List<LoopGraphCrawler.BlockPosCoord> candidateOrigins = new ArrayList<>();
         if (rupturedSegment != null && rupturedSegment.hasPosition()) {
-            candidateOrigins.add(new LoopGraphCrawler.BlockPosCoord(
-                rupturedSegment.getBlockX(),
-                rupturedSegment.getBlockY(),
-                rupturedSegment.getBlockZ()));
+            candidateOrigins.add(
+                new LoopGraphCrawler.BlockPosCoord(
+                    rupturedSegment.getBlockX(),
+                    rupturedSegment.getBlockY(),
+                    rupturedSegment.getBlockZ()));
         }
 
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null) {
-            candidateOrigins.add(new LoopGraphCrawler.BlockPosCoord(
-                te.getXCoord(),
-                te.getYCoord(),
-                te.getZCoord()));
+            candidateOrigins.add(new LoopGraphCrawler.BlockPosCoord(te.getXCoord(), te.getYCoord(), te.getZCoord()));
         }
 
         List<LoopGraphCrawler.BlockPosCoord> validSpillPositions = new ArrayList<>();
@@ -1432,7 +1425,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 LoopGraphCrawler.BlockPosCoord candidate = new LoopGraphCrawler.BlockPosCoord(cx, cy, cz);
                 if (seen.add(candidate)) {
                     if (world.isAirBlock(cx, cy, cz)
-                        || (world.getBlock(cx, cy, cz) != null && world.getBlock(cx, cy, cz).isReplaceable(world, cx, cy, cz))) {
+                        || (world.getBlock(cx, cy, cz) != null && world.getBlock(cx, cy, cz)
+                            .isReplaceable(world, cx, cy, cz))) {
                         validSpillPositions.add(candidate);
                     }
                 }
@@ -2080,22 +2074,20 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             if (getBaseMetaTileEntity() != null) {
                 ph.updateCraftingIcon(getMachineCraftingIcon());
             }
-            if (mDischargeHatch == null && ph.getMode() == MTEHatchPressurizedFluid.HatchMode.DISCHARGE) {
-                mDischargeHatch = ph;
-                return true;
-            } else if (mSuctionHatch == null && ph.getMode() == MTEHatchPressurizedFluid.HatchMode.SUCTION) {
-                mSuctionHatch = ph;
-                return true;
-            } else if (mDischargeHatch == null) {
-                mDischargeHatch = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-                return true;
-            } else if (mSuctionHatch == null) {
-                mSuctionHatch = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
-                return true;
+            if (ph.isOutput()) {
+                if (mDischargeHatch == null) {
+                    mDischargeHatch = ph;
+                    return true;
+                }
+                return false;
+            } else if (ph.isInput()) {
+                if (mSuctionHatch == null) {
+                    mSuctionHatch = ph;
+                    return true;
+                }
+                return false;
             }
-            return true;
+            return false;
         }
         if (aMetaTileEntity instanceof MTEHatchMaintenance) {
             return addMaintenanceToMachineList(aTileEntity, aBaseCasingIndex);

@@ -15,7 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
@@ -186,8 +187,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 
@@ -246,7 +247,11 @@ public class PressurizedHeatExchangerTest {
         double fluidHeatCapacity = effectiveVolume * fluid.getDensity() * fluid.getSpecificHeat();
         double totalTempDrop = initialTemp - seg.getCurrentTemperatureCelsius();
         double totalSensibleHeatExtracted = totalTempDrop * fluidHeatCapacity;
-        assertEquals(actualHeatJoules, totalSensibleHeatExtracted, 2260.0, "Energy conservation within 1 mL discrete rounding");
+        assertEquals(
+            actualHeatJoules,
+            totalSensibleHeatExtracted,
+            2260.0,
+            "Energy conservation within 1 mL discrete rounding");
     }
 
     @Test
@@ -256,8 +261,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
@@ -287,7 +292,10 @@ public class PressurizedHeatExchangerTest {
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
 
         // But EU must have been consumed each tick for running secondary channels
-        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(
+            1_000_000L - (20 * 1920L),
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU());
     }
 
     @Test
@@ -297,8 +305,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
@@ -316,7 +324,10 @@ public class PressurizedHeatExchangerTest {
         assertEquals(300.0, phe.getDeviceTemperatureCelsius(), "Dry PHE must not cool primary coolant");
         assertEquals(300.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
-        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(
+            1_000_000L - (20 * 1920L),
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU());
     }
 
     @Test
@@ -326,8 +337,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         MTEHatchEnergy energyHatch = createMockEnergyHatch(4, 1_000_000L);
@@ -348,7 +359,10 @@ public class PressurizedHeatExchangerTest {
         assertEquals(90.0, phe.getDeviceTemperatureCelsius(), "Coolant temperature remains unchanged");
         assertEquals(90.0, seg.getCurrentTemperatureCelsius());
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
-        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU());
+        assertEquals(
+            1_000_000L - (20 * 1920L),
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU());
     }
 
     @Test
@@ -359,8 +373,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
@@ -411,8 +425,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
@@ -466,8 +480,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
         phe.mEnergyHatches.add(createMockEnergyHatch(4, 1_000_000L));
@@ -510,8 +524,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 
@@ -541,7 +555,10 @@ public class PressurizedHeatExchangerTest {
         assertEquals(0.0, phe.getLastHeatTransferredWatts());
 
         // BUT secondary side pump must still consume power each tick!
-        assertEquals(1_000_000L - (20 * 1920L), energyHatch.getBaseMetaTileEntity().getStoredEU(),
+        assertEquals(
+            1_000_000L - (20 * 1920L),
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU(),
             "PHE secondary pumps must consume EU every tick even with zero loop flow");
     }
 
@@ -552,8 +569,8 @@ public class PressurizedHeatExchangerTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 
@@ -573,14 +590,22 @@ public class PressurizedHeatExchangerTest {
         mockBase.disableWorking();
         assertFalse(phe.isAllowedToWork());
         phe.processThermalExchange(0.05, 0.05, fluid, seg);
-        assertEquals(1_000_000L, energyHatch.getBaseMetaTileEntity().getStoredEU(), "0 EU consumed when turned off");
+        assertEquals(
+            1_000_000L,
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU(),
+            "0 EU consumed when turned off");
         assertEquals(300.0, seg.getCurrentTemperatureCelsius(), "0 heat transferred when turned off");
 
         // 2. Turned ON but energy hatch runs out of power
         mockBase.enableWorking();
         assertTrue(phe.isAllowedToWork());
-        energyHatch.getBaseMetaTileEntity().decreaseStoredEnergyUnits(1_000_000L, false); // empty
-        assertEquals(0L, energyHatch.getBaseMetaTileEntity().getStoredEU());
+        energyHatch.getBaseMetaTileEntity()
+            .decreaseStoredEnergyUnits(1_000_000L, false); // empty
+        assertEquals(
+            0L,
+            energyHatch.getBaseMetaTileEntity()
+                .getStoredEU());
 
         assertFalse(phe.stepHeatExchange(), "stepHeatExchange must return false on power loss");
         assertFalse(phe.isAllowedToWork(), "Machine must shut down on power loss");
@@ -590,17 +615,20 @@ public class PressurizedHeatExchangerTest {
     @Test
     public void testSingleAmpEnergyHatchValidationAndMultiAmpRejection() {
         MTEHatchEnergy singleAmpHatch = new MTEHatchEnergy("single_amp", 1, new String[0], null);
-        assertTrue(MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(singleAmpHatch),
+        assertTrue(
+            MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(singleAmpHatch),
             "Standard GT energy hatch must be accepted as single-amp");
 
         // Multi-amp hatch (subclass or overridden amperage > 2A)
         MTEHatchEnergy multiAmpHatch = new MTEHatchEnergy("multi_amp_4a", 1, new String[0], null) {
+
             @Override
             public long maxAmperesIn() {
                 return 4L;
             }
         };
-        assertFalse(MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(multiAmpHatch),
+        assertFalse(
+            MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch(multiAmpHatch),
             "Multi-amp hatch with maxAmperesIn > 2 must be rejected");
 
         MTEPressurizedHeatExchanger phe = new MTEPressurizedHeatExchanger("phe_multi_amp_check");
@@ -609,7 +637,8 @@ public class PressurizedHeatExchangerTest {
 
         // addMaintenanceOrEnergyHatch must reject multi-amp hatch
         IGregTechTileEntity mockMultiBase = createMockHatchBase(multiAmpHatch);
-        assertFalse(phe.addMaintenanceOrEnergyHatch(mockMultiBase, 11),
+        assertFalse(
+            phe.addMaintenanceOrEnergyHatch(mockMultiBase, 11),
             "addMaintenanceOrEnergyHatch must reject multi-amp energy hatches");
     }
 
@@ -625,7 +654,8 @@ public class PressurizedHeatExchangerTest {
         assertEquals(30L, phe.getRequiredPowerDrawEU());
         assertEquals(2260000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 LV hatches (overclocks to 4x 32V = 128V -> 15/16ths = 120 EU/t): 4x base heat = 9.04 MJ per batch (4 L water)
+        // 2 LV hatches (overclocks to 4x 32V = 128V -> 15/16ths = 120 EU/t): 4x base heat = 9.04 MJ per batch (4 L
+        // water)
         MTEHatchEnergy lv2 = createMockEnergyHatch(1, 100_000L);
         phe.mEnergyHatches.add(lv2);
         assertEquals(120L, phe.getRequiredPowerDrawEU());
@@ -638,7 +668,8 @@ public class PressurizedHeatExchangerTest {
         assertEquals(120L, phe.getRequiredPowerDrawEU());
         assertEquals(9040000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 MV hatches (overclocks to 4x 128V = 512V -> 15/16ths = 480 EU/t): 16x base heat = 36.16 MJ per batch (16 L water)
+        // 2 MV hatches (overclocks to 4x 128V = 512V -> 15/16ths = 480 EU/t): 16x base heat = 36.16 MJ per batch (16 L
+        // water)
         MTEHatchEnergy mv2 = createMockEnergyHatch(2, 100_000L);
         phe.mEnergyHatches.add(mv2);
         assertEquals(480L, phe.getRequiredPowerDrawEU());
@@ -651,13 +682,15 @@ public class PressurizedHeatExchangerTest {
         assertEquals(480L, phe.getRequiredPowerDrawEU());
         assertEquals(36160000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 HV hatches (overclocks to 4x 512V = 2048V -> 15/16ths = 1920 EU/t): 64x base heat = 144.64 MJ per batch (64 L water)
+        // 2 HV hatches (overclocks to 4x 512V = 2048V -> 15/16ths = 1920 EU/t): 64x base heat = 144.64 MJ per batch (64
+        // L water)
         MTEHatchEnergy hv2 = createMockEnergyHatch(3, 100_000L);
         phe.mEnergyHatches.add(hv2);
         assertEquals(1920L, phe.getRequiredPowerDrawEU());
         assertEquals(144640000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // Mixed 1 MV + 1 HV hatch: higher-tiered hatch determines target overclock voltage (4x 512V = 2048V -> 1920 EU/t)
+        // Mixed 1 MV + 1 HV hatch: higher-tiered hatch determines target overclock voltage (4x 512V = 2048V -> 1920
+        // EU/t)
         phe.mEnergyHatches.clear();
         phe.mEnergyHatches.add(mv1);
         phe.mEnergyHatches.add(hv1);
@@ -671,7 +704,8 @@ public class PressurizedHeatExchangerTest {
         assertEquals(1920L, phe.getRequiredPowerDrawEU());
         assertEquals(144640000.0, phe.getMaxHeatExchangePerBatchJoules(), 1e-4);
 
-        // 2 EV hatches (overclocks to 4x 2048V = 8192V -> 15/16ths = 7680 EU/t): 256x base heat = 578.56 MJ per batch (256 L water)
+        // 2 EV hatches (overclocks to 4x 2048V = 8192V -> 15/16ths = 7680 EU/t): 256x base heat = 578.56 MJ per batch
+        // (256 L water)
         MTEHatchEnergy ev2 = createMockEnergyHatch(4, 100_000L);
         phe.mEnergyHatches.add(ev2);
         assertEquals(7680L, phe.getRequiredPowerDrawEU());
@@ -681,8 +715,8 @@ public class PressurizedHeatExchangerTest {
         phe.mEnergyHatches.clear();
         phe.mEnergyHatches.add(lv1); // 1 LV hatch: cap is 1,000 mL water per batch
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 

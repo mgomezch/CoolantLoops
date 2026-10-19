@@ -1185,7 +1185,9 @@ public class CoolantPumpStructureTest {
         pump.setBaseMetaTileEntity(mockPumpBase);
         pump.setLoopFormed(true);
 
-        LoopSegment seg = new LoopSegment("sodium_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 50.0); // 50 °C < 97.8 °C (freezing point of sodium)
+        LoopSegment seg = new LoopSegment("sodium_seg", 10.0, 0.2, 0.0001, 1.0, 100.0, 1000.0, 50.0); // 50 °C < 97.8 °C
+                                                                                                      // (freezing point
+                                                                                                      // of sodium)
         pump.getEngine()
             .addSegment(seg);
         pump.getEngine()
@@ -1269,7 +1271,13 @@ public class CoolantPumpStructureTest {
 
         // Verify fluid placement and block update
         Mockito.verify(mockWorld, Mockito.atLeastOnce())
-            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(fluidBlock), Mockito.eq(0), Mockito.eq(3));
+            .setBlock(
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.eq(fluidBlock),
+                Mockito.eq(0),
+                Mockito.eq(3));
         Mockito.verify(mockWorld, Mockito.atLeastOnce())
             .notifyBlocksOfNeighborChange(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(fluidBlock));
         Mockito.verify(mockWorld, Mockito.atLeastOnce())
@@ -1334,7 +1342,13 @@ public class CoolantPumpStructureTest {
 
         // Verify setBlock was NEVER called because spillOnRupture is false
         Mockito.verify(mockWorld, Mockito.never())
-            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.any(), Mockito.anyInt(), Mockito.anyInt());
+            .setBlock(
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt());
     }
 
     @Test
@@ -1385,6 +1399,12 @@ public class CoolantPumpStructureTest {
         assertDoesNotThrow(() -> pump.stepCoolantLoop());
         assertEquals(MTECoolantPump.LoopState.FAILED, pump.getLoopState());
         Mockito.verify(mockWorld, Mockito.never())
-            .setBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt(), Mockito.any(), Mockito.anyInt(), Mockito.anyInt());
+            .setBlock(
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt());
     }
 }

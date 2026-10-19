@@ -162,7 +162,9 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             return false;
         }
 
-        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2 || mOutputHatches.isEmpty() || mMaintenanceHatches.size() != 1) {
+        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2
+            || mOutputHatches.isEmpty()
+            || mMaintenanceHatches.size() != 1) {
             return false;
         }
 
@@ -176,7 +178,8 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
     public static boolean isSingleAmpEnergyHatch(MTEHatchEnergy hatch) {
         if (hatch == null) return false;
-        String name = hatch.getClass().getName();
+        String name = hatch.getClass()
+            .getName();
         if (name.contains("Multi") || name.contains("Tunnel")) {
             return false;
         }
@@ -196,22 +199,20 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             if (getBaseMetaTileEntity() != null) {
                 ph.updateCraftingIcon(getMachineCraftingIcon());
             }
-            if (mPrimaryInlet == null && ph.getMode() == MTEHatchPressurizedFluid.HatchMode.SUCTION) {
-                mPrimaryInlet = ph;
-                return true;
-            } else if (mPrimaryOutlet == null && ph.getMode() == MTEHatchPressurizedFluid.HatchMode.DISCHARGE) {
-                mPrimaryOutlet = ph;
-                return true;
-            } else if (mPrimaryInlet == null) {
-                mPrimaryInlet = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
-                return true;
-            } else if (mPrimaryOutlet == null) {
-                mPrimaryOutlet = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-                return true;
+            if (ph.isInput()) {
+                if (mPrimaryInlet == null) {
+                    mPrimaryInlet = ph;
+                    return true;
+                }
+                return false;
+            } else if (ph.isOutput()) {
+                if (mPrimaryOutlet == null) {
+                    mPrimaryOutlet = ph;
+                    return true;
+                }
+                return false;
             }
-            return true;
+            return false;
         }
         if (aMetaTileEntity instanceof MTEHatchEnergy) {
             MTEHatchEnergy eh = (MTEHatchEnergy) aMetaTileEntity;

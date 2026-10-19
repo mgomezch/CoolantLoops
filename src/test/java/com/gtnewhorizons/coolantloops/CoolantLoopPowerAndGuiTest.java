@@ -16,6 +16,8 @@ import org.mockito.Mockito;
 
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput;
+import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger;
@@ -267,8 +269,8 @@ public class CoolantLoopPowerAndGuiTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         phe.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         phe.addPressurizedHatch(createMockHatchBase(inlet), 11);
         phe.addPressurizedHatch(createMockHatchBase(outlet), 11);
 
@@ -317,8 +319,8 @@ public class CoolantLoopPowerAndGuiTest {
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
         degasser.setBaseMetaTileEntity(mockBase);
 
-        MTEHatchPressurizedFluid inlet = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
-        MTEHatchPressurizedFluid outlet = new MTEHatchPressurizedFluid("outlet", 1, new String[0], null);
+        MTEHatchPressurizedInput inlet = new MTEHatchPressurizedInput("inlet", 1, new String[0], null);
+        MTEHatchPressurizedOutput outlet = new MTEHatchPressurizedOutput("outlet", 1, new String[0], null);
         degasser.addBottomHatch(createMockHatchBase(inlet), 2);
         degasser.addBottomHatch(createMockHatchBase(outlet), 2);
 

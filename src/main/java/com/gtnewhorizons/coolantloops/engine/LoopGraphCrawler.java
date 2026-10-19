@@ -1259,6 +1259,55 @@ public class LoopGraphCrawler {
                                         .format("coolantloops.crawler.bath_unformed", step.x, step.y, step.z));
                                 return true;
                             }
+                        } else if (hatch.getOppositeHatchTile() != null || !hatch.isPassageInlet()) {
+                            if (!hatch.isPassageInlet()) {
+                                finishWithFailure(
+                                    CoolantLocalization
+                                        .format("coolantloops.crawler.passage_outlet", step.x, step.y, step.z));
+                                return true;
+                            }
+                            IGregTechTileEntity outTE = hatch.getOppositeHatchTile();
+                            if (outTE == null) {
+                                finishWithFailure(
+                                    CoolantLocalization
+                                        .format("coolantloops.crawler.passage_no_pair", step.x, step.y, step.z));
+                                return true;
+                            }
+                            if (pump != null) {
+                                hatch.setConnectedPump(pump);
+                            }
+                            if (!devices.contains(hatch)) {
+                                devices.add(hatch);
+                            }
+                            LoopSegment devSeg = new LoopSegment(
+                                hatch.getDeviceId(),
+                                5.0,
+                                0.10,
+                                0.000045,
+                                hatch.getMinorLossK(),
+                                500.0,
+                                3200.0,
+                                hatch.getDeviceTemperatureCelsius());
+                            devSeg.setPosition(step.x, step.y, step.z);
+                            segments.add(devSeg);
+
+                            visitedPipeAndDevicePositions
+                                .add(new BlockPosCoord(outTE.getXCoord(), outTE.getYCoord(), outTE.getZCoord()));
+                            ForgeDirection outFacing = outTE.getFrontFacing();
+
+                            addGraphNode(graphNodes, hatch.getDeviceId(), NodeType.DEVICE, hatch);
+                            addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, hatch.getDeviceId());
+
+                            frontier.add(
+                                new FrontierStep(
+                                    hatch.getDeviceId(),
+                                    outTE.getXCoord() + outFacing.offsetX,
+                                    outTE.getYCoord() + outFacing.offsetY,
+                                    outTE.getZCoord() + outFacing.offsetZ,
+                                    outFacing.getOpposite(),
+                                    null,
+                                    null));
+                            continue;
                         }
                     } else if (mte instanceof ICoolantPassageHatch) {
                         ICoolantPassageHatch passage = (ICoolantPassageHatch) mte;

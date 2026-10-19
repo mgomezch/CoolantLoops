@@ -456,8 +456,10 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         IMetaTileEntity mte = aTileEntity.getMetaTileEntity();
         if (mte instanceof MTEHatchPressurizedFluid) {
             MTEHatchPressurizedFluid ph = (MTEHatchPressurizedFluid) mte;
+            if (!ph.isInput() || mPrimaryInlet != null) {
+                return false;
+            }
             ph.updateTexture(aBaseCasingIndex);
-            ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
             mPrimaryInlet = ph;
             return true;
         }
@@ -469,8 +471,10 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         IMetaTileEntity mte = aTileEntity.getMetaTileEntity();
         if (mte instanceof MTEHatchPressurizedFluid) {
             MTEHatchPressurizedFluid ph = (MTEHatchPressurizedFluid) mte;
+            if (!ph.isOutput() || mPrimaryOutlet != null) {
+                return false;
+            }
             ph.updateTexture(aBaseCasingIndex);
-            ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
             mPrimaryOutlet = ph;
             return true;
         }

@@ -225,7 +225,8 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
     public static boolean isSingleAmpEnergyHatch(MTEHatchEnergy hatch) {
         if (hatch == null) return false;
-        String name = hatch.getClass().getName();
+        String name = hatch.getClass()
+            .getName();
         if (name.contains("Multi") || name.contains("Tunnel")) {
             return false;
         }
@@ -277,16 +278,14 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     public double getMaxHeatExchangePerBatchJoules() {
-        double baseHeat = (CoolantLoopDataRegistry.getDeviceData() != null)
-            ? CoolantLoopDataRegistry.getDeviceData().getPhe().baseMaxHeatPerBatchJoules
-            : 2260000.0;
+        double baseHeat = (CoolantLoopDataRegistry.getDeviceData() != null) ? CoolantLoopDataRegistry.getDeviceData()
+            .getPhe().baseMaxHeatPerBatchJoules : 2260000.0;
         return baseHeat * getOverclockMultiplier();
     }
 
     public int getBatchTicks() {
-        return (CoolantLoopDataRegistry.getDeviceData() != null)
-            ? CoolantLoopDataRegistry.getDeviceData().getPhe().batchTicks
-            : 20;
+        return (CoolantLoopDataRegistry.getDeviceData() != null) ? CoolantLoopDataRegistry.getDeviceData()
+            .getPhe().batchTicks : 20;
     }
 
     public int getBatchTimer() {
@@ -356,13 +355,16 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
             mLastHeatTransferredWatts = mBatchAccumulatedHeatJoules / (getBatchTicks() * 0.05);
             CoolantDeviceData.PHEData.SecondaryCoolantEntry matchedCoolant = mBatchCoolantEntry;
             CoolantDeviceData.PHEData pheConfig = (CoolantLoopDataRegistry.getDeviceData() != null)
-                ? CoolantLoopDataRegistry.getDeviceData().getPhe()
+                ? CoolantLoopDataRegistry.getDeviceData()
+                    .getPhe()
                 : new CoolantDeviceData.PHEData();
             if (matchedCoolant == null) {
                 ArrayList<FluidStack> inputFluids = getStoredFluids();
                 for (FluidStack fs : inputFluids) {
                     if (fs != null && fs.getFluid() != null && fs.amount > 0) {
-                        matchedCoolant = pheConfig.findSecondaryCoolant(fs.getFluid().getName());
+                        matchedCoolant = pheConfig.findSecondaryCoolant(
+                            fs.getFluid()
+                                .getName());
                         if (matchedCoolant != null) break;
                     }
                 }
@@ -378,7 +380,9 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                     int actualFluidDrained = 0;
                     for (MTEHatchInput hatch : mInputHatches) {
                         if (hatch != null && hatch.getFluid() != null) {
-                            String fName = hatch.getFluid().getFluid().getName();
+                            String fName = hatch.getFluid()
+                                .getFluid()
+                                .getName();
                             if (pheConfig.findSecondaryCoolant(fName) == matchedCoolant
                                 || fName.equalsIgnoreCase(matchedCoolant.inputFluidName)) {
                                 int needed = fluidToBoil - actualFluidDrained;
@@ -399,10 +403,12 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
                         if (matchedCoolant.isSteam) {
                             double supercritThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
-                                ? CoolantLoopDataRegistry.getDeviceData().getPhe().supercriticalTempThreshold
+                                ? CoolantLoopDataRegistry.getDeviceData()
+                                    .getPhe().supercriticalTempThreshold
                                 : 700.0;
                             double superheatedThresh = (CoolantLoopDataRegistry.getDeviceData() != null)
-                                ? CoolantLoopDataRegistry.getDeviceData().getPhe().superheatedTempThreshold
+                                ? CoolantLoopDataRegistry.getDeviceData()
+                                    .getPhe().superheatedTempThreshold
                                 : 300.0;
 
                             double effTemp = (mBatchAccumulatedHeatJoules > 0)
@@ -494,11 +500,13 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         FluidStack secondaryInput = null;
         CoolantDeviceData.PHEData.SecondaryCoolantEntry matchedCoolant = null;
         CoolantDeviceData.PHEData pheConfig = (CoolantLoopDataRegistry.getDeviceData() != null)
-            ? CoolantLoopDataRegistry.getDeviceData().getPhe()
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getPhe()
             : new CoolantDeviceData.PHEData();
         for (FluidStack fs : inputFluids) {
             if (fs != null && fs.getFluid() != null && fs.amount > 0) {
-                String fluidName = fs.getFluid().getName();
+                String fluidName = fs.getFluid()
+                    .getName();
                 CoolantDeviceData.PHEData.SecondaryCoolantEntry entry = pheConfig.findSecondaryCoolant(fluidName);
                 if (entry != null) {
                     secondaryInput = fs;
@@ -511,7 +519,8 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         double dt = 0.05; // 1 tick = 0.05 seconds
         double heatTransferredThisTickJoules = 0.0;
 
-        if (hasFlow && secondaryInput != null && matchedCoolant != null
+        if (hasFlow && secondaryInput != null
+            && matchedCoolant != null
             && mCurrentCoolantTemp > matchedCoolant.boilingPointCelsius) {
 
             double boilingTemp = matchedCoolant.boilingPointCelsius;
@@ -546,7 +555,8 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                 double maxSecondaryFluidHeatJoules = (latentHeatJoulePerMl > 0)
                     ? secondaryInput.amount * latentHeatJoulePerMl
                     : 0.0;
-                double remainingSecondaryFluidHeatJoules = Math.max(0.0, maxSecondaryFluidHeatJoules - mBatchAccumulatedHeatJoules);
+                double remainingSecondaryFluidHeatJoules = Math
+                    .max(0.0, maxSecondaryFluidHeatJoules - mBatchAccumulatedHeatJoules);
 
                 double allowableTickHeat = Math.min(convHeatJoules, maxSensibleHeatJoules);
                 allowableTickHeat = Math.min(allowableTickHeat, maxTickHeatOverclockJoules);
@@ -741,16 +751,20 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
             if (getBaseMetaTileEntity() != null) {
                 ph.updateCraftingIcon(getMachineCraftingIcon());
             }
-            if (mPrimaryInlet == null) {
-                mPrimaryInlet = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
-                return true;
-            } else if (mPrimaryOutlet == null) {
-                mPrimaryOutlet = ph;
-                ph.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
-                return true;
+            if (ph.isInput()) {
+                if (mPrimaryInlet == null) {
+                    mPrimaryInlet = ph;
+                    return true;
+                }
+                return false;
+            } else if (ph.isOutput()) {
+                if (mPrimaryOutlet == null) {
+                    mPrimaryOutlet = ph;
+                    return true;
+                }
+                return false;
             }
-            return true;
+            return false;
         }
         return false;
     }

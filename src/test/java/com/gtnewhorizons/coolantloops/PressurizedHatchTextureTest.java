@@ -98,18 +98,18 @@ public class PressurizedHatchTextureTest {
         assertEquals(1, nonFacingTextures.length);
         assertEquals(casingTex, nonFacingTextures[0], "Non-facing side must render the base casing texture");
 
-        // Facing side in DISCHARGE mode must render base casing texture + OVERLAY_PIPE_OUT
+        // Facing side in DISCHARGE mode must render base casing texture + OVERLAY_PIPE_OUT + OVERLAY_PRESSURIZED_OUT
         hatch.setMode(MTEHatchPressurizedFluid.HatchMode.DISCHARGE);
         ITexture[] dischargeFacing = hatch
             .getTexture(mockTile, ForgeDirection.SOUTH, ForgeDirection.SOUTH, 0, false, false);
-        assertEquals(2, dischargeFacing.length);
+        assertEquals(3, dischargeFacing.length);
         assertEquals(casingTex, dischargeFacing[0], "Facing side base texture must match casing");
 
-        // Facing side in SUCTION mode must render base casing texture + OVERLAY_PIPE_IN
+        // Facing side in SUCTION mode must render base casing texture + OVERLAY_PIPE_IN + OVERLAY_PRESSURIZED_IN
         hatch.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
         ITexture[] suctionFacing = hatch
             .getTexture(mockTile, ForgeDirection.SOUTH, ForgeDirection.SOUTH, 0, false, false);
-        assertEquals(2, suctionFacing.length);
+        assertEquals(3, suctionFacing.length);
         assertEquals(casingTex, suctionFacing[0], "Facing side base texture must match casing");
     }
 

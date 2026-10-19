@@ -14,6 +14,11 @@ public interface ICoolantPassageHatch extends ICoolantLoopDevice {
     IGregTechTileEntity getOppositeHatchTile();
 
     /**
+     * Sets the tile entity of the opposite paired hatch.
+     */
+    void setOppositeHatch(IGregTechTileEntity opposite);
+
+    /**
      * Returns true if this hatch is the entry/inlet point of the passage, false if it is the exit/outlet.
      */
     boolean isPassageInlet();

@@ -6,6 +6,12 @@ tile.coolantloops.creative_heat_reservoir.name=Creative heat reservoir
 gt.hatch.pressurized_fluid.name=Pressurized fluid hatch
 gt.hatch.pressurized_fluid.desc1=Hermetic port for pressurized coolant loops
 gt.hatch.pressurized_fluid.desc2=Discharge hatch accepts machine controller covers to remotely stop flow and return fluid to reservoir
+gt.hatch.pressurized_input.name=Pressurized input hatch
+gt.hatch.pressurized_input.desc1=Hermetic suction port returning coolant into multiblock machines
+gt.hatch.pressurized_input.desc2=Craft with a screwdriver to convert to an output hatch
+gt.hatch.pressurized_output.name=Pressurized output hatch
+gt.hatch.pressurized_output.desc1=Hermetic discharge port pumping coolant into closed loops
+gt.hatch.pressurized_output.desc2=Craft with a screwdriver to convert to an input hatch
 
 gt.pipe.coolant.desc=Thermally insulated coolant loop pipe
 gt.pipe.coolant.specs.diameter=Inner diameter: %.1f cm

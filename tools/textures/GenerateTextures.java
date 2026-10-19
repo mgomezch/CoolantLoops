@@ -41,6 +41,8 @@ public class GenerateTextures {
         generateInstrumentFront(new File(outDir, "instrument_front.png"));
         generateCreativeHeatReservoir(new File(outDir, "creative_heat_reservoir.png"));
         generatePipeInsulation(new File(outDir, "pipe_insulation.png"));
+        generateOverlayPressurizedIn(new File(outDir, "overlay_pressurized_in.png"));
+        generateOverlayPressurizedOut(new File(outDir, "overlay_pressurized_out.png"));
 
         System.out.println("================================================================================");
         System.out.println("✓ All CoolantLoops textures synthesized successfully from pure procedural code!");
@@ -329,4 +331,67 @@ public class GenerateTextures {
         ImageIO.write(img, "PNG", outFile);
         System.out.println("  [✓] Wrote pipe_insulation.png");
     }
+
+    /**
+     * 6. overlay_pressurized_in.png: 16x16 purple directional chevron arrows pointing toward center (input/suction).
+     */
+    private static void generateOverlayPressurizedIn(File outFile) throws IOException {
+        BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        // Rich vibrant royal purple (RGB: 147, 51, 234)
+        int purple = (255 << 24) | (147 << 16) | (51 << 8) | 234;
+
+        int[][] coords = {
+            // Top chevron pointing down (toward center)
+            { 6, 2 }, { 7, 2 }, { 8, 2 }, { 9, 2 },
+            { 7, 3 }, { 8, 3 },
+            // Left chevron pointing right (toward center)
+            { 2, 6 }, { 2, 7 }, { 2, 8 }, { 2, 9 },
+            { 3, 7 }, { 3, 8 },
+            // Right chevron pointing left (toward center)
+            { 13, 6 }, { 13, 7 }, { 13, 8 }, { 13, 9 },
+            { 12, 7 }, { 12, 8 },
+            // Bottom chevron pointing up (toward center)
+            { 7, 12 }, { 8, 12 },
+            { 6, 13 }, { 7, 13 }, { 8, 13 }, { 9, 13 }
+        };
+
+        for (int[] pt : coords) {
+            img.setRGB(pt[0], pt[1], purple);
+        }
+
+        ImageIO.write(img, "PNG", outFile);
+        System.out.println("  [✓] Wrote overlay_pressurized_in.png (purple inward chevrons)");
+    }
+
+    /**
+     * 7. overlay_pressurized_out.png: 16x16 purple directional chevron arrows pointing away from center (output/discharge).
+     */
+    private static void generateOverlayPressurizedOut(File outFile) throws IOException {
+        BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        // Rich vibrant royal purple (RGB: 147, 51, 234)
+        int purple = (255 << 24) | (147 << 16) | (51 << 8) | 234;
+
+        int[][] coords = {
+            // Top chevron pointing up (away from center)
+            { 7, 2 }, { 8, 2 },
+            { 6, 3 }, { 7, 3 }, { 8, 3 }, { 9, 3 },
+            // Left chevron pointing left (away from center)
+            { 3, 6 }, { 3, 9 },
+            { 2, 7 }, { 2, 8 }, { 3, 7 }, { 3, 8 },
+            // Right chevron pointing right (away from center)
+            { 12, 6 }, { 12, 9 },
+            { 12, 7 }, { 12, 8 }, { 13, 7 }, { 13, 8 },
+            // Bottom chevron pointing down (away from center)
+            { 6, 12 }, { 7, 12 }, { 8, 12 }, { 9, 12 },
+            { 7, 13 }, { 8, 13 }
+        };
+
+        for (int[] pt : coords) {
+            img.setRGB(pt[0], pt[1], purple);
+        }
+
+        ImageIO.write(img, "PNG", outFile);
+        System.out.println("  [✓] Wrote overlay_pressurized_out.png (purple outward chevrons)");
+    }
 }
+
