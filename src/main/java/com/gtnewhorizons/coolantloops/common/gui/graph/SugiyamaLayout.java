@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.GraphEdge;
@@ -45,7 +46,7 @@ public class SugiyamaLayout {
 
         public final String id;
         public final boolean isDummy;
-        public final GraphNode data;
+        public GraphNode data;
         public int layer = 0;
         public int orderInLayer = 0;
         public double x = 0.0;
@@ -69,7 +70,7 @@ public class SugiyamaLayout {
         public final String id;
         public final String fromNodeId;
         public final String toNodeId;
-        public final GraphEdge data;
+        public GraphEdge data;
         public final List<Point2D> waypoints = new ArrayList<>();
         public final List<Point2D> arrowPoints = new ArrayList<>(); // tip, left wing, right wing
         public final List<String> dummyNodeIds = new ArrayList<>();
@@ -220,6 +221,62 @@ public class SugiyamaLayout {
         for (LayoutEdge le : finalEdges) {
             routeEdge(le, adj, rawEdges);
             edges.add(le);
+        }
+    }
+
+    /**
+     * Checks if the provided graph data has the exact same node and edge topology as the current layout,
+     * meaning only telemetry data needs to be refreshed without running the expensive Sugiyama layout.
+     */
+    public boolean canUpdateDataOnly(CoolantLoopGraphData graphData) {
+        if (graphData == null || graphData.nodes == null || graphData.edges == null) {
+            return false;
+        }
+        if (nodes.isEmpty() && !graphData.nodes.isEmpty()) {
+            return false;
+        }
+        int realNodeCount = 0;
+        for (LayoutNode n : nodes) {
+            if (!n.isDummy) realNodeCount++;
+        }
+        if (realNodeCount != graphData.nodes.size()) {
+            return false;
+        }
+        for (GraphNode gn : graphData.nodes) {
+            LayoutNode ln = nodeMap.get(gn.id);
+            if (ln == null || ln.isDummy) return false;
+        }
+        if (edges.size() != graphData.edges.size()) {
+            return false;
+        }
+        for (int i = 0; i < edges.size(); i++) {
+            LayoutEdge le = edges.get(i);
+            GraphEdge ge = graphData.edges.get(i);
+            if (!Objects.equals(le.id, ge.id) || !Objects.equals(le.fromNodeId, ge.fromNodeId)
+                || !Objects.equals(le.toNodeId, ge.toNodeId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * In-place update of node and edge telemetry data without altering layout coordinates or topology.
+     */
+    public void updateData(CoolantLoopGraphData graphData) {
+        if (graphData == null) return;
+        if (graphData.nodes != null) {
+            for (GraphNode gn : graphData.nodes) {
+                LayoutNode ln = nodeMap.get(gn.id);
+                if (ln != null) {
+                    ln.data = gn;
+                }
+            }
+        }
+        if (graphData.edges != null) {
+            for (int i = 0; i < Math.min(edges.size(), graphData.edges.size()); i++) {
+                edges.get(i).data = graphData.edges.get(i);
+            }
         }
     }
 

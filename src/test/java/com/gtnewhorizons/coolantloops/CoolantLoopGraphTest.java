@@ -18,6 +18,7 @@ import org.mockito.Mockito;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.GraphEdge;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.GraphNode;
+import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphWidget;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutEdge;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutNode;
@@ -466,5 +467,125 @@ public class CoolantLoopGraphTest {
         assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, 99, 99, 99));
         assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new ChunkCoordinates(99, 99, 99)));
         assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new LoopGraphCrawler.BlockPosCoord(99, 99, 99)));
+    }
+
+    @Test
+    public void testSugiyamaIncrementalDataUpdate() {
+        SugiyamaLayout layout = new SugiyamaLayout();
+        CoolantLoopGraphData data = new CoolantLoopGraphData();
+        data.isFormed = true;
+
+        GraphNode n1 = new GraphNode("n1", "Pump", "coolant_pump", "SOURCE", 0, 0, 0);
+        n1.temperature = 25.0;
+        GraphNode n2 = new GraphNode("n2", "Sink", "coolant_pump", "SINK", 10, 0, 0);
+        n2.temperature = 40.0;
+        data.nodes.add(n1);
+        data.nodes.add(n2);
+
+        GraphEdge e1 = new GraphEdge("e1", "n1", "n2");
+        e1.flowRateLPerSec = 50.0;
+        data.edges.add(e1);
+
+        layout.computeLayout(data);
+        assertEquals(
+            2,
+            layout.getNodes()
+                .size());
+        assertEquals(
+            1,
+            layout.getEdges()
+                .size());
+        double originalN1X = layout.getNode("n1").x;
+        double originalN2X = layout.getNode("n2").x;
+
+        // Create updated telemetry with same topology
+        CoolantLoopGraphData updated = new CoolantLoopGraphData();
+        updated.isFormed = true;
+        GraphNode n1Up = new GraphNode("n1", "Pump", "coolant_pump", "SOURCE", 0, 0, 0);
+        n1Up.temperature = 95.0;
+        GraphNode n2Up = new GraphNode("n2", "Sink", "coolant_pump", "SINK", 10, 0, 0);
+        n2Up.temperature = 120.0;
+        updated.nodes.add(n1Up);
+        updated.nodes.add(n2Up);
+
+        GraphEdge e1Up = new GraphEdge("e1", "n1", "n2");
+        e1Up.flowRateLPerSec = 75.0;
+        updated.edges.add(e1Up);
+
+        assertTrue(layout.canUpdateDataOnly(updated));
+        layout.updateData(updated);
+
+        // Positions should be completely preserved
+        assertEquals(originalN1X, layout.getNode("n1").x, 0.001);
+        assertEquals(originalN2X, layout.getNode("n2").x, 0.001);
+        // Telemetry should be updated in place
+        assertEquals(95.0, layout.getNode("n1").data.temperature, 0.001);
+        assertEquals(120.0, layout.getNode("n2").data.temperature, 0.001);
+        assertEquals(
+            75.0,
+            layout.getEdges()
+                .get(0).data.flowRateLPerSec,
+            0.001);
+
+        // Topology change (extra node) should reject data-only update
+        CoolantLoopGraphData changed = new CoolantLoopGraphData();
+        changed.isFormed = true;
+        changed.nodes.add(n1Up);
+        changed.nodes.add(n2Up);
+        changed.nodes.add(new GraphNode("n3", "Device", "heat_exchanger", "DEVICE", 5, 0, 0));
+        changed.edges.add(e1Up);
+        assertFalse(layout.canUpdateDataOnly(changed));
+    }
+
+    @Test
+    public void testGraphWidgetPanZoomStatePreservation() {
+        CoolantLoopGraphWidget widget = new CoolantLoopGraphWidget();
+        CoolantLoopGraphData data = new CoolantLoopGraphData();
+        data.isFormed = true;
+
+        GraphNode n1 = new GraphNode("n1", "Pump", "coolant_pump", "SOURCE", 0, 0, 0);
+        GraphNode n2 = new GraphNode("n2", "Sink", "coolant_pump", "SINK", 10, 0, 0);
+        data.nodes.add(n1);
+        data.nodes.add(n2);
+        data.edges.add(new GraphEdge("e1", "n1", "n2"));
+
+        widget.setGraphData(data);
+
+        // User zooms and pans
+        widget.resetZoom();
+        assertEquals(1.0f, widget.getZoom(), 0.001f);
+
+        widget.zoomIn();
+        float zoomedIn = widget.getZoom();
+        assertTrue(zoomedIn > 1.0f);
+
+        widget.zoomAt(1.75f, 150.0f, 100.0f);
+        assertEquals(1.75f, widget.getZoom(), 0.001f);
+
+        // Simulate incoming periodic telemetry sync packet
+        CoolantLoopGraphData syncPacket = new CoolantLoopGraphData();
+        syncPacket.isFormed = true;
+        GraphNode n1Sync = new GraphNode("n1", "Pump", "coolant_pump", "SOURCE", 0, 0, 0);
+        n1Sync.temperature = 300.0;
+        GraphNode n2Sync = new GraphNode("n2", "Sink", "coolant_pump", "SINK", 10, 0, 0);
+        n2Sync.temperature = 180.0;
+        syncPacket.nodes.add(n1Sync);
+        syncPacket.nodes.add(n2Sync);
+        syncPacket.edges.add(new GraphEdge("e1", "n1", "n2"));
+
+        widget.setGraphData(syncPacket);
+
+        // Zoom must NOT reset to default fit scale upon telemetry sync!
+        assertEquals(1.75f, widget.getZoom(), 0.001f);
+        assertEquals(
+            300.0,
+            widget.getLayout()
+                .getNode("n1").data.temperature,
+            0.001);
+
+        // Manual fitToView can be called explicitly
+        widget.fitToView();
+        // Zoom changed due to explicit fit request
+        assertNotNull(widget.getGraphData());
     }
 }
