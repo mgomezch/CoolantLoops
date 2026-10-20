@@ -68,24 +68,24 @@ public class ModMetaTileEntities {
         pressurizedInputHatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput(
             PRESSURIZED_HATCH_INPUT_ID,
             "hatch.pressurizedfluid.input",
-            "Pressurized input hatch",
+            "High-pressure input hatch",
             4 // EV Tier
         );
         pressurizedOutputHatch = new com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput(
             PRESSURIZED_HATCH_OUTPUT_ID,
             "hatch.pressurizedfluid.output",
-            "Pressurized output hatch",
+            "High-pressure output hatch",
             4 // EV Tier
         );
         pressurizedFluidHatch = pressurizedInputHatch;
         pressurizedHeatExchanger = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger(
             HEAT_EXCHANGER_ID,
             "multimachine.pressurizedheatexchanger",
-            "Pressurized heat exchanger");
+            "High-pressure heat exchanger");
         pressurizedDegasser = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser(
             DEGASSER_ID,
             "multimachine.pressurizeddegasser",
-            "Pressurized Degasser");
+            "High-pressure degasser");
         coolantBath = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantBath(
             COOLANT_BATH_ID,
             "multimachine.coolantbath",

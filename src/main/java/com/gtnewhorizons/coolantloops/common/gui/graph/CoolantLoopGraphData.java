@@ -360,7 +360,7 @@ public class CoolantLoopGraphData {
         } else if (fn.type == NodeType.DEVICE) {
             Object devObj = fn.data;
             if (devObj instanceof MTEPressurizedHeatExchanger phe) {
-                label = "Pressurized Heat Exchanger";
+                label = "High-pressure heat exchanger";
                 itemType = "heat_exchanger";
                 if (phe.getBaseMetaTileEntity() != null) {
                     x = phe.getBaseMetaTileEntity()
@@ -374,7 +374,7 @@ public class CoolantLoopGraphData {
                     .isActive() ? "Active" : "Idle";
                 extra.put("Operating Mode", "High-Pressure Convective");
             } else if (devObj instanceof MTEPressurizedDegasser degasser) {
-                label = "Pressurized Degasser";
+                label = "High-pressure degasser";
                 itemType = "degasser";
                 if (degasser.getBaseMetaTileEntity() != null) {
                     x = degasser.getBaseMetaTileEntity()
@@ -529,10 +529,10 @@ public class CoolantLoopGraphData {
             String label = "Device #" + devIdx;
             if (dev instanceof MTEPressurizedHeatExchanger) {
                 itemType = "heat_exchanger";
-                label = "Pressurized Heat Exchanger";
+                label = "High-pressure heat exchanger";
             } else if (dev instanceof MTEPressurizedDegasser) {
                 itemType = "degasser";
-                label = "Pressurized Degasser";
+                label = "High-pressure degasser";
             } else if (dev instanceof MTECoolantBath) {
                 itemType = "coolant_bath";
                 label = "Coolant Bath";

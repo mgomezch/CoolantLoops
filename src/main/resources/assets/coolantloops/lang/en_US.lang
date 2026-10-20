@@ -1,15 +1,15 @@
-tile.coolantloops.instrument.name=Pressurized instrumentation computer
+tile.coolantloops.instrument.name=High-pressure instrumentation computer
 tile.coolantloops.manifold.name=Coolant loop manifold
 tile.coolantloops.creative_heat_reservoir.name=Creative heat reservoir
 
 # Hatches and Pipes
-gt.hatch.pressurized_fluid.name=Pressurized fluid hatch
-gt.hatch.pressurized_fluid.desc1=Hermetic port for pressurized coolant loops
+gt.hatch.pressurized_fluid.name=High-pressure fluid hatch
+gt.hatch.pressurized_fluid.desc1=Hermetic port for high-pressure coolant loops
 gt.hatch.pressurized_fluid.desc2=Discharge hatch accepts machine controller covers to remotely stop flow and return fluid to reservoir
-gt.hatch.pressurized_input.name=Pressurized input hatch
+gt.hatch.pressurized_input.name=High-pressure input hatch
 gt.hatch.pressurized_input.desc1=Hermetic suction port returning coolant into multiblock machines
 gt.hatch.pressurized_input.desc2=Craft with a screwdriver to convert to an output hatch
-gt.hatch.pressurized_output.name=Pressurized output hatch
+gt.hatch.pressurized_output.name=High-pressure output hatch
 gt.hatch.pressurized_output.desc1=Hermetic discharge port pumping coolant into closed loops
 gt.hatch.pressurized_output.desc2=Craft with a screwdriver to convert to an input hatch
 
@@ -23,8 +23,8 @@ channels.coolantloops.width=Tank width (3, 5, 7, 9)
 channels.coolantloops.height=Tank height (4 to 8)
 channels.coolantloops.tank_material=Railcraft tank material
 
-# Pressurized Heat Exchanger
-gt.multiblock.pressurized_heat_exchanger.machine_type=Pressurized heat exchanger
+# High-pressure heat exchanger
+gt.multiblock.pressurized_heat_exchanger.machine_type=High-pressure heat exchanger
 gt.multiblock.pressurized_heat_exchanger.desc1=Extracts thermal energy from closed coolant loops
 gt.multiblock.pressurized_heat_exchanger.desc2=Converts secondary distilled water -> steam / superheated / supercritical steam at 1:160 expansion
 gt.multiblock.pressurized_heat_exchanger.structure.controller=Center of middle front layer
@@ -35,25 +35,25 @@ gt.multiblock.pressurized_heat_exchanger.structure.heating_duct=Heating duct
 gt.multiblock.pressurized_heat_exchanger.structure.heating_duct_pos=9x (primary hot side)
 gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal=Copper sheetmetal
 gt.multiblock.pressurized_heat_exchanger.structure.copper_sheetmetal_pos=3x (middle center)
-gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet=Pressurized fluid hatch (inlet)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet=High-pressure fluid hatch (inlet)
 gt.multiblock.pressurized_heat_exchanger.structure.hatch_inlet_pos=1x (middle layer)
-gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet=Pressurized fluid hatch (outlet)
+gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet=High-pressure fluid hatch (outlet)
 gt.multiblock.pressurized_heat_exchanger.structure.hatch_outlet_pos=1x (middle layer)
 gt.multiblock.pressurized_heat_exchanger.structure.input_hatch=Secondary fluid input (distilled water)
 gt.multiblock.pressurized_heat_exchanger.structure.output_hatch=Secondary fluid output (steam / superheated / supercritical)
 gt.multiblock.pressurized_heat_exchanger.structure.maintenance=Maintenance hatch
 gt.multiblock.pressurized_heat_exchanger.structure.energy=1-2x Energy hatch
 
-# Pressurized Degasser
-gt.multiblock.pressurized_degasser.machine_type=Pressurized degasser
+# High-pressure degasser
+gt.multiblock.pressurized_degasser.machine_type=High-pressure degasser
 gt.multiblock.pressurized_degasser.desc1=Extracts dissolved radiolytic and byproduct gases from closed coolant loops
 gt.multiblock.pressurized_degasser.desc2=Extraction rate scales with loop coolant flow rate (25% crossing gas/sec)
 gt.multiblock.pressurized_degasser.desc3=Consumes 8 EU/t per 1 L/s extraction capacity; supports single-amp overclocking
 gt.multiblock.pressurized_degasser.structure.controller=Center of bottom front layer
 gt.multiblock.pressurized_degasser.structure.casings=Reinforced machine casings
-gt.multiblock.pressurized_degasser.structure.hatch_inlet=Pressurized fluid hatch (inlet)
+gt.multiblock.pressurized_degasser.structure.hatch_inlet=High-pressure fluid hatch (inlet)
 gt.multiblock.pressurized_degasser.structure.hatch_inlet_pos=1x bottom layer
-gt.multiblock.pressurized_degasser.structure.hatch_outlet=Pressurized fluid hatch (outlet)
+gt.multiblock.pressurized_degasser.structure.hatch_outlet=High-pressure fluid hatch (outlet)
 gt.multiblock.pressurized_degasser.structure.hatch_outlet_pos=1x bottom layer
 gt.multiblock.pressurized_degasser.structure.energy=Single-amp energy hatch (bottom layer)
 gt.multiblock.pressurized_degasser.structure.maintenance=Maintenance hatch (bottom layer)
@@ -74,9 +74,9 @@ gt.multiblock.coolant_pump.structure.frames=Corner frame boxes (4x at layer 0 an
 gt.multiblock.coolant_pump.structure.frames_pos=Matches Railcraft tank material
 gt.multiblock.coolant_pump.structure.energy=1-2x Energy hatch (1 hatch: 1A of tier; 2 hatches: 4A total at higher tier)
 gt.multiblock.coolant_pump.structure.maintenance=Maintenance hatch
-gt.multiblock.coolant_pump.structure.hatch_discharge=Pressurized fluid hatch (discharge)
+gt.multiblock.coolant_pump.structure.hatch_discharge=High-pressure fluid hatch (discharge)
 gt.multiblock.coolant_pump.structure.hatch_discharge_pos=1x
-gt.multiblock.coolant_pump.structure.hatch_suction=Pressurized fluid hatch (suction)
+gt.multiblock.coolant_pump.structure.hatch_suction=High-pressure fluid hatch (suction)
 gt.multiblock.coolant_pump.structure.hatch_suction_pos=1x
 gt.multiblock.coolant_pump.structure.rc_tank=Railcraft multiblock tank
 gt.multiblock.coolant_pump.structure.rc_tank_pos=Directly above pump (height 4-8, width 3, 5, 7, 9)
@@ -85,7 +85,7 @@ gt.multiblock.coolant_pump.structure.rc_tank_pos=Directly above pump (height 4-8
 gt.multiblock.coolantloops.finisher=Coolant Loops
 
 # Instrumentation Computer GUI & Chat
-coolantloops.gui.instrument.title=Pressurized instrumentation computer
+coolantloops.gui.instrument.title=High-pressure instrumentation computer
 coolantloops.gui.instrument.btn.prev_metric=Previous metric
 coolantloops.gui.instrument.btn.next_metric=Next metric
 coolantloops.gui.instrument.metric=Metric: %s
@@ -169,13 +169,13 @@ coolantloops.pump.status.tank_not_valid=Railcraft tank above pump is not fully f
 coolantloops.pump.status.multiple_tanks=Mismatched Railcraft tank: multiple distinct tank multiblocks detected above pump!
 coolantloops.pump.status.tank_empty=Railcraft tank is empty! Coolant fluid required before pump can operate.
 
-coolantloops.pump.status.req_hatches=Requires 1 Discharge and 1 Suction Pressurized Hatch
+coolantloops.pump.status.req_hatches=Requires 1 discharge and 1 suction high-pressure hatch
 coolantloops.pump.status.req_maintenance=Requires 1 Maintenance Hatch
 coolantloops.pump.status.req_energy=Requires 1 or 2 Energy Hatches
 coolantloops.pump.status.corner_frame=Corner block at (%d, %d, %d) must be a Frame Box!
 coolantloops.pump.status.corner_frame_mat=Corner block at (%d, %d, %d) is %s Frame Box, but must match tank material %s!
 coolantloops.pump.status.casing_req=Block at (%d, %d, %d) must be a Tungstensteel Pipe Casing or valid hatch!
-coolantloops.pump.status.invalid_hatch=Invalid hatch at (%d, %d, %d)! Only Pressurized Fluid Hatches, Maintenance Hatch, and Energy Hatches allowed.
+coolantloops.pump.status.invalid_hatch=Invalid hatch at (%d, %d, %d)! Only high-pressure fluid hatches, maintenance hatch, and energy hatches allowed.
 
 coolantloops.pump.status.missing_rotor=Missing turbine rotor impeller in controller slot!
 coolantloops.pump.status.loop_disconnect=Loop disconnect: %s
@@ -234,7 +234,7 @@ coolantloops.crawler.pipe_not_connected_back=Pipe at (%d, %d, %d) is not connect
 coolantloops.crawler.pipe_dead_end=Dead-end or missing forward connection at pipe (%d, %d, %d) [incoming=%s]
 coolantloops.crawler.pipe_split_needs_manifold=Ambiguous pipe branching at (%d, %d, %d): flow splitting requires a Manifold!
 coolantloops.crawler.phe_unformed=PHE at (%d, %d, %d) is unformed or missing a valid outlet hatch
-coolantloops.crawler.degasser_unformed=Pressurized Degasser at (%d, %d, %d) is unformed or missing a valid outlet hatch
+coolantloops.crawler.degasser_unformed=High-pressure degasser at (%d, %d, %d) is unformed or missing a valid outlet hatch
 coolantloops.crawler.passage_outlet=Loop enters passage through outlet at (%d, %d, %d)
 coolantloops.crawler.passage_no_pair=Passage hatch at (%d, %d, %d) has no paired opposite hatch
 coolantloops.crawler.device_merge_needs_manifold=Invalid device junction at (%d, %d, %d): flow merging requires a Manifold!
@@ -261,14 +261,14 @@ coolantloops.gui.button.loop_graph.tooltip=Inspect coolant loop flow graph and t
 coolantloops.gui.button.loop_graph.requires_monitor=Requires computer monitor cover on controller
 
 # Multiblock structure error messages
-coolantloops.structure.error.missing_primary_inlet=Missing primary pressurized fluid inlet hatch
-coolantloops.structure.error.missing_primary_outlet=Missing primary pressurized fluid outlet hatch
+coolantloops.structure.error.missing_primary_inlet=Missing primary high-pressure fluid inlet hatch
+coolantloops.structure.error.missing_primary_outlet=Missing primary high-pressure fluid outlet hatch
 coolantloops.structure.error.single_amp_energy_required=Energy hatch must be single-amp (max 2A)
 coolantloops.structure.error.pump.missing_or_mismatched_tank=Missing, incomplete, or mismatched Railcraft tank directly above pump
 coolantloops.structure.error.pump.corner_frame=Requires %s frame box
 coolantloops.structure.error.pump.casing_req=Requires Tungstensteel Pipe Casing or valid hatch
-coolantloops.structure.error.pump.invalid_hatch=Invalid hatch (only Pressurized Fluid, Maintenance, and Energy hatches allowed)
-coolantloops.structure.error.missing_suction_hatch=Missing pressurized suction hatch (input mode)
-coolantloops.structure.error.missing_discharge_hatch=Missing pressurized discharge hatch (output mode)
+coolantloops.structure.error.pump.invalid_hatch=Invalid hatch (only high-pressure fluid, maintenance, and energy hatches allowed)
+coolantloops.structure.error.missing_suction_hatch=Missing high-pressure suction hatch (input mode)
+coolantloops.structure.error.missing_discharge_hatch=Missing high-pressure discharge hatch (output mode)
 coolantloops.structure.error.duplicate_pump_hatches=Requires exactly 1 suction and 1 discharge hatch
 
