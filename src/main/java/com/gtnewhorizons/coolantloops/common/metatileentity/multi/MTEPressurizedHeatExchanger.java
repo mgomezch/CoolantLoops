@@ -241,15 +241,7 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
     public static boolean isSingleAmpEnergyHatch(MTEHatchEnergy hatch) {
         if (hatch == null) return false;
-        String name = hatch.getClass()
-            .getName();
-        if (name.contains("Multi") || name.contains("Tunnel")) {
-            return false;
-        }
-        if (hatch.maxWorkingAmperesIn() > 2L || hatch.maxAmperesIn() > 2L) {
-            return false;
-        }
-        return true;
+        return hatch.maxWorkingAmperesIn() <= 2L && hatch.maxAmperesIn() <= 2L;
     }
 
     public List<MTEHatchEnergy> getValidEnergyHatches() {

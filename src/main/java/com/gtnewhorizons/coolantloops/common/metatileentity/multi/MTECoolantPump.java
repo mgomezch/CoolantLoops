@@ -2200,9 +2200,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             return addMaintenanceToMachineList(aTileEntity, aBaseCasingIndex);
         }
         if (aMetaTileEntity instanceof MTEHatchEnergy) {
-            if (aMetaTileEntity.getClass()
-                .getName()
-                .contains("Multi")) {
+            if (!MTEPressurizedHeatExchanger.isSingleAmpEnergyHatch((MTEHatchEnergy) aMetaTileEntity)) {
                 return false;
             }
             return addEnergyInputToMachineList(aTileEntity, aBaseCasingIndex);
