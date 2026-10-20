@@ -397,6 +397,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
     public boolean triggerPowerfail() {
         mLastDrainedEU = 0L;
+        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
         if (getBaseMetaTileEntity() != null) {
             getBaseMetaTileEntity().setActive(false);
             getBaseMetaTileEntity().setShutDownReason(ShutDownReasonRegistry.POWER_LOSS);

@@ -841,6 +841,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public boolean triggerPowerfail() {
         mPowerFailed = true;
+        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
         if (getBaseMetaTileEntity() != null) {
             getBaseMetaTileEntity().setActive(false);
             getBaseMetaTileEntity().setShutDownReason(ShutDownReasonRegistry.POWER_LOSS);
@@ -963,7 +964,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         // Draw electrical power if allowed to work (soft hammer / redstone control)
         boolean isWorking = isAllowedToWork();
-        if (!isWorking && !mPowerFailed) {
+        if (!isWorking) {
             if (baseTE != null) {
                 baseTE.setActive(false);
             }

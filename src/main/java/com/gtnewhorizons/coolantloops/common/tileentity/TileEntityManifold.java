@@ -202,9 +202,14 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         return true;
     }
 
+    public void setConnections(byte mask) {
+        setConnectionsMask(mask);
+    }
+
     /**
-     * Inspects all 6 neighbors. If any adjacent manifold has an incompatible main-plane orientation,
-     * automatically disconnects the mutual connection.
+     * Inspects all 6 neighbors. If an adjacent manifold has an incompatible main-plane orientation,
+     * automatically disconnects the mutual connection. If an adjacent manifold has a compatible
+     * main-plane orientation and is in-plane, connects the mutual connection.
      */
     public boolean validateConnectionsWithNeighbors() {
         if (worldObj == null) return false;
@@ -220,6 +225,16 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
                     }
                     if (neighborManifold.isConnected(dir.getOpposite())) {
                         neighborManifold.setConnected(dir.getOpposite(), false);
+                        changed = true;
+                    }
+                } else if (isInPlane(dir) && neighborManifold.isInPlane(dir.getOpposite())) {
+                    if (!isConnected(dir)) {
+                        setConnected(dir, true);
+                        changed = true;
+                    }
+                    if (!neighborManifold.isConnected(dir.getOpposite())) {
+                        neighborManifold.setConnected(dir.getOpposite(), true);
+                        changed = true;
                     }
                 }
             }
