@@ -178,8 +178,9 @@ public class CoolantBathRegistry {
         if (stack == null) return null;
         ensureInitialized();
         ItemDamageKey key = ItemDamageKey.of(stack);
-        if (key != null && CRYO_CELLS.containsKey(key)) {
-            return CRYO_CELLS.get(key);
+        if (key != null) {
+            CryoCellPair pair = CRYO_CELLS.get(key);
+            if (pair != null) return pair;
         }
         // Fallback by checking item data associations or unlocalized names
         ItemData data = GTOreDictUnificator.getAssociation(stack);
@@ -271,12 +272,6 @@ public class CoolantBathRegistry {
             return Math.max(200.0, celsius);
         }
         return 1200.0; // Default fallback for high-temperature metals
-    }
-
-    @Deprecated
-    public static String getStackKey(ItemStack stack) {
-        ItemDamageKey key = ItemDamageKey.of(stack);
-        return key != null ? key.toString() : "";
     }
 
     /**
@@ -401,11 +396,10 @@ public class CoolantBathRegistry {
         Materials mat = data != null && data.mMaterial != null ? data.mMaterial.mMaterial : null;
 
         // Check Hot Ingot cooling down
-        if ((data != null && data.mPrefix == OrePrefixes.ingotHot)
-            || (key != null && HOT_TO_COLD_INGOTS.containsKey(key))) {
-            HotColdPair pair = key != null ? HOT_TO_COLD_INGOTS.get(key) : null;
-            double hotTemp = pair != null ? pair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
-            ItemStack coldOutput = pair != null ? pair.coldStack.copy()
+        HotColdPair hotPair = key != null ? HOT_TO_COLD_INGOTS.get(key) : null;
+        if ((data != null && data.mPrefix == OrePrefixes.ingotHot) || hotPair != null) {
+            double hotTemp = hotPair != null ? hotPair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
+            ItemStack coldOutput = hotPair != null ? hotPair.coldStack.copy()
                 : (mat != null ? GTOreDictUnificator.get(OrePrefixes.ingot, mat, 1L) : null);
 
             double initialTemp = hotTemp;
@@ -431,11 +425,10 @@ public class CoolantBathRegistry {
         }
 
         // Check Cold Ingot heating up
-        if ((data != null && data.mPrefix == OrePrefixes.ingot)
-            || (key != null && COLD_TO_HOT_INGOTS.containsKey(key))) {
-            HotColdPair pair = key != null ? COLD_TO_HOT_INGOTS.get(key) : null;
-            double hotTemp = pair != null ? pair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
-            ItemStack hotOutput = pair != null ? pair.hotStack.copy()
+        HotColdPair coldPair = key != null ? COLD_TO_HOT_INGOTS.get(key) : null;
+        if ((data != null && data.mPrefix == OrePrefixes.ingot) || coldPair != null) {
+            double hotTemp = coldPair != null ? coldPair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
+            ItemStack hotOutput = coldPair != null ? coldPair.hotStack.copy()
                 : (mat != null ? GTOreDictUnificator.get(OrePrefixes.ingotHot, mat, 1L) : null);
 
             double initialTemp = 20.0;

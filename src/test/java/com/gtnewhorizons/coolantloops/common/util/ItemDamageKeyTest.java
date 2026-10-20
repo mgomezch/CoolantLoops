@@ -191,4 +191,32 @@ public class ItemDamageKeyTest {
         assertEquals(50, mfLegacy.getActivePumpPos().y);
         assertEquals(60, mfLegacy.getActivePumpPos().z);
     }
+
+    @Test
+    public void testCoolantBathRegistryItemDamageKey() {
+        Item item1 = Items.iron_ingot != null ? Items.iron_ingot : Mockito.mock(Item.class);
+        Item item2 = Items.gold_ingot != null ? Items.gold_ingot : Mockito.mock(Item.class);
+
+        ItemStack liquidCell = new ItemStack(item1, 1, 42);
+        ItemStack gasCell = new ItemStack(item2, 1, 10);
+
+        CoolantBathRegistry.registerCryoCellPair("test_cryo", liquidCell, gasCell, -150.0, 50000.0);
+
+        assertTrue(CoolantBathRegistry.isCryoCell(liquidCell));
+        assertTrue(CoolantBathRegistry.isCompatibleItem(liquidCell));
+
+        CoolantBathRegistry.CryoCellPair pair = CoolantBathRegistry.getCryoCellPair(liquidCell);
+        assertNotNull(pair);
+        assertEquals("test_cryo", pair.name);
+        assertEquals(-150.0, pair.boilingPointCelsius);
+        assertEquals(50000.0, pair.latentHeatJoules);
+
+        // Different damage should not match
+        ItemStack wrongDamage = new ItemStack(item1, 1, 43);
+        assertNull(CoolantBathRegistry.getCryoCellPair(wrongDamage));
+
+        // Different item should not match
+        ItemStack wrongItem = new ItemStack(item2, 1, 42);
+        assertNull(CoolantBathRegistry.getCryoCellPair(wrongItem));
+    }
 }
