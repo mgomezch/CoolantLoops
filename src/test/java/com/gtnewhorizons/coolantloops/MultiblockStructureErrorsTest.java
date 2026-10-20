@@ -37,11 +37,20 @@ public class MultiblockStructureErrorsTest {
             Loader mockLoader = Mockito.mock(Loader.class);
             Mockito.when(mockLoader.getCallableCrashInformation())
                 .thenReturn(Mockito.mock(ICrashCallable.class));
+            new java.io.File("build/tmp/config").mkdirs();
+            Mockito.when(mockLoader.getConfigDir())
+                .thenReturn(new java.io.File("build/tmp/config"));
             Field f = Loader.class.getDeclaredField("instance");
             f.setAccessible(true);
             if (f.get(null) == null) {
                 f.set(null, mockLoader);
             }
+        } catch (Throwable ignored) {}
+
+        try {
+            Field mcHome = cpw.mods.fml.relauncher.FMLInjectionData.class.getDeclaredField("minecraftHome");
+            mcHome.setAccessible(true);
+            mcHome.set(null, new java.io.File("."));
         } catch (Throwable ignored) {}
 
         try {
@@ -59,6 +68,17 @@ public class MultiblockStructureErrorsTest {
             fBlockHint.setAccessible(true);
             if (fBlockHint.get(null) == null) {
                 fBlockHint.set(null, net.minecraft.init.Blocks.stone);
+            }
+        } catch (Throwable ignored) {}
+
+        try {
+            Field fGlassList = gregtech.api.util.GlassTier.class.getDeclaredField("glassList");
+            fGlassList.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<org.apache.commons.lang3.tuple.Pair<net.minecraft.block.Block, Integer>> list = (List<org.apache.commons.lang3.tuple.Pair<net.minecraft.block.Block, Integer>>) fGlassList
+                .get(null);
+            if (list != null && list.isEmpty()) {
+                list.add(org.apache.commons.lang3.tuple.Pair.of(net.minecraft.init.Blocks.glass, 0));
             }
         } catch (Throwable ignored) {}
 

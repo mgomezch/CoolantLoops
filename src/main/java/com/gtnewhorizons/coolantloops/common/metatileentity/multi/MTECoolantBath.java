@@ -429,7 +429,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         int layerY = 1;
         int sliceZ = 1 + row;
 
-        int[] abc = new int[] { charX - xCenter, layerY - 0, sliceZ - 0 };
+        int[] abc = new int[] { charX - xCenter, layerY - 2, sliceZ - 0 };
         int[] xyz = new int[] { 0, 0, 0 };
         getExtendedFacing().getWorldOffset(abc, xyz);
 
@@ -494,29 +494,29 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
                 .addShape(
                     "bath_5x7x3",
                     StructureUtility.transpose(
-                        new String[][] { { "CC~CC", "CCCCC", "CCCCC", "CCCCC", "CCCCC", "CCCCC", "CCCCC" },
+                        new String[][] { { "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG" },
                             { "CCICC", "C   C", "C   C", "C   C", "C   C", "C   C", "CCOCC" },
-                            { "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG", "GGGGG" } }))
+                            { "CC~CC", "CCCCC", "CCCCC", "CCCCC", "CCCCC", "CCCCC", "CCCCC" } }))
                 .addShape(
                     "bath_7x9x3",
                     StructureUtility.transpose(
                         new String[][] {
-                            { "CCC~CCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC",
-                                "CCCCCCC" },
+                            { "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG",
+                                "GGGGGGG" },
                             { "CCCICCC", "C     C", "C     C", "C     C", "C     C", "C     C", "C     C", "C     C",
                                 "CCCOCCC" },
-                            { "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG", "GGGGGGG",
-                                "GGGGGGG" } }))
+                            { "CCC~CCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC",
+                                "CCCCCCC" } }))
                 .addShape(
                     "bath_9x11x3",
                     StructureUtility.transpose(
                         new String[][] {
-                            { "CCCC~CCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC",
-                                "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC" },
+                            { "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG",
+                                "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG" },
                             { "CCCCICCCC", "C       C", "C       C", "C       C", "C       C", "C       C", "C       C",
                                 "C       C", "C       C", "C       C", "CCCCOCCCC" },
-                            { "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG",
-                                "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG" } }))
+                            { "CCCC~CCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC",
+                                "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC", "CCCCCCCCC" } }))
                 .addElement(
                     'C',
                     StructureUtility.ofChain(
@@ -551,7 +551,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         List<StructureError> errors7 = new ArrayList<>();
         List<StructureError> errors5 = new ArrayList<>();
 
-        boolean matched9 = checkPiece("bath_9x11x3", 4, 0, 0, errors9);
+        boolean matched9 = checkPiece("bath_9x11x3", 4, 2, 0, errors9);
         boolean matched7 = false;
         boolean matched5 = false;
 
@@ -570,7 +570,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
             mMaintenanceHatches.clear();
             mGlassTier = -1;
 
-            matched7 = checkPiece("bath_7x9x3", 3, 0, 0, errors7);
+            matched7 = checkPiece("bath_7x9x3", 3, 2, 0, errors7);
             if (matched7) {
                 mStructureTier = 2;
                 mInteriorWidth = 5;
@@ -586,7 +586,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
                 mMaintenanceHatches.clear();
                 mGlassTier = -1;
 
-                matched5 = checkPiece("bath_5x7x3", 2, 0, 0, errors5);
+                matched5 = checkPiece("bath_5x7x3", 2, 2, 0, errors5);
                 if (matched5) {
                     mStructureTier = 1;
                     mInteriorWidth = 3;
@@ -668,13 +668,13 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
 
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
-        buildPiece("bath_5x7x3", stackSize, hintsOnly, 2, 0, 0);
+        buildPiece("bath_5x7x3", stackSize, hintsOnly, 2, 2, 0);
     }
 
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;
-        return survivalBuildPiece("bath_5x7x3", stackSize, 2, 0, 0, elementBudget, env, false, true);
+        return survivalBuildPiece("bath_5x7x3", stackSize, 2, 2, 0, elementBudget, env, false, true);
     }
 
     @Override

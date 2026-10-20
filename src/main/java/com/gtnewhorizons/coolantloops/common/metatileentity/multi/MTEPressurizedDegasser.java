@@ -159,7 +159,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         mMaintenanceHatches.clear();
         mCasing = 0;
 
-        if (!checkPiece("degasser_3x3x7", 1, 0, 1, aErrors)) {
+        if (!checkPiece("degasser_3x3x7", 1, 6, 0, aErrors)) {
             return;
         }
 
@@ -274,9 +274,9 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
                 .addShape(
                     "degasser_3x3x7",
                     StructureUtility.transpose(
-                        new String[][] { { "CCC", "C~C", "CCC" }, { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" },
+                        new String[][] { { "TTT", "TTT", "TTT" }, { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" },
                             { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" }, { "CCC", "C C", "CCC" },
-                            { "TTT", "TTT", "TTT" } }))
+                            { "C~C", "CCC", "CCC" } }))
                 .addElement(
                     'C',
                     StructureUtility.ofChain(
@@ -296,13 +296,13 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
-        buildPiece("degasser_3x3x7", stackSize, hintsOnly, 1, 0, 1);
+        buildPiece("degasser_3x3x7", stackSize, hintsOnly, 1, 6, 0);
     }
 
     @Override
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (mMachine) return -1;
-        return survivalBuildPiece("degasser_3x3x7", stackSize, 1, 0, 1, elementBudget, env, false, true);
+        return survivalBuildPiece("degasser_3x3x7", stackSize, 1, 6, 0, elementBudget, env, false, true);
     }
 
     @Override

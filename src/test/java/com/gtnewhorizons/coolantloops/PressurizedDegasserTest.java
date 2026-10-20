@@ -244,4 +244,76 @@ public class PressurizedDegasserTest {
         double eff40 = 0.40;
         assertEquals(0.40, baseExtract * eff40, 1e-6, "6 maintenance issues must reduce degassing rate to 40%");
     }
+
+    @Test
+    public void testDegasserStructureCoordinates() {
+        try {
+            if (gregtech.GTMod.gregtechproxy == null) {
+                gregtech.GTMod.gregtechproxy = org.mockito.Mockito.mock(gregtech.common.GTProxy.class);
+            }
+        } catch (Throwable ignored) {}
+        gregtech.api.GregTechAPI.sBlockCasings4 = net.minecraft.init.Blocks.stone;
+
+        com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser degasser = new com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser(
+            "test.degasser");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockBase = org.mockito.Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        net.minecraft.world.World mockWorld = org.mockito.Mockito.mock(net.minecraft.world.World.class);
+        org.mockito.Mockito.when(
+            mockWorld
+                .blockExists(org.mockito.Mockito.anyInt(), org.mockito.Mockito.anyInt(), org.mockito.Mockito.anyInt()))
+            .thenReturn(true);
+        org.mockito.Mockito.when(mockBase.getWorld())
+            .thenReturn(mockWorld);
+        org.mockito.Mockito.when(mockBase.getXCoord())
+            .thenReturn(100);
+        org.mockito.Mockito.when(mockBase.getYCoord())
+            .thenReturn((short) 50);
+        org.mockito.Mockito.when(mockBase.getZCoord())
+            .thenReturn(200);
+        org.mockito.Mockito.when(mockBase.getFrontFacing())
+            .thenReturn(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        degasser.setBaseMetaTileEntity(mockBase);
+
+        java.util.concurrent.atomic.AtomicInteger minY = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicInteger maxY = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MIN_VALUE);
+        java.util.concurrent.atomic.AtomicInteger minZ = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicInteger maxZ = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MIN_VALUE);
+        java.util.concurrent.atomic.AtomicInteger minX = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicInteger maxX = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MIN_VALUE);
+
+        degasser.getStructureDefinition()
+            .iterate(
+                "degasser_3x3x7",
+                mockWorld,
+                degasser.getExtendedFacing(),
+                100,
+                50,
+                200,
+                1,
+                6,
+                0,
+                (element, world, x, y, z, a, b, c) -> {
+                    minY.updateAndGet(curr -> Math.min(curr, y));
+                    maxY.updateAndGet(curr -> Math.max(curr, y));
+                    minZ.updateAndGet(curr -> Math.min(curr, z));
+                    maxZ.updateAndGet(curr -> Math.max(curr, z));
+                    minX.updateAndGet(curr -> Math.min(curr, x));
+                    maxX.updateAndGet(curr -> Math.max(curr, x));
+                    return true;
+                });
+
+        assertEquals(50, minY.get(), "Bottom layer must be at controller level y=50");
+        assertEquals(56, maxY.get(), "Top layer must be at level y=56 (7 blocks tall: 50 to 56)");
+        assertEquals(200, minZ.get(), "Front layer must be at controller level z=200");
+        assertEquals(202, maxZ.get(), "Back layer must be at z=202 (3 blocks deep: 200 to 202)");
+        assertEquals(99, minX.get(), "Left column must be at x=99");
+        assertEquals(101, maxX.get(), "Right column must be at x=101 (3 blocks wide: 99 to 101, center at 100)");
+    }
 }

@@ -57,6 +57,20 @@ public class CoolantBathTest {
                 gregtech.GTMod.proxy = Mockito.mock(gregtech.common.GTProxy.class);
             }
         } catch (Throwable ignored) {}
+
+        gregtech.api.GregTechAPI.sBlockCasings1 = net.minecraft.init.Blocks.stone;
+        gregtech.api.GregTechAPI.sBlockCasings2 = net.minecraft.init.Blocks.stone;
+        gregtech.api.GregTechAPI.sBlockCasings4 = net.minecraft.init.Blocks.stone;
+        gregtech.api.GregTechAPI.sBlockCasings10 = net.minecraft.init.Blocks.stone;
+
+        try {
+            java.lang.reflect.Field fBlockHint = com.gtnewhorizon.structurelib.StructureLib.class
+                .getDeclaredField("blockHint");
+            fBlockHint.setAccessible(true);
+            if (fBlockHint.get(null) == null) {
+                fBlockHint.set(null, net.minecraft.init.Blocks.stone);
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Test
@@ -367,6 +381,74 @@ public class CoolantBathTest {
         bath.mSlots = new CoolantBathSlot[12];
         assertEquals(12, bath.getTotalSlotCount(), "Explicit 12-slot array must report 12 slots");
         assertEquals(12000L, bath.getFillVolumeLiters(), "12 slots must have 12,000 L fill volume");
+    }
+
+    @Test
+    public void testCoolantBathStructureCoordinates() {
+        MTECoolantBath bath = new MTECoolantBath("test.bath");
+        gregtech.api.interfaces.tileentity.IGregTechTileEntity mockBase = Mockito
+            .mock(gregtech.api.interfaces.tileentity.IGregTechTileEntity.class);
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+        Mockito.when(mockWorld.blockExists(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(true);
+        Mockito.when(mockBase.getWorld())
+            .thenReturn(mockWorld);
+        Mockito.when(mockBase.getXCoord())
+            .thenReturn(100);
+        Mockito.when(mockBase.getYCoord())
+            .thenReturn((short) 50);
+        Mockito.when(mockBase.getZCoord())
+            .thenReturn(200);
+        Mockito.when(mockBase.getFrontFacing())
+            .thenReturn(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        bath.setBaseMetaTileEntity(mockBase);
+
+        // Verify tier 1 (5x7x3)
+        java.util.concurrent.atomic.AtomicInteger minY = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicInteger maxY = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MIN_VALUE);
+        java.util.concurrent.atomic.AtomicInteger minZ = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MAX_VALUE);
+        java.util.concurrent.atomic.AtomicInteger maxZ = new java.util.concurrent.atomic.AtomicInteger(
+            Integer.MIN_VALUE);
+        java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        bath.getStructureDefinition()
+            .iterate(
+                "bath_5x7x3",
+                mockWorld,
+                bath.getExtendedFacing(),
+                100,
+                50,
+                200,
+                2,
+                2,
+                0,
+                (element, world, x, y, z, a, b, c) -> {
+                    count.incrementAndGet();
+                    minY.updateAndGet(curr -> Math.min(curr, y));
+                    maxY.updateAndGet(curr -> Math.max(curr, y));
+                    minZ.updateAndGet(curr -> Math.min(curr, z));
+                    maxZ.updateAndGet(curr -> Math.max(curr, z));
+                    return true;
+                });
+
+        assertEquals(50, minY.get(), "Bottom layer must be at controller level y=50");
+        assertEquals(52, maxY.get(), "Glass roof must be at top level y=52 (3 blocks tall: 50, 51, 52)");
+        assertEquals(200, minZ.get(), "Front narrow end must be at controller level z=200");
+        assertEquals(206, maxZ.get(), "Back narrow end must be at z=206 (7 blocks long: 200 to 206)");
+
+        // Verify slot world coordinates for tier 1
+        bath.mInteriorWidth = 3;
+        bath.mInteriorLength = 5;
+        for (int i = 0; i < 15; i++) {
+            int[] pos = bath.getSlotWorldCoordinates(i);
+            assertNotNull(pos, "Slot coordinate must not be null for slot " + i);
+            assertEquals(51, pos[1], "Slot " + i + " must be in the middle layer at y=51");
+            assertTrue(pos[0] >= 99 && pos[0] <= 101, "Slot " + i + " X must be within interior width (99..101)");
+            assertTrue(pos[2] >= 201 && pos[2] <= 205, "Slot " + i + " Z must be within interior length (201..205)");
+        }
     }
 
     @Test
