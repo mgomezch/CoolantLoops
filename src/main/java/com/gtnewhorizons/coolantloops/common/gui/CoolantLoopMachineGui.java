@@ -2,13 +2,26 @@ package com.gtnewhorizons.coolantloops.common.gui;
 
 import static gregtech.api.metatileentity.BaseTileEntity.TOOLTIP_DELAY;
 
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.minecraft.util.StatCollector;
+
 import com.cleanroommc.modularui.api.IPanelHandler;
 import com.cleanroommc.modularui.api.drawable.IKey;
+import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.drawable.ItemDrawable;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.utils.Alignment;
 import com.cleanroommc.modularui.value.sync.BooleanSyncValue;
+import com.cleanroommc.modularui.value.sync.DynamicSyncHandler;
+import com.cleanroommc.modularui.value.sync.IntSyncValue;
 import com.cleanroommc.modularui.value.sync.PanelSyncManager;
+import com.cleanroommc.modularui.value.sync.StringSyncValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
+import com.cleanroommc.modularui.widgets.DynamicSyncedWidget;
+import com.cleanroommc.modularui.widgets.ListWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphPanel;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
@@ -48,9 +61,85 @@ public class CoolantLoopMachineGui<T extends MTEMultiBlockBase> extends MTEMulti
         return false;
     }
 
+    private static final Pattern COORD_PATTERN = Pattern.compile("\\((-?\\d+),\\s*(-?\\d+),\\s*(-?\\d+)\\)");
+
     @Override
     protected boolean shouldDisplayRecipeLock() {
         return false;
+    }
+
+    @Override
+    protected ListWidget<IWidget, ?> createTerminalTextWidget(PanelSyncManager syncManager, ModularPanel parent) {
+        ListWidget<IWidget, ?> list = super.createTerminalTextWidget(syncManager, parent);
+
+        if (multiblock instanceof MTECoolantPump pump) {
+            BooleanSyncValue loopFormedSyncer = new BooleanSyncValue(pump::isLoopFormed);
+            StringSyncValue loopStatusSyncer = new StringSyncValue(pump::getLoopStatus);
+            syncManager.syncValue("loopFormed", loopFormedSyncer);
+            syncManager.syncValue("loopStatus", loopStatusSyncer);
+
+            IntSyncValue errorIDSyncer = syncManager.findSyncHandler("errorID", IntSyncValue.class);
+
+            Supplier<Boolean> showLoopDiagnostic = () -> {
+                boolean structureComplete = (errorIDSyncer == null) || ((errorIDSyncer.getValue() & 64) == 0);
+                return structureComplete && !loopFormedSyncer.getValue();
+            };
+
+            // Incomplete coolant loop header (styled like ShutDownReasonRegistry.STRUCTURE_INCOMPLETE)
+            list.child(
+                IKey.lang("coolantloops.gui.text.loop_incomplete")
+                    .asWidget()
+                    .fullWidth()
+                    .marginBottom(2)
+                    .setEnabledIf(w -> showLoopDiagnostic.get()));
+
+            DynamicSyncHandler loopDiagSyncer = new DynamicSyncHandler().widgetProvider((sm, packet) -> {
+                String status = loopStatusSyncer.getValue();
+                if (status == null || status.isEmpty()) {
+                    status = StatCollector.translateToLocal("coolantloops.pump.status.waiting");
+                }
+
+                Flow row = Flow.row()
+                    .fullWidth()
+                    .coverChildrenHeight(0)
+                    .crossAxisAlignment(Alignment.CrossAxis.START)
+                    .marginBottom(2);
+
+                Matcher m = COORD_PATTERN.matcher(status);
+                if (m.find()) {
+                    try {
+                        int hx = Integer.parseInt(m.group(1));
+                        int hy = Integer.parseInt(m.group(2));
+                        int hz = Integer.parseInt(m.group(3));
+                        row.child(createHighlightButton(hx, hy, hz));
+                    } catch (NumberFormatException ignored) {}
+                }
+
+                row.child(
+                    IKey.str("• " + status)
+                        .color(0xFFE0E0E0)
+                        .alignment(Alignment.TopLeft)
+                        .asWidget()
+                        .expanded());
+
+                return row.setEnabledIf(w -> showLoopDiagnostic.get());
+            })
+                .allowC2S();
+
+            loopStatusSyncer.setChangeListener(() -> loopDiagSyncer.notifyUpdate(packet -> {}));
+            loopFormedSyncer.setChangeListener(() -> loopDiagSyncer.notifyUpdate(packet -> {}));
+            if (errorIDSyncer != null) {
+                errorIDSyncer.setChangeListener(() -> loopDiagSyncer.notifyUpdate(packet -> {}));
+            }
+
+            list.child(
+                new DynamicSyncedWidget<>().widthRel(0.95f)
+                    .coverChildrenHeight(0)
+                    .syncHandler(loopDiagSyncer)
+                    .setEnabledIf(w -> showLoopDiagnostic.get()));
+        }
+
+        return list;
     }
 
     @Override

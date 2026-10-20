@@ -588,4 +588,24 @@ public class CoolantLoopGraphTest {
         // Zoom changed due to explicit fit request
         assertNotNull(widget.getGraphData());
     }
+
+    @Test
+    public void testUnformedGraphDataAndFailureReason() {
+        CoolantLoopGraphData data = new CoolantLoopGraphData();
+        data.isFormed = false;
+        data.failureReason = "Loop disconnect: Dead-end coolant pipe at (10, 65, 20) entering from EAST";
+
+        String json = data.toJson();
+        assertNotNull(json);
+
+        CoolantLoopGraphData restored = CoolantLoopGraphData.fromJson(json);
+        assertFalse(restored.isFormed);
+        assertEquals(data.failureReason, restored.failureReason);
+
+        CoolantLoopGraphWidget widget = new CoolantLoopGraphWidget();
+        widget.setGraphData(restored);
+        assertNotNull(widget.getGraphData());
+        assertFalse(widget.getGraphData().isFormed);
+        assertEquals(data.failureReason, widget.getGraphData().failureReason);
+    }
 }

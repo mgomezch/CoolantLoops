@@ -135,6 +135,8 @@ coolantloops.gui.creative_reservoir.input.area_tooltip=Heat-transfer area in m²
 coolantloops.gui.creative_reservoir.status=Setting: %.1f °C | Area: %.2f m²
 
 # Scanner / Info Data for Coolant Loop Pump
+gt.scanner.coolant_pump.loop_active=Loop formed: %d segments, %d devices
+gt.scanner.coolant_pump.loop_incomplete=Loop incomplete: %s
 gt.scanner.coolant_pump.state=State: %s
 gt.scanner.coolant_pump.discharge_hatch=Discharge hatch: %s
 gt.scanner.coolant_pump.discharge_hatch.disabled=Disabled (stopping/draining)
@@ -180,6 +182,8 @@ coolantloops.pump.status.invalid_hatch=Invalid hatch at (%d, %d, %d)! Only high-
 
 coolantloops.pump.status.missing_rotor=Missing turbine rotor impeller in controller slot!
 coolantloops.pump.status.loop_disconnect=Loop disconnect: %s
+coolantloops.gui.text.loop_incomplete=§4Shut down due to incomplete coolant loop.
+coolantloops.waila.loop_not_formed=Coolant loop incomplete: %s
 
 coolantloops.pump.status.refuse_water=Pump refused to start: Plain regular water cannot be used in a coolant loop! Use Distilled Water.
 coolantloops.pump.status.refuse_gas=Pump refused to start: Gaseous fluid (%s) cannot be used as a coolant!

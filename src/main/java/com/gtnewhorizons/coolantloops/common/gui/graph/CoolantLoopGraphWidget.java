@@ -1,5 +1,6 @@
 package com.gtnewhorizons.coolantloops.common.gui.graph;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -241,8 +242,18 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
             String msg = (graphData != null && graphData.failureReason != null) ? graphData.failureReason
                 : "Coolant Loop Not Formed";
             FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
-            int sw = fr.getStringWidth(msg);
-            fr.drawStringWithShadow(msg, (rw - sw) / 2, (rh - 8) / 2, 0xFF8888);
+            int maxWrapWidth = Math.max(40, rw - 24);
+            @SuppressWarnings("unchecked")
+            List<String> lines = fr.listFormattedStringToWidth(msg, maxWrapWidth);
+            int lineHeight = fr.FONT_HEIGHT + 2;
+            int totalHeight = lines.size() * lineHeight - 2;
+            int startY = Math.max(6, (rh - totalHeight) / 2);
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines.get(i);
+                int lw = fr.getStringWidth(line);
+                int lx = Math.max(12, (rw - lw) / 2);
+                fr.drawStringWithShadow(line, lx, startY + i * lineHeight, 0xFF8888);
+            }
             return;
         }
 

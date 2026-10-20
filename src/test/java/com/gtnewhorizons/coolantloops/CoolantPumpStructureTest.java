@@ -2,9 +2,14 @@ package com.gtnewhorizons.coolantloops;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -12,17 +17,20 @@ import org.mockito.Mockito;
 
 import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
+import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData;
 import com.gtnewhorizons.coolantloops.common.metatileentity.CoolantStructureChannels;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.util.CoolantFluidHelper;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
+import mcp.mobius.waila.api.IWailaDataAccessor;
 
 /**
  * Unit tests verifying:
@@ -1445,5 +1453,73 @@ public class CoolantPumpStructureTest {
         assertEquals("width", CoolantStructureChannels.STRUCTURE_WIDTH.get());
         assertEquals("height", CoolantStructureChannels.STRUCTURE_HEIGHT.get());
         assertEquals("tank_material", CoolantStructureChannels.TANK_MATERIAL.get());
+    }
+
+    @Test
+    public void testLoopFormationFailureDiagnosticsAndGuiOverrides() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_loop_diag");
+
+        // 1. Initial unformed loop state: recipe & running texts must be suppressed
+        assertFalse(pump.isLoopFormed(), "Initial pump must have unformed loop");
+        assertFalse(pump.checkRecipe(null), "checkRecipe must return false when loop is unformed");
+        assertFalse(pump.showRecipeTextInGUI(), "showRecipeTextInGUI must return false");
+        assertFalse(pump.shouldDisplayCheckRecipeResult(), "shouldDisplayCheckRecipeResult must return false");
+        assertFalse(pump.hasRunningText(), "hasRunningText must return false when loop is unformed");
+
+        // 2. Formed loop state: checkRecipe and hasRunningText become active
+        pump.setLoopFormed(true);
+        assertTrue(pump.checkRecipe(null), "checkRecipe must return true when loop is formed");
+        assertTrue(pump.hasRunningText(), "hasRunningText must return true when loop is formed");
+        assertFalse(pump.showRecipeTextInGUI(), "showRecipeTextInGUI remains false (no discrete item/fluid recipes)");
+        assertFalse(pump.shouldDisplayCheckRecipeResult(), "shouldDisplayCheckRecipeResult remains false");
+
+        // 3. Failed crawl result application: result is retained, failureReason is set
+        pump.setLoopFormed(false);
+        String failureReason = "Dead-end coolant pipe at (12, 65, 30) entering from EAST";
+        LoopGraphCrawler.CrawlResult failResult = LoopGraphCrawler.CrawlResult.fail(failureReason);
+        pump.applyCrawlResult(failResult);
+
+        assertFalse(pump.isLoopFormed());
+        assertEquals(failResult, pump.getLastCrawlResult(), "Failed crawl result must be preserved on pump");
+        assertTrue(
+            pump.getLoopStatus()
+                .contains("(12, 65, 30)"),
+            "Loop status must contain the failure coordinate: " + pump.getLoopStatus());
+
+        // 4. Graph data reflects failure reason
+        CoolantLoopGraphData graphData = CoolantLoopGraphData.buildFrom(pump);
+        assertNotNull(graphData);
+        assertFalse(graphData.isFormed);
+        assertEquals(pump.getLoopStatus(), graphData.failureReason);
+
+        // 5. WAILA status: must report unformed loop error and NOT 'Running Fine'
+        NBTTagCompound nbt = new NBTTagCompound();
+        pump.getWailaNBTData(null, null, nbt, null, 0, 0, 0);
+        assertFalse(nbt.getBoolean("loopFormed"));
+        assertEquals(pump.getLoopStatus(), nbt.getString("loopStatus"));
+
+        List<String> wailaTip = new ArrayList<>();
+        IWailaDataAccessor accessor = Mockito.mock(IWailaDataAccessor.class);
+        Mockito.when(accessor.getNBTData())
+            .thenReturn(nbt);
+        pump.getWailaBody(null, wailaTip, accessor, null);
+
+        assertFalse(wailaTip.isEmpty(), "WAILA tip must not be empty");
+        boolean foundLoopError = false;
+        boolean foundRunningFine = false;
+        for (String line : wailaTip) {
+            if (line.contains("Coolant loop incomplete")) foundLoopError = true;
+            if (line.contains("Running Fine")) foundRunningFine = true;
+        }
+        assertTrue(foundLoopError, "WAILA tooltip must include coolant loop incomplete diagnostic: " + wailaTip);
+        assertFalse(foundRunningFine, "WAILA tooltip must NOT report Running Fine when loop is unformed: " + wailaTip);
+
+        // 6. Coordinate pattern extraction for GUI highlight button
+        Pattern coordPattern = Pattern.compile("\\((-?\\d+),\\s*(-?\\d+),\\s*(-?\\d+)\\)");
+        Matcher matcher = coordPattern.matcher(pump.getLoopStatus());
+        assertTrue(matcher.find(), "Coordinate pattern must find block coordinates in failure message");
+        assertEquals(12, Integer.parseInt(matcher.group(1)));
+        assertEquals(65, Integer.parseInt(matcher.group(2)));
+        assertEquals(30, Integer.parseInt(matcher.group(3)));
     }
 }

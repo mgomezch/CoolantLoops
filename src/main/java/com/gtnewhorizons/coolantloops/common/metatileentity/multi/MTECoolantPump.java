@@ -8,10 +8,12 @@ import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.block.Block;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -67,6 +69,8 @@ import gregtech.api.util.TurbineStatCalculator;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.common.blocks.BlockFrameBox;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
+import mcp.mobius.waila.api.IWailaConfigHandler;
+import mcp.mobius.waila.api.IWailaDataAccessor;
 
 /**
  * Multiblock Coolant Loop Pump.
@@ -735,7 +739,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public boolean applyCrawlResult(LoopGraphCrawler.CrawlResult result) {
         if (result == null || !result.isSuccess) {
-            mLastCrawlResult = null;
+            mLastCrawlResult = result;
             mLoopFormed = false;
             mLoopState = LoopState.EMPTY;
             mCurrentFillLiters = 0L;
@@ -805,6 +809,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (aBaseMetaTileEntity != null && aBaseMetaTileEntity.isServerSide()) {
             if (mActiveCrawl != null) {
                 stepActiveCrawl();
+            } else if (!mLoopFormed && mMachine && aTick % 100 == 0) {
+                crawlLoopGraph();
             }
             stepCoolantLoop();
         }
@@ -944,6 +950,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             .isEmpty()) {
             if (mLoopState != LoopState.EMPTY && mLoopState != LoopState.STOPPED && mLoopState != LoopState.FAILED) {
                 mLoopState = LoopState.STOPPED;
+            }
+            IGregTechTileEntity baseTE = getBaseMetaTileEntity();
+            if (baseTE != null && baseTE.isActive()) {
+                baseTE.setActive(false);
             }
             return true;
         }
@@ -1942,7 +1952,22 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     @Override
     public boolean checkRecipe(ItemStack aStack) {
-        return true; // Continuously operates in onRunningTick
+        return mLoopFormed;
+    }
+
+    @Override
+    public boolean showRecipeTextInGUI() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldDisplayCheckRecipeResult() {
+        return false;
+    }
+
+    @Override
+    public boolean hasRunningText() {
+        return mLoopFormed && super.hasRunningText();
     }
 
     @Override
@@ -2097,6 +2122,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 .format("gt.scanner.coolant_pump.impeller_thermal_wear", 1.0, 0.0, "");
         }
 
+        String loopStatusStr = mLoopFormed
+            ? com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                "gt.scanner.coolant_pump.loop_active",
+                mEngine.getSegments()
+                    .size(),
+                mLoopDevices.size())
+            : com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                .format("gt.scanner.coolant_pump.loop_incomplete", mLoopStatus);
+
         return new String[] {
             com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .format("gt.scanner.coolant_pump.state", mLoopState.name()),
@@ -2116,7 +2150,39 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 .format("gt.scanner.coolant_pump.loop_fluid", mCurrentFillLiters, mRequiredFillLiters),
             com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
                 .format("gt.scanner.coolant_pump.dissolved_gas", getDissolvedGasFraction() * 100.0),
-            impellerStr, thermalWearStr };
+            impellerStr, thermalWearStr, loopStatusStr };
+    }
+
+    @Override
+    public void getWailaNBTData(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
+        int z) {
+        if (player != null) {
+            super.getWailaNBTData(player, tile, tag, world, x, y, z);
+        }
+        tag.setBoolean("loopFormed", mLoopFormed);
+        if (mLoopStatus != null) {
+            tag.setString("loopStatus", mLoopStatus);
+        }
+    }
+
+    @Override
+    public void getWailaBody(ItemStack itemStack, List<String> currentTip, IWailaDataAccessor accessor,
+        IWailaConfigHandler config) {
+        final NBTTagCompound tag = accessor.getNBTData();
+        if (tag.getBoolean("incompleteStructure")) {
+            super.getWailaBody(itemStack, currentTip, accessor, config);
+            return;
+        }
+        if (!tag.getBoolean("loopFormed")) {
+            String status = tag.getString("loopStatus");
+            if (status == null || status.isEmpty()) {
+                status = CoolantLocalization.get("coolantloops.pump.status.waiting");
+            }
+            currentTip
+                .add(EnumChatFormatting.RED + CoolantLocalization.format("coolantloops.waila.loop_not_formed", status));
+            return;
+        }
+        super.getWailaBody(itemStack, currentTip, accessor, config);
     }
 
     @Override
