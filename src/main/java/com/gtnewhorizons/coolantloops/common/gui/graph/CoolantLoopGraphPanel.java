@@ -8,9 +8,9 @@ import com.cleanroommc.modularui.value.sync.PanelSyncManager;
 import com.cleanroommc.modularui.value.sync.StringSyncValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
 import com.cleanroommc.modularui.widgets.ItemDisplayWidget;
-import com.cleanroommc.modularui.widgets.TextWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.gtnewhorizons.coolantloops.common.gui.PanelDragHandle;
+import com.gtnewhorizons.coolantloops.common.gui.ResizeableFloatingPanel;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 
 import gregtech.api.enums.ItemList;
@@ -23,18 +23,7 @@ public class CoolantLoopGraphPanel {
     public static final String PANEL_NAME = "coolantLoopGraphPanel";
 
     public static ModularPanel createPanel(PanelSyncManager syncManager, ModularPanel parent, MTECoolantPump pump) {
-        ModularPanel panel = new ModularPanel(PANEL_NAME) {
-
-            @Override
-            public boolean isDraggable() {
-                return false;
-            }
-
-            @Override
-            public boolean keepPosOnDragResize() {
-                return false;
-            }
-        }.relativeToScreen()
+        ModularPanel panel = new ResizeableFloatingPanel(PANEL_NAME).relativeToScreen()
             .center()
             .size(380, 250)
             .resizeableOnDrag(true);
@@ -82,8 +71,7 @@ public class CoolantLoopGraphPanel {
                     }))
             // Zoom level display (also draggable)
             .child(
-                new PanelDragHandle(panel)
-                    .title(IKey.dynamic(() -> graphWidget.getZoomPercent() + "%"))
+                new PanelDragHandle(panel).title(IKey.dynamic(() -> graphWidget.getZoomPercent() + "%"))
                     .color(Color.WHITE.main)
                     .textAlign(Alignment.Center)
                     .size(32, 14)
