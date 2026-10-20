@@ -313,9 +313,9 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     public boolean triggerPowerfail() {
-        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
         if (getBaseMetaTileEntity() != null) {
             getBaseMetaTileEntity().setActive(false);
+            getBaseMetaTileEntity().setShutDownReason(ShutDownReasonRegistry.POWER_LOSS);
         }
         mLastHeatTransferredWatts = 0.0;
         mBatchTimer = 0;

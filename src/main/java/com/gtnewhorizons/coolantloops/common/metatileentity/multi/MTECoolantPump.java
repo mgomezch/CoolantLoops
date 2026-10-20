@@ -532,6 +532,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
 
         checkMaintenance();
+        if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
+            aBaseMetaTileEntity.enableWorking();
+        }
         mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.formed");
         if (mActiveCrawl != null && !mActiveCrawl.isDone()) {
             return;
@@ -838,9 +841,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public boolean triggerPowerfail() {
         mPowerFailed = true;
-        stopMachine(ShutDownReasonRegistry.POWER_LOSS);
         if (getBaseMetaTileEntity() != null) {
             getBaseMetaTileEntity().setActive(false);
+            getBaseMetaTileEntity().setShutDownReason(ShutDownReasonRegistry.POWER_LOSS);
         }
         mLoopState = LoopState.STOPPED;
         mEngine.setPumpPowered(false);
@@ -881,7 +884,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     public boolean drainEnergy(long aEU) {
-        if (aEU <= 0) return true;
+        if (aEU <= 0) {
+            mPowerFailed = false;
+            return true;
+        }
 
         List<MTEHatchEnergy> hatches = getValidEnergyHatches();
         if (!hatches.isEmpty()) {
@@ -907,16 +913,25 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         bte.decreaseStoredEnergyUnits(toDrain, false);
                         remaining -= toDrain;
                         if (remaining <= 0) {
+                            mPowerFailed = false;
                             return true;
                         }
                     }
                 }
             }
-            return remaining <= 0;
+            if (remaining <= 0) {
+                mPowerFailed = false;
+                return true;
+            }
+            return false;
         }
 
         if (getBaseMetaTileEntity() != null && getBaseMetaTileEntity().getStoredEU() >= aEU) {
-            return getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
+            boolean drained = getBaseMetaTileEntity().decreaseStoredEnergyUnits(aEU, false);
+            if (drained) {
+                mPowerFailed = false;
+            }
+            return drained;
         }
         return false;
     }
@@ -948,7 +963,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         // Draw electrical power if allowed to work (soft hammer / redstone control)
         boolean isWorking = isAllowedToWork();
-        if (!isWorking) {
+        if (!isWorking && !mPowerFailed) {
             if (baseTE != null) {
                 baseTE.setActive(false);
             }
