@@ -66,7 +66,11 @@ public class CoolantFluidProperty {
         this.specificHeat = specificHeat;
         this.thermalConductivity = thermalConductivity;
         this.boilingPointCelsius = boilingPointCelsius;
-        this.freezingPointCelsius = freezingPointCelsius;
+        if (isIC2Coolant(fluidName)) {
+            this.freezingPointCelsius = Double.NEGATIVE_INFINITY;
+        } else {
+            this.freezingPointCelsius = freezingPointCelsius;
+        }
         this.isMolten = isMolten;
         this.radiolysisMultiplier = radiolysisMultiplier;
         this.spillOnRupture = spillOnRupture;
@@ -282,7 +286,23 @@ public class CoolantFluidProperty {
         return !Double.isInfinite(boilingPointCelsius);
     }
 
+    public static boolean isIC2Coolant(String fluidName) {
+        if (fluidName == null) return false;
+        String clean = fluidName.trim()
+            .toLowerCase()
+            .replace(" ", "")
+            .replace("_", "");
+        return clean.equals("ic2coolant") || clean.equals("coolant");
+    }
+
+    public boolean isIC2Coolant() {
+        return this == IC2_COOLANT || isIC2Coolant(this.fluidName);
+    }
+
     public double getFreezingPointCelsius() {
+        if (isIC2Coolant()) {
+            return Double.NEGATIVE_INFINITY;
+        }
         return freezingPointCelsius;
     }
 

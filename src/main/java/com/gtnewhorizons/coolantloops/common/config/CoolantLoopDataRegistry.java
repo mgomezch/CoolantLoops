@@ -216,7 +216,7 @@ public class CoolantLoopDataRegistry {
             + "    specificHeat: 3800.0\n"
             + "    thermalConductivity: 0.520\n"
             + "    boilingPointCelsius: Infinity\n"
-            + "    freezingPointCelsius: -25.0\n"
+            + "    freezingPointCelsius: -Infinity\n"
             + "    isMolten: false\n"
             + "    radiolysisMultiplier: 1.0\n"
             + "    spillOnRupture: true\n"
@@ -444,11 +444,18 @@ public class CoolantLoopDataRegistry {
             .entrySet()) {
             CoolantFluidData.FluidPropertyEntry prop = entry.getValue();
             CoolantFluidProperty canonical = CoolantFluidProperty.getCanonical(prop.getFluidName());
+            if (canonical == null) {
+                canonical = CoolantFluidProperty.getCanonical(entry.getKey());
+            }
+
             CoolantFluidProperty runtimeProp;
             if (canonical != null && isClose(canonical.getDensity(), prop.getDensity())
                 && isClose(canonical.getDynamicViscosity(), prop.getDynamicViscosity())
                 && isClose(canonical.getSpecificHeat(), prop.getSpecificHeat())
                 && isClose(canonical.getThermalConductivity(), prop.getThermalConductivity())
+                && isClose(canonical.getBoilingPointCelsius(), prop.getBoilingPointCelsius())
+                && isClose(canonical.getFreezingPointCelsius(), prop.getFreezingPointCelsius())
+                && isClose(canonical.getRadiolysisMultiplier(), prop.getRadiolysisMultiplier())
                 && canonical.isMolten() == prop.isMolten()
                 && canonical.isSpillOnRupture() == prop.isSpillOnRupture()) {
                 runtimeProp = canonical;
@@ -485,7 +492,8 @@ public class CoolantLoopDataRegistry {
     }
 
     private static boolean isClose(double a, double b) {
-        if (Double.isInfinite(a) && Double.isInfinite(b)) return true;
+        if (Double.isInfinite(a) || Double.isInfinite(b)) return a == b;
+        if (Double.isNaN(a) && Double.isNaN(b)) return true;
         return Math.abs(a - b) < 1e-4;
     }
 

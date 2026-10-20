@@ -380,4 +380,75 @@ public class CoolantLoopDataRegistryTest {
                 .isLiquidNuclearFuel("custom_thorium_blend"),
             "Custom liquid fuel added in YAML must be recognized without code changes");
     }
+
+    @Test
+    public void testIndependentPhaseChangeOverrides(@TempDir Path tempDir) throws Exception {
+        File configDir = tempDir.toFile();
+        CoolantLoopDataRegistry.init(configDir);
+
+        File loopDir = new File(configDir, "coolantloops");
+        // Override only phase change points for water, without specifying any transport properties
+        String customFluids = "fluids:\n" + "  water:\n"
+            + "    boilingPointCelsius: 95.0\n"
+            + "    freezingPointCelsius: -4.0\n";
+        Files.write(new File(loopDir, "fluids.yaml").toPath(), customFluids.getBytes());
+
+        CoolantLoopDataRegistry.init(configDir);
+
+        CoolantFluidProperty water = CoolantFluidProperty.get("water");
+        assertNotNull(water);
+        // Phase change points should reflect the YAML overrides
+        assertEquals(95.0, water.getBoilingPointCelsius(), 1e-4);
+        assertEquals(-4.0, water.getFreezingPointCelsius(), 1e-4);
+        // Transport properties should retain canonical water baseline
+        assertEquals(1000.0, water.getDensity(), 1e-4);
+        assertEquals(0.001, water.getDynamicViscosity(), 1e-5);
+        assertEquals(4184.0, water.getSpecificHeat(), 1e-4);
+        assertEquals(0.606, water.getThermalConductivity(), 1e-4);
+        assertFalse(water.isMolten());
+    }
+
+    @Test
+    public void testIndependentTransportPropertyOverrides(@TempDir Path tempDir) throws Exception {
+        File configDir = tempDir.toFile();
+        CoolantLoopDataRegistry.init(configDir);
+
+        File loopDir = new File(configDir, "coolantloops");
+        // Override only density for heavywater, without specifying phase change points
+        String customFluids = "fluids:\n" + "  heavywater:\n" + "    density: 1115.0\n";
+        Files.write(new File(loopDir, "fluids.yaml").toPath(), customFluids.getBytes());
+
+        CoolantLoopDataRegistry.init(configDir);
+
+        CoolantFluidProperty heavyWater = CoolantFluidProperty.get("heavywater");
+        assertNotNull(heavyWater);
+        // Transport override should be applied
+        assertEquals(1115.0, heavyWater.getDensity(), 1e-4);
+        // Phase change points should retain canonical heavywater baseline
+        assertEquals(101.4, heavyWater.getBoilingPointCelsius(), 1e-4);
+        assertEquals(3.8, heavyWater.getFreezingPointCelsius(), 1e-4);
+        // Other transport properties should retain canonical values
+        assertEquals(0.00125, heavyWater.getDynamicViscosity(), 1e-5);
+        assertEquals(4210.0, heavyWater.getSpecificHeat(), 1e-4);
+        assertEquals(0.595, heavyWater.getThermalConductivity(), 1e-4);
+    }
+
+    @Test
+    public void testIC2CoolantNeverFreezesEvenWithYamlOverride(@TempDir Path tempDir) throws Exception {
+        File configDir = tempDir.toFile();
+        CoolantLoopDataRegistry.init(configDir);
+
+        File loopDir = new File(configDir, "coolantloops");
+        // Attempt to configure a finite freezing point for ic2coolant
+        String customFluids = "fluids:\n" + "  ic2coolant:\n" + "    freezingPointCelsius: -25.0\n";
+        Files.write(new File(loopDir, "fluids.yaml").toPath(), customFluids.getBytes());
+
+        CoolantLoopDataRegistry.init(configDir);
+
+        CoolantFluidProperty ic2Coolant = CoolantFluidProperty.get("ic2coolant");
+        assertNotNull(ic2Coolant);
+        // Must remain negative infinity regardless of configuration
+        assertEquals(Double.NEGATIVE_INFINITY, ic2Coolant.getFreezingPointCelsius());
+        assertTrue(Double.isInfinite(ic2Coolant.getBoilingPointCelsius()));
+    }
 }

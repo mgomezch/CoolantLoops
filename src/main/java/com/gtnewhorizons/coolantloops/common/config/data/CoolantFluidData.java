@@ -29,8 +29,18 @@ public class CoolantFluidData {
         public FluidPropertyEntry(String fluidName, double density, double dynamicViscosity, double specificHeat,
             double thermalConductivity, double boilingPointCelsius, double freezingPointCelsius, boolean isMolten,
             double radiolysisMultiplier, List<String> aliases) {
-            this(fluidName, density, dynamicViscosity, specificHeat, thermalConductivity, boilingPointCelsius,
-                freezingPointCelsius, isMolten, radiolysisMultiplier, true, aliases);
+            this(
+                fluidName,
+                density,
+                dynamicViscosity,
+                specificHeat,
+                thermalConductivity,
+                boilingPointCelsius,
+                freezingPointCelsius,
+                isMolten,
+                radiolysisMultiplier,
+                true,
+                aliases);
         }
 
         public FluidPropertyEntry(String fluidName, double density, double dynamicViscosity, double specificHeat,
@@ -59,7 +69,11 @@ public class CoolantFluidData {
             map.put("specificHeat", specificHeat);
             map.put("thermalConductivity", thermalConductivity);
             map.put("boilingPointCelsius", Double.isInfinite(boilingPointCelsius) ? "Infinity" : boilingPointCelsius);
-            map.put("freezingPointCelsius", freezingPointCelsius);
+            map.put(
+                "freezingPointCelsius",
+                Double.isInfinite(freezingPointCelsius)
+                    ? (freezingPointCelsius == Double.NEGATIVE_INFINITY ? "-Infinity" : "Infinity")
+                    : freezingPointCelsius);
             map.put("isMolten", isMolten);
             map.put("radiolysisMultiplier", radiolysisMultiplier);
             map.put("spillOnRupture", spillOnRupture);
@@ -69,10 +83,42 @@ public class CoolantFluidData {
 
         @SuppressWarnings("unchecked")
         public static FluidPropertyEntry fromMap(Map<String, Object> map) {
+            return fromMap(null, map);
+        }
+
+        @SuppressWarnings("unchecked")
+        public static FluidPropertyEntry fromMap(String entryKey, Map<String, Object> map) {
             FluidPropertyEntry entry = new FluidPropertyEntry();
             if (map == null) return entry;
 
-            if (map.containsKey("fluidName")) entry.fluidName = (String) map.get("fluidName");
+            String fluidName = null;
+            if (map.containsKey("fluidName") && map.get("fluidName") != null) {
+                fluidName = map.get("fluidName")
+                    .toString();
+            } else if (entryKey != null && !entryKey.isEmpty()) {
+                fluidName = entryKey;
+            }
+            entry.fluidName = fluidName;
+
+            // Resolve canonical fluid properties as the baseline when available
+            com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty canonical = com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty
+                .getCanonical(fluidName);
+            if (canonical == null && entryKey != null) {
+                canonical = com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.getCanonical(entryKey);
+            }
+
+            if (canonical != null) {
+                entry.density = canonical.getDensity();
+                entry.dynamicViscosity = canonical.getDynamicViscosity();
+                entry.specificHeat = canonical.getSpecificHeat();
+                entry.thermalConductivity = canonical.getThermalConductivity();
+                entry.boilingPointCelsius = canonical.getBoilingPointCelsius();
+                entry.freezingPointCelsius = canonical.getFreezingPointCelsius();
+                entry.isMolten = canonical.isMolten();
+                entry.radiolysisMultiplier = canonical.getRadiolysisMultiplier();
+                entry.spillOnRupture = canonical.isSpillOnRupture();
+            }
+
             if (map.containsKey("density")) entry.density = ((Number) map.get("density")).doubleValue();
             if (map.containsKey("dynamicViscosity"))
                 entry.dynamicViscosity = ((Number) map.get("dynamicViscosity")).doubleValue();
@@ -99,8 +145,27 @@ public class CoolantFluidData {
                 }
             }
 
-            if (map.containsKey("freezingPointCelsius"))
-                entry.freezingPointCelsius = ((Number) map.get("freezingPointCelsius")).doubleValue();
+            if (map.containsKey("freezingPointCelsius")) {
+                Object f = map.get("freezingPointCelsius");
+                if (f instanceof Number) {
+                    entry.freezingPointCelsius = ((Number) f).doubleValue();
+                } else if (f instanceof String) {
+                    String str = ((String) f).trim()
+                        .toLowerCase();
+                    if (str.equals("-infinity") || str.equals("-inf")) {
+                        entry.freezingPointCelsius = Double.NEGATIVE_INFINITY;
+                    } else if (str.contains("inf") || str.equals("none") || str.equals("null")) {
+                        entry.freezingPointCelsius = Double.POSITIVE_INFINITY;
+                    } else {
+                        try {
+                            entry.freezingPointCelsius = Double.parseDouble(str);
+                        } catch (NumberFormatException e) {
+                            entry.freezingPointCelsius = Double.NEGATIVE_INFINITY;
+                        }
+                    }
+                }
+            }
+
             if (map.containsKey("isMolten")) entry.isMolten = Boolean.TRUE.equals(map.get("isMolten"));
             if (map.containsKey("radiolysisMultiplier"))
                 entry.radiolysisMultiplier = ((Number) map.get("radiolysisMultiplier")).doubleValue();
@@ -116,6 +181,14 @@ public class CoolantFluidData {
                     if (o != null) entry.aliases.add(o.toString());
                 }
             }
+
+            // IC2 coolant intentionally never freezes regardless of configuration
+            if (com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.isIC2Coolant(fluidName)
+                || com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.isIC2Coolant(entryKey)
+                || canonical == com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty.IC2_COOLANT) {
+                entry.freezingPointCelsius = Double.NEGATIVE_INFINITY;
+            }
+
             return entry;
         }
 
@@ -279,7 +352,8 @@ public class CoolantFluidData {
             Map<String, Object> fMap = (Map<String, Object>) map.get("fluids");
             for (Map.Entry<String, Object> entry : fMap.entrySet()) {
                 if (entry.getValue() instanceof Map) {
-                    FluidPropertyEntry prop = FluidPropertyEntry.fromMap((Map<String, Object>) entry.getValue());
+                    FluidPropertyEntry prop = FluidPropertyEntry
+                        .fromMap(entry.getKey(), (Map<String, Object>) entry.getValue());
                     if (prop.getFluidName() == null || prop.getFluidName()
                         .isEmpty()) {
                         prop.setFluidName(entry.getKey());
