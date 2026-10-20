@@ -61,7 +61,9 @@ public final class CoolantPumpStructure {
         if (trigger == null) return Materials.Steel;
         int tier;
         try {
-            if (ChannelDataAccessor.hasSubChannel(trigger, "tier")) {
+            if (ChannelDataAccessor.hasSubChannel(trigger, CoolantStructureChannels.TANK_MATERIAL.get())) {
+                tier = CoolantStructureChannels.TANK_MATERIAL.getValueClamped(trigger, 0, 5);
+            } else if (ChannelDataAccessor.hasSubChannel(trigger, "tier")) {
                 tier = ChannelDataAccessor.getChannelData(trigger, "tier");
             } else {
                 tier = trigger.stackSize - 1;
@@ -420,7 +422,7 @@ public final class CoolantPumpStructure {
                     .addShape("tank_" + w + "_mid", StructureUtility.transpose(new String[][] { makeTankMidShape(w) }))
                     .addShape("tank_" + w + "_top", StructureUtility.transpose(new String[][] { makeTankTopShape(w) }));
             }
-            Block casing = GregTechAPI.sBlockCasings4 != null ? GregTechAPI.sBlockCasings4
+            Block casing = GregTechAPI.sBlockCasings2 != null ? GregTechAPI.sBlockCasings2
                 : Block.getBlockFromName("stone");
             Block hintBlock = StructureLibAPI.getBlockHint() != null ? StructureLibAPI.getBlockHint()
                 : Block.getBlockFromName("stone");
@@ -432,8 +434,8 @@ public final class CoolantPumpStructure {
                 .addElement(
                     'C',
                     StructureUtility.ofChain(
-                        GTStructureUtility.ofHatchAdder(MTECoolantPump::addBottomHatch, 48 + 2, hintBlock, 0),
-                        StructureUtility.ofBlock(casing, 2)));
+                        GTStructureUtility.ofHatchAdder(MTECoolantPump::addBottomHatch, 16 + 15, hintBlock, 0),
+                        StructureUtility.ofBlock(casing, 15)));
             STRUCTURE_DEFINITION = b.build();
         }
         return STRUCTURE_DEFINITION;

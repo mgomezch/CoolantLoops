@@ -19,8 +19,9 @@ gt.pipe.coolant.specs.pressure=Max safe pressure: %.1f bar
 gt.pipe.coolant.specs.temperature=Max safe temperature: %.1f °C
 
 # Structure channels
-channels.coolantloops.width=Structure width (3, 5, 7, 9)
-channels.coolantloops.height=Structure height (4 to 8)
+channels.coolantloops.width=Tank width (3, 5, 7, 9)
+channels.coolantloops.height=Tank height (4 to 8)
+channels.coolantloops.tank_material=Railcraft tank material
 
 # Pressurized Heat Exchanger
 gt.multiblock.pressurized_heat_exchanger.machine_type=Pressurized heat exchanger
@@ -67,7 +68,8 @@ gt.multiblock.coolant_pump.desc4=Requires a Turbine Rotor in the controller slot
 gt.multiblock.coolant_pump.desc5=Impellers experience thermal softening and accelerated wear above 50% homologous temperature (0.5 * T_melt)
 gt.multiblock.coolant_pump.desc6=Wear accelerates up to 5x near melting point; reaching melting point destroys the impeller
 gt.multiblock.coolant_pump.structure.controller=Center of bottom front layer
-gt.multiblock.coolant_pump.structure.casings=Robust tungstensteel machine casings
+gt.multiblock.coolant_pump.structure.casings=Tungstensteel pipe casings
+gt.multiblock.coolant_pump.structure.casings_pos=(base layers, around hatches)
 gt.multiblock.coolant_pump.structure.frames=Corner frame boxes (4x at layer 0 and 1)
 gt.multiblock.coolant_pump.structure.frames_pos=Matches Railcraft tank material
 gt.multiblock.coolant_pump.structure.energy=1-2x Energy hatch (1 hatch: 1A of tier; 2 hatches: 4A total at higher tier)
@@ -172,6 +174,8 @@ coolantloops.pump.status.req_maintenance=Requires 1 Maintenance Hatch
 coolantloops.pump.status.req_energy=Requires 1 or 2 Energy Hatches
 coolantloops.pump.status.corner_frame=Corner block at (%d, %d, %d) must be a Frame Box!
 coolantloops.pump.status.corner_frame_mat=Corner block at (%d, %d, %d) is %s Frame Box, but must match tank material %s!
+coolantloops.pump.status.casing_req=Block at (%d, %d, %d) must be a Tungstensteel Pipe Casing or valid hatch!
+coolantloops.pump.status.invalid_hatch=Invalid hatch at (%d, %d, %d)! Only Pressurized Fluid Hatches, Maintenance Hatch, and Energy Hatches allowed.
 
 coolantloops.pump.status.missing_rotor=Missing turbine rotor impeller in controller slot!
 coolantloops.pump.status.loop_disconnect=Loop disconnect: %s

@@ -297,12 +297,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public ITexture[] getTexture(IGregTechTileEntity aBaseMetaTileEntity, ForgeDirection side, ForgeDirection facing,
         int aColorIndex, boolean aActive, boolean aRedstone) {
         if (side == facing) {
-            return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings4, 2),
+            return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings2, 15),
                 TextureFactory.of(
                     aActive ? Textures.BlockIcons.OVERLAY_FRONT_DIESEL_ENGINE_ACTIVE
                         : Textures.BlockIcons.OVERLAY_FRONT_DIESEL_ENGINE) };
         }
-        return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings4, 2) };
+        return new ITexture[] { TextureFactory.of(GregTechAPI.sBlockCasings2, 15) };
     }
 
     @Override
@@ -396,6 +396,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                                 if (!mEnergyHatches.contains(mte)) {
                                     mEnergyHatches.add((MTEHatchEnergy) mte);
                                 }
+                            } else {
+                                mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.invalid_hatch", bx, by, bz);
+                                return false;
+                            }
+                        } else if (GregTechAPI.sBlockCasings2 != null) {
+                            Block block = world.getBlock(bx, by, bz);
+                            int meta = world.getBlockMetadata(bx, by, bz);
+                            if (block != GregTechAPI.sBlockCasings2 || meta != 15) {
+                                mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.casing_req", bx, by, bz);
+                                return false;
                             }
                         }
                     }
@@ -435,20 +445,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 return false;
             }
 
+            final int casingIndex = 16 + 15;
             for (MTEHatchPressurizedFluid ph : pressHatches) {
-                ph.updateTexture(48 + 2);
+                ph.updateTexture(casingIndex);
             }
             for (MTEHatchMaintenance mh : mMaintenanceHatches) {
-                mh.updateTexture(48 + 2);
+                mh.updateTexture(casingIndex);
             }
             for (MTEHatchEnergy eh : mEnergyHatches) {
-                eh.updateTexture(48 + 2);
+                eh.updateTexture(casingIndex);
             }
             if (mDischargeHatch != null) {
-                mDischargeHatch.updateTexture(48 + 2);
+                mDischargeHatch.updateTexture(casingIndex);
             }
             if (mSuctionHatch != null) {
-                mSuctionHatch.updateTexture(48 + 2);
+                mSuctionHatch.updateTexture(casingIndex);
             }
             if (getBaseMetaTileEntity() != null) {
                 ItemStack icon = getMachineCraftingIcon();
@@ -2263,7 +2274,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     @Override
-    protected MultiblockTooltipBuilder createTooltip() {
+    public MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(StatCollector.translateToLocal("gt.multiblock.coolant_pump.machine_type"))
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc1"))
@@ -2274,9 +2285,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             .addInfo(StatCollector.translateToLocal("gt.multiblock.coolant_pump.desc6"))
             .addPerfectOCInfo()
             .addSeparator()
-            .beginStructureBlock(3, 2, 3, false)
+            .beginVariableStructureBlock(3, 9, 6, 10, 3, 9, false)
             .addController(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.controller"))
-            .addCasingInfoMin(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.casings"), 5, false)
+            .addCasingInfo(
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.casings"),
+                StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.casings_pos"),
+                false)
             .addOtherStructurePart(
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.frames"),
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.frames_pos"))
@@ -2293,6 +2307,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.rc_tank_pos"))
             .addSubChannel(CoolantStructureChannels.STRUCTURE_WIDTH)
             .addSubChannel(CoolantStructureChannels.STRUCTURE_HEIGHT)
+            .addSubChannel(CoolantStructureChannels.TANK_MATERIAL)
             .toolTipFinisher(StatCollector.translateToLocal("gt.multiblock.coolantloops.finisher"));
         return tt;
     }

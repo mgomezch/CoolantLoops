@@ -24,6 +24,7 @@ import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 public class PressurizedHatchTextureTest {
 
     private static final int CASING_INDEX_ROBUST_TUNGSTENSTEEL = 48 + 2; // Page 0, Index 50
+    private static final int CASING_INDEX_TUNGSTENSTEEL_PIPE = 16 + 15; // Page 0, Index 31
     private static final int CASING_INDEX_HEAT_PROOF = 11;
 
     @BeforeAll
@@ -66,6 +67,8 @@ public class PressurizedHatchTextureTest {
 
         ITexture dummyCasing50 = Mockito.mock(ITexture.class);
         Textures.BlockIcons.setCasingTextureForId(CASING_INDEX_ROBUST_TUNGSTENSTEEL, dummyCasing50);
+        ITexture dummyCasing31 = Mockito.mock(ITexture.class);
+        Textures.BlockIcons.setCasingTextureForId(CASING_INDEX_TUNGSTENSTEEL_PIPE, dummyCasing31);
         ITexture dummyCasing11 = Mockito.mock(ITexture.class);
         Textures.BlockIcons.setCasingTextureForId(CASING_INDEX_HEAT_PROOF, dummyCasing11);
     }
@@ -127,12 +130,12 @@ public class PressurizedHatchTextureTest {
         dischargeHatch.setBaseMetaTileEntity(mockTile);
 
         // addBottomHatch in StructureDefinition
-        boolean added = pump.addBottomHatch(mockTile, CASING_INDEX_ROBUST_TUNGSTENSTEEL);
+        boolean added = pump.addBottomHatch(mockTile, CASING_INDEX_TUNGSTENSTEEL_PIPE);
         assertTrue(added, "addBottomHatch should accept Pressurized Fluid Hatch");
         assertEquals(
-            Textures.BlockIcons.casingTexturePages[0][50],
+            Textures.BlockIcons.casingTexturePages[0][31],
             dischargeHatch.getCasingTexture(),
-            "Discharge hatch must inherit pump casing texture (index 50) on structure add");
+            "Discharge hatch must inherit pump casing texture (index 31) on structure add");
     }
 
     @Test

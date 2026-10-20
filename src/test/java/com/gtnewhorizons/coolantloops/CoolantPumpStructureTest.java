@@ -67,6 +67,8 @@ public class CoolantPumpStructureTest {
             if (gregtech.GTMod.proxy.powerfailTracker == null) {
                 gregtech.GTMod.proxy.powerfailTracker = Mockito.mock(gregtech.common.data.GTPowerfailTracker.class);
             }
+            Mockito.when(gregtech.GTMod.proxy.getSeparatorStyle())
+                .thenReturn(gregtech.common.GTProxy.SeparatorStyle.Dashes);
         } catch (Throwable ignored) {}
     }
 
@@ -74,8 +76,10 @@ public class CoolantPumpStructureTest {
     public void testStructureChannelsRegistration() {
         assertEquals("width", CoolantStructureChannels.STRUCTURE_WIDTH.get());
         assertEquals("height", CoolantStructureChannels.STRUCTURE_HEIGHT.get());
+        assertEquals("tank_material", CoolantStructureChannels.TANK_MATERIAL.get());
         assertNotNull(CoolantStructureChannels.STRUCTURE_WIDTH.getDefaultTooltip());
         assertNotNull(CoolantStructureChannels.STRUCTURE_HEIGHT.getDefaultTooltip());
+        assertNotNull(CoolantStructureChannels.TANK_MATERIAL.getDefaultTooltip());
     }
 
     @Test
@@ -106,7 +110,16 @@ public class CoolantPumpStructureTest {
         ItemStack triggerStainless = new ItemStack(net.minecraft.init.Items.stick, 3);
         assertEquals(Materials.StainlessSteel, MTECoolantPump.getMaterialFromTrigger(triggerStainless));
 
-        // Trigger with subchannel "tier"
+        // Trigger with subchannel "tank_material"
+        ItemStack triggerTankMat = new ItemStack(net.minecraft.init.Items.stick, 1);
+        ChannelDataAccessor.setChannelData(triggerTankMat, "tank_material", 4);
+        assertEquals(Materials.TungstenSteel, MTECoolantPump.getMaterialFromTrigger(triggerTankMat));
+
+        // tank_material takes precedence over legacy "tier"
+        ChannelDataAccessor.setChannelData(triggerTankMat, "tier", 2);
+        assertEquals(Materials.TungstenSteel, MTECoolantPump.getMaterialFromTrigger(triggerTankMat));
+
+        // Trigger with subchannel "tier" fallback
         ItemStack triggerSubchannel = new ItemStack(net.minecraft.init.Items.stick, 1);
         ChannelDataAccessor.setChannelData(triggerSubchannel, "tier", 4);
         assertEquals(Materials.TungstenSteel, MTECoolantPump.getMaterialFromTrigger(triggerSubchannel));
@@ -1406,5 +1419,30 @@ public class CoolantPumpStructureTest {
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt());
+    }
+
+    @Test
+    public void testCoolantPumpTooltipAndStructureCasings() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_tooltip");
+        gregtech.api.util.MultiblockTooltipBuilder tt = pump.createTooltip();
+        assertNotNull(tt);
+        String[] structInfo = tt.getStructureInformation();
+        assertNotNull(structInfo);
+        assertTrue(structInfo.length > 0);
+
+        // Verify that minimum casing requirement is NOT present
+        boolean foundCasingLine = false;
+        for (String line : structInfo) {
+            assertFalse(line.contains("at least"), "Must not require minimum casings: " + line);
+            if (line.toLowerCase().contains("casing")) {
+                foundCasingLine = true;
+            }
+        }
+        assertTrue(foundCasingLine, "Casing information line must be present in structure info");
+
+        // Verify channels are registered
+        assertEquals("width", CoolantStructureChannels.STRUCTURE_WIDTH.get());
+        assertEquals("height", CoolantStructureChannels.STRUCTURE_HEIGHT.get());
+        assertEquals("tank_material", CoolantStructureChannels.TANK_MATERIAL.get());
     }
 }
