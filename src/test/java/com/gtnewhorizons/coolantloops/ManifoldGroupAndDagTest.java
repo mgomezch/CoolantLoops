@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
 
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
@@ -49,7 +50,7 @@ public class ManifoldGroupAndDagTest {
     private static class WorldTileMap {
 
         final World world = Mockito.mock(World.class);
-        final java.util.Map<String, TileEntity> tiles = new java.util.HashMap<>();
+        final java.util.Map<ChunkCoordinates, TileEntity> tiles = new java.util.HashMap<>();
 
         public WorldTileMap() {
             Mockito.when(world.getTileEntity(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
@@ -57,14 +58,14 @@ public class ManifoldGroupAndDagTest {
                     int x = inv.getArgument(0);
                     int y = inv.getArgument(1);
                     int z = inv.getArgument(2);
-                    return tiles.get(x + "," + y + "," + z);
+                    return tiles.get(new ChunkCoordinates(x, y, z));
                 });
             Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
                 .thenAnswer(inv -> {
                     int x = inv.getArgument(0);
                     int y = inv.getArgument(1);
                     int z = inv.getArgument(2);
-                    TileEntity te = tiles.get(x + "," + y + "," + z);
+                    TileEntity te = tiles.get(new ChunkCoordinates(x, y, z));
                     if (te instanceof TileEntityManifold) {
                         return com.gtnewhorizons.coolantloops.common.block.ModBlocks.manifold;
                     }
@@ -83,7 +84,7 @@ public class ManifoldGroupAndDagTest {
             te.yCoord = y;
             te.zCoord = z;
             te.setWorldObj(world);
-            tiles.put(x + "," + y + "," + z, te);
+            tiles.put(new ChunkCoordinates(x, y, z), te);
         }
 
         public TileEntityManifold putManifold(int x, int y, int z) {
