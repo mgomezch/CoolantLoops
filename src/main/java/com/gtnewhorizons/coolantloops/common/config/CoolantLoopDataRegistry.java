@@ -395,8 +395,6 @@ public class CoolantLoopDataRegistry {
             + "  steamExpansionRatio: 160          # 1 Liter water -> 160 Liters steam\n"
             + "  superheatedTempThreshold: 300.0   # Coolant temp for superheated steam (deg C)\n"
             + "  supercriticalTempThreshold: 700.0 # Coolant temp for supercritical steam (deg C)\n"
-            + "  maxTempDropPerTick: 40.0          # Maximum primary coolant temp drop per tick\n"
-            + "  coolingFactor: 0.5               # Relaxation factor towards boiling point\n"
             + "  allowedSecondaryFluids:\n"
             + "    - \"ic2distilledwater\"\n"
             + "    - \"distilledwater\"\n"

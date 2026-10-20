@@ -213,8 +213,6 @@ public class CoolantLoopDataRegistryTest {
             + "  steamExpansionRatio: 200\n"
             + "  superheatedTempThreshold: 280.0\n"
             + "  supercriticalTempThreshold: 650.0\n"
-            + "  maxTempDropPerTick: 60.0\n"
-            + "  coolingFactor: 0.65\n"
             + "degasser:\n"
             + "  minorLossK: 1.1\n"
             + "  gasExtractionEfficiency: 0.40\n"
