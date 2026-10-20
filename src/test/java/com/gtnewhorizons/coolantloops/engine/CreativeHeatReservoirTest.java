@@ -2,6 +2,9 @@ package com.gtnewhorizons.coolantloops.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -11,8 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityCreativeHeatReservoir;
+import com.gtnewhorizons.coolantloops.common.util.CoolantLocalization;
+import com.gtnewhorizons.modularui.api.drawable.Text;
 import com.gtnewhorizons.modularui.api.screen.ModularWindow;
 import com.gtnewhorizons.modularui.api.screen.UIBuildContext;
+import com.gtnewhorizons.modularui.api.widget.Widget;
 
 import cpw.mods.fml.common.Loader;
 
@@ -182,7 +188,7 @@ class CreativeHeatReservoirTest {
     }
 
     @Test
-    void testModularUIWindowCreation() {
+    void testModularUIWindowCreation() throws Exception {
         TileEntityCreativeHeatReservoir te = new TileEntityCreativeHeatReservoir();
         EntityPlayer mockPlayer = Mockito.mock(EntityPlayer.class);
         UIBuildContext ctx = new UIBuildContext(mockPlayer);
@@ -192,5 +198,46 @@ class CreativeHeatReservoirTest {
         assertEquals(176, window.getSize().width);
         assertEquals(115, window.getSize().height);
         assertFalse(window.getChildren().isEmpty(), "Window must contain UI widgets");
+
+        List<Widget> widgetsWithTooltips = window.getChildren().stream()
+            .filter(Widget::hasTooltip)
+            .collect(Collectors.toList());
+
+        assertEquals(6, widgetsWithTooltips.size(), "Window should have 6 widgets with tooltips (4 buttons, 2 inputs)");
+
+        java.lang.reflect.Field tooltipField = Widget.class.getDeclaredField("additionalTooltip");
+        tooltipField.setAccessible(true);
+
+        for (Widget w : widgetsWithTooltips) {
+            @SuppressWarnings("unchecked")
+            List<Text> tooltip = (List<Text>) tooltipField.get(w);
+            assertTrue(tooltip.size() >= 2, "Each widget tooltip should have multiple lines");
+            for (Text t : tooltip) {
+                String line = t.getFormatted();
+                assertFalse(line.contains("\\n"), "Tooltip line should not contain literal \\n: " + line);
+                assertFalse(line.contains("\n"), "Tooltip line should not contain newline character: " + line);
+            }
+        }
+    }
+
+    @Test
+    void testCoolantLocalizationTooltipLines() {
+        List<String> tempBtnLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp");
+        assertEquals(5, tempBtnLines.size());
+        assertEquals("Decrease target temperature", tempBtnLines.get(0));
+        assertEquals("Left-click: -10 °C", tempBtnLines.get(1));
+        assertEquals("Shift-click: -100 °C", tempBtnLines.get(2));
+        assertEquals("Ctrl-click: -1000 °C", tempBtnLines.get(3));
+        assertEquals("Right-click: -1 °C", tempBtnLines.get(4));
+
+        List<String> tempInputLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.temp_tooltip");
+        assertEquals(2, tempInputLines.size());
+        assertEquals("Target temperature in °C (min: -273.15 °C)", tempInputLines.get(0));
+        assertEquals("Right-click to clear", tempInputLines.get(1));
+
+        List<String> areaInputLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.area_tooltip");
+        assertEquals(2, areaInputLines.size());
+        assertEquals("Heat-transfer area in m² (min: 0.1 m²)", areaInputLines.get(0));
+        assertEquals("Right-click to clear", areaInputLines.get(1));
     }
 }

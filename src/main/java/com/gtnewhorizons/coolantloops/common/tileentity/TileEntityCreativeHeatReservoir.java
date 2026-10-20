@@ -210,7 +210,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 .setOnClick((clickData, widget) -> adjustTargetTemperature(-getTemperatureStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_MINUS_LARGE)
-                .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.btn.decrease_temp"))
+                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp"))
                 .setPos(10, 34)
                 .setSize(18, 18));
 
@@ -227,7 +227,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
             .setTextAlignment(Alignment.Center)
             .setTextColor(Color.WHITE.normal)
             .setBackground(GTUITextures.BACKGROUND_TEXT_FIELD.withOffset(-1, -1, 2, 2))
-            .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.input.temp_tooltip"))
+            .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.temp_tooltip"))
             .setPos(32, 34)
             .setSize(112, 18);
         builder.widget(tempInput);
@@ -238,7 +238,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 .setOnClick((clickData, widget) -> adjustTargetTemperature(getTemperatureStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_PLUS_LARGE)
-                .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.btn.increase_temp"))
+                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_temp"))
                 .setPos(148, 34)
                 .setSize(18, 18));
 
@@ -254,7 +254,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 .setOnClick((clickData, widget) -> adjustHeatTransferArea(-getAreaStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_MINUS_LARGE)
-                .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.btn.decrease_area"))
+                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_area"))
                 .setPos(10, 68)
                 .setSize(18, 18));
 
@@ -271,7 +271,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
             .setTextAlignment(Alignment.Center)
             .setTextColor(Color.WHITE.normal)
             .setBackground(GTUITextures.BACKGROUND_TEXT_FIELD.withOffset(-1, -1, 2, 2))
-            .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.input.area_tooltip"))
+            .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.area_tooltip"))
             .setPos(32, 68)
             .setSize(112, 18);
         builder.widget(areaInput);
@@ -282,7 +282,7 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 .setOnClick((clickData, widget) -> adjustHeatTransferArea(getAreaStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_PLUS_LARGE)
-                .addTooltip(CoolantLocalization.get("coolantloops.gui.creative_reservoir.btn.increase_area"))
+                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_area"))
                 .setPos(148, 68)
                 .setSize(18, 18));
 
