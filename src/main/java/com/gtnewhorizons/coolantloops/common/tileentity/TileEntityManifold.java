@@ -56,6 +56,7 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     public void setFacing(ForgeDirection facing) {
         if (facing != null && facing != ForgeDirection.UNKNOWN) {
             this.facing = facing;
+            validateConnectionsWithNeighbors();
             markDirty();
             if (worldObj != null) {
                 worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
@@ -184,10 +185,72 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     }
 
     /**
+     * Checks whether connection to an adjacent block in the given direction is allowed.
+     * Adjacent manifolds MUST share the exact same main-plane orientation.
+     */
+    public boolean isConnectionAllowed(ForgeDirection dir) {
+        if (dir == null || dir == ForgeDirection.UNKNOWN) return false;
+        if (worldObj != null) {
+            TileEntity neighbor = worldObj
+                .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+            if (neighbor instanceof TileEntityManifold neighborManifold) {
+                if (!hasSamePlaneOrientation(neighborManifold)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Inspects all 6 neighbors. If any adjacent manifold has an incompatible main-plane orientation,
+     * automatically disconnects the mutual connection.
+     */
+    public boolean validateConnectionsWithNeighbors() {
+        if (worldObj == null) return false;
+        boolean changed = false;
+        for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+            TileEntity neighbor = worldObj
+                .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+            if (neighbor instanceof TileEntityManifold neighborManifold) {
+                if (!hasSamePlaneOrientation(neighborManifold)) {
+                    if (isConnected(dir)) {
+                        setConnected(dir, false);
+                        changed = true;
+                    }
+                    if (neighborManifold.isConnected(dir.getOpposite())) {
+                        neighborManifold.setConnected(dir.getOpposite(), false);
+                    }
+                }
+            }
+        }
+        if (changed) {
+            markDirty();
+            if (!worldObj.isRemote) {
+                worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+            }
+        }
+        return changed;
+    }
+
+    /**
      * Toggles connection on the given side and, if an adjacent manifold or connectable pipe is present,
      * updates the reciprocal connection on that neighbor as well.
      */
     public boolean toggleConnectionWithNeighbor(ForgeDirection dir) {
+        if (dir == null || dir == ForgeDirection.UNKNOWN) return false;
+        if (!isConnectionAllowed(dir)) {
+            setConnected(dir, false);
+            if (worldObj != null) {
+                TileEntity neighbor = worldObj
+                    .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                if (neighbor instanceof TileEntityManifold neighborManifold) {
+                    neighborManifold.setConnected(dir.getOpposite(), false);
+                }
+            }
+            return false;
+        }
+
         boolean newState = toggleConnection(dir);
         if (worldObj != null) {
             TileEntity neighbor = worldObj
@@ -215,6 +278,10 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
 
     @Override
     public int connect(ForgeDirection side) {
+        if (!isConnectionAllowed(side)) {
+            setConnected(side, false);
+            return 0;
+        }
         setConnected(side, true);
         return 1;
     }
@@ -235,28 +302,63 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         List<AxisAlignedBB> list = new ArrayList<>();
         int axis = getPlaneAxis();
 
+        float cMin = 0.25F;
+        float cMax = 0.75F;
         float tMin = 0.3125F;
         float tMax = 0.6875F;
 
-        // 1. Central Dividing Plate (Continuous solid rectangle spanning in-plane dimensions)
-        float minX = isConnected(ForgeDirection.WEST) ? 0.0F : 0.25F;
-        float maxX = isConnected(ForgeDirection.EAST) ? 1.0F : 0.75F;
-        float minY = isConnected(ForgeDirection.DOWN) ? 0.0F : 0.25F;
-        float maxY = isConnected(ForgeDirection.UP) ? 1.0F : 0.75F;
-        float minZ = isConnected(ForgeDirection.NORTH) ? 0.0F : 0.25F;
-        float maxZ = isConnected(ForgeDirection.SOUTH) ? 1.0F : 0.75F;
-
+        // 1. Central Core Plate
         if (axis == 2) { // Z normal (XY plane)
-            list.add(AxisAlignedBB.getBoundingBox(x + minX, y + minY, z + tMin, x + maxX, y + maxY, z + tMax));
+            list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + cMin, z + tMin, x + cMax, y + cMax, z + tMax));
         } else if (axis == 1) { // Y normal (XZ plane)
-            list.add(AxisAlignedBB.getBoundingBox(x + minX, y + tMin, z + minZ, x + maxX, y + tMax, z + maxZ));
+            list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + tMin, z + cMin, x + cMax, y + tMax, z + cMax));
         } else { // X normal (YZ plane)
-            list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + minY, z + minZ, x + tMax, y + maxY, z + maxZ));
+            list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + cMin, z + cMin, x + tMax, y + cMax, z + cMax));
         }
 
-        // 2. Normal pipe connection nozzles/collars extending along the normal axis
-        float cMin = 0.25F;
-        float cMax = 0.75F;
+        // 2. In-plane manifold flanges extending to adjacent block boundaries
+        if (axis == 2) { // Z normal (in-plane: WEST, EAST, DOWN, UP)
+            if (isConnected(ForgeDirection.WEST)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + 0.0F, y + cMin, z + tMin, x + cMin, y + cMax, z + tMax));
+            }
+            if (isConnected(ForgeDirection.EAST)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMax, y + cMin, z + tMin, x + 1.0F, y + cMax, z + tMax));
+            }
+            if (isConnected(ForgeDirection.DOWN)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + 0.0F, z + tMin, x + cMax, y + cMin, z + tMax));
+            }
+            if (isConnected(ForgeDirection.UP)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + cMax, z + tMin, x + cMax, y + 1.0F, z + tMax));
+            }
+        } else if (axis == 1) { // Y normal (in-plane: WEST, EAST, NORTH, SOUTH)
+            if (isConnected(ForgeDirection.WEST)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + 0.0F, y + tMin, z + cMin, x + cMin, y + tMax, z + cMax));
+            }
+            if (isConnected(ForgeDirection.EAST)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMax, y + tMin, z + cMin, x + 1.0F, y + tMax, z + cMax));
+            }
+            if (isConnected(ForgeDirection.NORTH)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + tMin, z + 0.0F, x + cMax, y + tMax, z + cMin));
+            }
+            if (isConnected(ForgeDirection.SOUTH)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + tMin, z + cMax, x + cMax, y + tMax, z + 1.0F));
+            }
+        } else { // X normal (in-plane: DOWN, UP, NORTH, SOUTH)
+            if (isConnected(ForgeDirection.DOWN)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + 0.0F, z + cMin, x + tMax, y + cMin, z + cMax));
+            }
+            if (isConnected(ForgeDirection.UP)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + cMax, z + cMin, x + tMax, y + 1.0F, z + cMax));
+            }
+            if (isConnected(ForgeDirection.NORTH)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + cMin, z + 0.0F, x + tMax, y + cMax, z + cMin));
+            }
+            if (isConnected(ForgeDirection.SOUTH)) {
+                list.add(AxisAlignedBB.getBoundingBox(x + tMin, y + cMin, z + cMax, x + tMax, y + cMax, z + 1.0F));
+            }
+        }
+
+        // 3. Normal pipe connection nozzles/collars extending along the normal axis
         if (axis == 2) {
             if (isConnected(ForgeDirection.NORTH)) {
                 list.add(AxisAlignedBB.getBoundingBox(x + cMin, y + cMin, z + 0.0F, x + cMax, y + cMax, z + tMin));

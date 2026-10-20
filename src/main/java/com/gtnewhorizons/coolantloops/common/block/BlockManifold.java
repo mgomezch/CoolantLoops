@@ -93,8 +93,14 @@ public class BlockManifold extends BlockContainer {
             if (neighbor == this) {
                 TileEntity te = world.getTileEntity(x, y, z);
                 if (te instanceof TileEntityManifold neighborManifold) {
-                    ForgeDirection opp = ForgeDirection.getOrientation(side)
-                        .getOpposite();
+                    ForgeDirection dir = ForgeDirection.getOrientation(side);
+                    ForgeDirection opp = dir.getOpposite();
+                    TileEntity thisTe = world.getTileEntity(x - dir.offsetX, y - dir.offsetY, z - dir.offsetZ);
+                    if (thisTe instanceof TileEntityManifold thisManifold) {
+                        if (!thisManifold.hasSamePlaneOrientation(neighborManifold)) {
+                            return true;
+                        }
+                    }
                     if (neighborManifold.isConnected(opp)) {
                         return false;
                     }
@@ -141,7 +147,26 @@ public class BlockManifold extends BlockContainer {
                 default -> ForgeDirection.NORTH;
             };
             manifold.setFacing(facing);
+            manifold.validateConnectionsWithNeighbors();
         }
+    }
+
+    @Override
+    public void onBlockAdded(World world, int x, int y, int z) {
+        super.onBlockAdded(world, x, y, z);
+        TileEntity te = world.getTileEntity(x, y, z);
+        if (te instanceof TileEntityManifold manifold) {
+            manifold.validateConnectionsWithNeighbors();
+        }
+    }
+
+    @Override
+    public void onNeighborBlockChange(World world, int x, int y, int z, Block neighborBlock) {
+        TileEntity te = world.getTileEntity(x, y, z);
+        if (te instanceof TileEntityManifold manifold) {
+            manifold.validateConnectionsWithNeighbors();
+        }
+        super.onNeighborBlockChange(world, x, y, z, neighborBlock);
     }
 
     public boolean shouldForceFullBlockBB() {
@@ -258,20 +283,6 @@ public class BlockManifold extends BlockContainer {
             return true;
         }
 
-        if (!world.isRemote) {
-            int groupSize = manifold.findLinearGroup()
-                .size();
-            player.addChatMessage(
-                new ChatComponentText(
-                    com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
-                        "coolantloops.chat.manifold.info",
-                        manifold.getPlaneName(),
-                        manifold.getFacing()
-                            .name(),
-                        groupSize,
-                        manifold.getTotalInputFlowRate() * 1000.0,
-                        manifold.getDeviceTemperatureCelsius())));
-        }
-        return true;
+        return false;
     }
 }
