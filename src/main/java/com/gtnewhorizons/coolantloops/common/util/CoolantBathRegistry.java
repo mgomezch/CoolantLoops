@@ -22,8 +22,8 @@ import gregtech.api.util.GTRecipe;
  */
 public class CoolantBathRegistry {
 
-    private static final Map<String, HotColdPair> HOT_TO_COLD_INGOTS = new HashMap<>();
-    private static final Map<String, HotColdPair> COLD_TO_HOT_INGOTS = new HashMap<>();
+    private static final Map<ItemDamageKey, HotColdPair> HOT_TO_COLD_INGOTS = new HashMap<>();
+    private static final Map<ItemDamageKey, HotColdPair> COLD_TO_HOT_INGOTS = new HashMap<>();
     private static boolean initialized = false;
 
     public static class HotColdPair {
@@ -60,7 +60,7 @@ public class CoolantBathRegistry {
         }
     }
 
-    private static final Map<String, CryoCellPair> CRYO_CELLS = new HashMap<>();
+    private static final Map<ItemDamageKey, CryoCellPair> CRYO_CELLS = new HashMap<>();
 
     public static synchronized void ensureInitialized() {
         if (initialized) return;
@@ -85,8 +85,10 @@ public class CoolantBathRegistry {
                             Materials mat = inData.mMaterial != null ? inData.mMaterial.mMaterial : null;
                             double bfTemp = getMaterialBlastFurnaceTemp(mat);
                             HotColdPair pair = new HotColdPair(in.copy(), out.copy(), bfTemp, mat);
-                            HOT_TO_COLD_INGOTS.put(getStackKey(in), pair);
-                            COLD_TO_HOT_INGOTS.put(getStackKey(out), pair);
+                            ItemDamageKey inKey = ItemDamageKey.of(in);
+                            ItemDamageKey outKey = ItemDamageKey.of(out);
+                            if (inKey != null) HOT_TO_COLD_INGOTS.put(inKey, pair);
+                            if (outKey != null) COLD_TO_HOT_INGOTS.put(outKey, pair);
                         }
                     }
                 }
@@ -102,12 +104,12 @@ public class CoolantBathRegistry {
                 if (hot != null && cold != null) {
                     double bfTemp = getMaterialBlastFurnaceTemp(mat);
                     HotColdPair pair = new HotColdPair(hot, cold, bfTemp, mat);
-                    String hotKey = getStackKey(hot);
-                    String coldKey = getStackKey(cold);
-                    if (!HOT_TO_COLD_INGOTS.containsKey(hotKey)) {
+                    ItemDamageKey hotKey = ItemDamageKey.of(hot);
+                    ItemDamageKey coldKey = ItemDamageKey.of(cold);
+                    if (hotKey != null && !HOT_TO_COLD_INGOTS.containsKey(hotKey)) {
                         HOT_TO_COLD_INGOTS.put(hotKey, pair);
                     }
-                    if (!COLD_TO_HOT_INGOTS.containsKey(coldKey)) {
+                    if (coldKey != null && !COLD_TO_HOT_INGOTS.containsKey(coldKey)) {
                         COLD_TO_HOT_INGOTS.put(coldKey, pair);
                     }
                 }
@@ -166,14 +168,17 @@ public class CoolantBathRegistry {
             gasCell.copy(),
             boilingPointCelsius,
             latentHeatJoules);
-        CRYO_CELLS.put(getStackKey(liquidCell), pair);
+        ItemDamageKey key = ItemDamageKey.of(liquidCell);
+        if (key != null) {
+            CRYO_CELLS.put(key, pair);
+        }
     }
 
     public static CryoCellPair getCryoCellPair(ItemStack stack) {
         if (stack == null) return null;
         ensureInitialized();
-        String key = getStackKey(stack);
-        if (CRYO_CELLS.containsKey(key)) {
+        ItemDamageKey key = ItemDamageKey.of(stack);
+        if (key != null && CRYO_CELLS.containsKey(key)) {
             return CRYO_CELLS.get(key);
         }
         // Fallback by checking item data associations or unlocalized names
@@ -268,9 +273,10 @@ public class CoolantBathRegistry {
         return 1200.0; // Default fallback for high-temperature metals
     }
 
+    @Deprecated
     public static String getStackKey(ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return "";
-        return stack.getItem().delegate.name() + ":" + stack.getItemDamage();
+        ItemDamageKey key = ItemDamageKey.of(stack);
+        return key != null ? key.toString() : "";
     }
 
     /**
@@ -288,19 +294,19 @@ public class CoolantBathRegistry {
             return true;
         }
 
+        ItemDamageKey key = ItemDamageKey.of(stack);
         ItemData data = GTOreDictUnificator.getAssociation(stack);
         if (data != null) {
             if (data.mPrefix == OrePrefixes.ingotHot) {
                 return true;
             }
             if (data.mPrefix == OrePrefixes.ingot) {
-                return COLD_TO_HOT_INGOTS.containsKey(getStackKey(stack))
+                return (key != null && COLD_TO_HOT_INGOTS.containsKey(key))
                     || GTOreDictUnificator.get(OrePrefixes.ingotHot, data.mMaterial.mMaterial, 1L) != null;
             }
         }
 
-        String key = getStackKey(stack);
-        return HOT_TO_COLD_INGOTS.containsKey(key) || COLD_TO_HOT_INGOTS.containsKey(key);
+        return key != null && (HOT_TO_COLD_INGOTS.containsKey(key) || COLD_TO_HOT_INGOTS.containsKey(key));
     }
 
     /**
@@ -390,13 +396,14 @@ public class CoolantBathRegistry {
                 null);
         }
 
+        ItemDamageKey key = ItemDamageKey.of(stack);
         ItemData data = GTOreDictUnificator.getAssociation(stack);
         Materials mat = data != null && data.mMaterial != null ? data.mMaterial.mMaterial : null;
 
         // Check Hot Ingot cooling down
         if ((data != null && data.mPrefix == OrePrefixes.ingotHot)
-            || HOT_TO_COLD_INGOTS.containsKey(getStackKey(stack))) {
-            HotColdPair pair = HOT_TO_COLD_INGOTS.get(getStackKey(stack));
+            || (key != null && HOT_TO_COLD_INGOTS.containsKey(key))) {
+            HotColdPair pair = key != null ? HOT_TO_COLD_INGOTS.get(key) : null;
             double hotTemp = pair != null ? pair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
             ItemStack coldOutput = pair != null ? pair.coldStack.copy()
                 : (mat != null ? GTOreDictUnificator.get(OrePrefixes.ingot, mat, 1L) : null);
@@ -424,8 +431,9 @@ public class CoolantBathRegistry {
         }
 
         // Check Cold Ingot heating up
-        if ((data != null && data.mPrefix == OrePrefixes.ingot) || COLD_TO_HOT_INGOTS.containsKey(getStackKey(stack))) {
-            HotColdPair pair = COLD_TO_HOT_INGOTS.get(getStackKey(stack));
+        if ((data != null && data.mPrefix == OrePrefixes.ingot)
+            || (key != null && COLD_TO_HOT_INGOTS.containsKey(key))) {
+            HotColdPair pair = key != null ? COLD_TO_HOT_INGOTS.get(key) : null;
             double hotTemp = pair != null ? pair.blastFurnaceTempCelsius : getMaterialBlastFurnaceTemp(mat);
             ItemStack hotOutput = pair != null ? pair.hotStack.copy()
                 : (mat != null ? GTOreDictUnificator.get(OrePrefixes.ingotHot, mat, 1L) : null);

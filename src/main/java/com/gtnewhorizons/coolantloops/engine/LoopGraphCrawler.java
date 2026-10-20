@@ -235,6 +235,34 @@ public class LoopGraphCrawler {
         public int hashCode() {
             return 31 * (31 * x + y) + z;
         }
+
+        @Override
+        public String toString() {
+            return "pump:" + x + ":" + y + ":" + z;
+        }
+
+        public static BlockPosCoord parse(String str) {
+            if (str == null || str.isEmpty()) return null;
+            int firstSep = str.indexOf(':');
+            char sep = ':';
+            if (firstSep < 0) {
+                firstSep = str.indexOf('_');
+                sep = '_';
+            }
+            if (firstSep < 0) return null;
+            int secondSep = str.indexOf(sep, firstSep + 1);
+            if (secondSep < 0) return null;
+            int thirdSep = str.indexOf(sep, secondSep + 1);
+            if (thirdSep < 0) return null;
+            try {
+                int x = Integer.parseInt(str.substring(firstSep + 1, secondSep));
+                int y = Integer.parseInt(str.substring(secondSep + 1, thirdSep));
+                int z = Integer.parseInt(str.substring(thirdSep + 1));
+                return new BlockPosCoord(x, y, z);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
     }
 
     public static final int STEPS_PER_TICK = 1000;
@@ -431,25 +459,30 @@ public class LoopGraphCrawler {
         }
     }
 
+    public static boolean isPumpActive(World world, int px, int py, int pz) {
+        if (world == null) return false;
+        try {
+            TileEntity te = world.getTileEntity(px, py, pz);
+            if (te instanceof IGregTechTileEntity) {
+                IMetaTileEntity mte = ((IGregTechTileEntity) te).getMetaTileEntity();
+                if (mte instanceof MTECoolantPump) {
+                    MTECoolantPump pump = (MTECoolantPump) mte;
+                    return pump.isLoopFormed() && !te.isInvalid() && pump.getBaseMetaTileEntity() != null;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    public static boolean isPumpActive(World world, BlockPosCoord pumpPos) {
+        if (world == null || pumpPos == null) return false;
+        return isPumpActive(world, pumpPos.x, pumpPos.y, pumpPos.z);
+    }
+
     public static boolean isPumpActive(World world, String pumpId) {
         if (world == null || pumpId == null) return false;
-        String[] parts = pumpId.contains(":") ? pumpId.split(":") : pumpId.split("_");
-        if (parts.length >= 4 && "pump".equals(parts[0])) {
-            try {
-                int px = Integer.parseInt(parts[1]);
-                int py = Integer.parseInt(parts[2]);
-                int pz = Integer.parseInt(parts[3]);
-                TileEntity te = world.getTileEntity(px, py, pz);
-                if (te instanceof IGregTechTileEntity) {
-                    IMetaTileEntity mte = ((IGregTechTileEntity) te).getMetaTileEntity();
-                    if (mte instanceof MTECoolantPump) {
-                        MTECoolantPump pump = (MTECoolantPump) mte;
-                        return pump.isLoopFormed() && !te.isInvalid() && pump.getBaseMetaTileEntity() != null;
-                    }
-                }
-            } catch (Throwable ignored) {}
-        }
-        return false;
+        BlockPosCoord pos = BlockPosCoord.parse(pumpId);
+        return pos != null && isPumpActive(world, pos);
     }
 
     public static boolean isExternalBlockConnectedTo(World world, int nx, int ny, int nz,
@@ -545,6 +578,7 @@ public class LoopGraphCrawler {
         private final int targetX, targetY, targetZ;
         private final ForgeDirection targetSuctionSide;
         private final String pumpId;
+        private final BlockPosCoord pumpPos;
         private final ICoolantLoopPump pump;
         private final Materials expectedTankMaterial;
         private final int maxSteps;
@@ -588,6 +622,7 @@ public class LoopGraphCrawler {
             this.targetZ = targetZ;
             this.targetSuctionSide = targetSuctionSide;
             this.pumpId = pumpId;
+            this.pumpPos = BlockPosCoord.parse(pumpId);
             this.pump = pump;
             this.expectedTankMaterial = expectedTankMaterial;
             this.maxSteps = maxSteps > 0 ? maxSteps : DEFAULT_MAX_STEPS;
@@ -737,15 +772,24 @@ public class LoopGraphCrawler {
 
                         // Check for conflicting loop ownership on all manifold blocks in the group
                         for (TileEntityManifold tile : groupTiles) {
+                            BlockPosCoord otherPumpPos = tile.getActivePumpPos();
                             String otherPump = tile.getActivePumpId();
-                            if (otherPump != null && !otherPump.equals(pumpId) && isPumpActive(world, otherPump)) {
+                            boolean conflicting;
+                            if (otherPumpPos != null && this.pumpPos != null) {
+                                conflicting = !otherPumpPos.equals(this.pumpPos) && isPumpActive(world, otherPumpPos);
+                            } else if (otherPump != null) {
+                                conflicting = !otherPump.equals(this.pumpId) && isPumpActive(world, otherPump);
+                            } else {
+                                conflicting = false;
+                            }
+                            if (conflicting) {
                                 finishWithFailure(
                                     CoolantLocalization.format(
                                         "coolantloops.crawler.manifold_other_loop",
                                         tile.xCoord,
                                         tile.yCoord,
                                         tile.zCoord,
-                                        otherPump));
+                                        otherPump != null ? otherPump : otherPumpPos.toString()));
                                 return true;
                             }
                         }
@@ -1651,7 +1695,11 @@ public class LoopGraphCrawler {
             // 4. Update pump ownership on all claimed manifold blocks
             for (ManifoldGroup mg : allManifoldGroups) {
                 for (TileEntityManifold tile : mg.tiles) {
-                    tile.setActivePumpId(pumpId);
+                    if (this.pumpPos != null) {
+                        tile.setActivePumpPos(this.pumpPos);
+                    } else if (this.pumpId != null) {
+                        tile.setActivePumpId(this.pumpId);
+                    }
                 }
             }
 

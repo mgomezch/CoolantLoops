@@ -92,21 +92,7 @@ public class LoopSegment {
     }
 
     public boolean hasPosition() {
-        if (blockX != Integer.MIN_VALUE) {
-            return true;
-        }
-        if (id != null && id.startsWith("pipe_")) {
-            String[] parts = id.split("_");
-            if (parts.length == 4) {
-                try {
-                    blockX = Integer.parseInt(parts[1]);
-                    blockY = Integer.parseInt(parts[2]);
-                    blockZ = Integer.parseInt(parts[3]);
-                    return true;
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        return false;
+        return blockX != Integer.MIN_VALUE;
     }
 
     public int getBlockX() {

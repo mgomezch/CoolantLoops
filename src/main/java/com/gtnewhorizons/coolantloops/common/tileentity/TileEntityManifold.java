@@ -21,6 +21,7 @@ import net.minecraftforge.fluids.IFluidHandler;
 
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.interfaces.metatileentity.IConnectable;
@@ -41,6 +42,7 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     private double minorLossK = 0.3; // Manifold flow splitting/merging resistance
     private double totalInputFlowRate = 0.0;
 
+    private LoopGraphCrawler.BlockPosCoord activePumpPos = null;
     private String activePumpId = null;
     private ForgeDirection inputSide = ForgeDirection.UNKNOWN;
     private ForgeDirection outputSide = ForgeDirection.UNKNOWN;
@@ -499,12 +501,25 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         return totalInputFlowRate;
     }
 
+    public LoopGraphCrawler.BlockPosCoord getActivePumpPos() {
+        return activePumpPos;
+    }
+
+    public void setActivePumpPos(LoopGraphCrawler.BlockPosCoord activePumpPos) {
+        this.activePumpPos = activePumpPos;
+        this.activePumpId = activePumpPos != null ? activePumpPos.toString() : null;
+        markDirty();
+    }
+
     public String getActivePumpId() {
-        return activePumpId;
+        if (activePumpId != null) return activePumpId;
+        if (activePumpPos != null) return activePumpPos.toString();
+        return null;
     }
 
     public void setActivePumpId(String activePumpId) {
         this.activePumpId = activePumpId;
+        this.activePumpPos = LoopGraphCrawler.BlockPosCoord.parse(activePumpId);
         markDirty();
     }
 
@@ -551,9 +566,17 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         if (nbt.hasKey("temp")) {
             this.currentTemperatureCelsius = nbt.getDouble("temp");
         }
-        if (nbt.hasKey("pumpId")) {
+        if (nbt.hasKey("pumpX")) {
+            this.activePumpPos = new LoopGraphCrawler.BlockPosCoord(
+                nbt.getInteger("pumpX"),
+                nbt.getInteger("pumpY"),
+                nbt.getInteger("pumpZ"));
+            this.activePumpId = activePumpPos.toString();
+        } else if (nbt.hasKey("pumpId")) {
             this.activePumpId = nbt.getString("pumpId");
+            this.activePumpPos = LoopGraphCrawler.BlockPosCoord.parse(this.activePumpId);
         } else {
+            this.activePumpPos = null;
             this.activePumpId = null;
         }
         if (nbt.hasKey("inputSide")) {
@@ -570,6 +593,11 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         nbt.setInteger("facing", facing.ordinal());
         nbt.setByte("connections", connections);
         nbt.setDouble("temp", currentTemperatureCelsius);
+        if (activePumpPos != null) {
+            nbt.setInteger("pumpX", activePumpPos.x);
+            nbt.setInteger("pumpY", activePumpPos.y);
+            nbt.setInteger("pumpZ", activePumpPos.z);
+        }
         if (activePumpId != null) {
             nbt.setString("pumpId", activePumpId);
         }
