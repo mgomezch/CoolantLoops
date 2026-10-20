@@ -7,6 +7,7 @@ import com.cleanroommc.modularui.api.layout.IViewport;
 import com.cleanroommc.modularui.api.layout.IViewportStack;
 import com.cleanroommc.modularui.api.widget.IDraggable;
 import com.cleanroommc.modularui.api.widget.IWidget;
+import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.text.TextRenderer;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
@@ -30,7 +31,7 @@ import com.cleanroommc.modularui.widget.sizer.Area;
  * to drag the window by both the title text and the empty title-bar space without position jumps.
  * </p>
  */
-public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggable, IViewport {
+public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggable, IViewport, Interactable {
 
     private ModularPanel panel;
     private final Area movingArea = new Area();
@@ -70,6 +71,7 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
     @Override
     public void onInit() {
         super.onInit();
+        FloatingPanelNEIHandler.register();
         if (this.panel == null) {
             IWidget current = this.getParent();
             while (current != null) {
@@ -80,6 +82,19 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
                 current = current.getParent();
             }
         }
+    }
+
+    @Override
+    public boolean canClickThrough() {
+        return false;
+    }
+
+    @Override
+    public Interactable.Result onMousePressed(int button) {
+        if (button == 0) {
+            return Interactable.Result.STOP;
+        }
+        return Interactable.Result.IGNORE;
     }
 
     private static final long DOUBLE_CLICK_TIME_MS = 320L;
@@ -255,6 +270,7 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         // Screen edge and corner snapping detection
         if (this.panel instanceof ResizeableFloatingPanel && screenArea != null) {
             ResizeableFloatingPanel rfp = (ResizeableFloatingPanel) this.panel;
+            rfp.setMovingArea(this.movingArea);
             this.pendingSnap = rfp.detectSnapMode(absX, absY, screenArea);
         } else {
             this.pendingSnap = null;
@@ -270,6 +286,9 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
 
     @Override
     public void onDragEnd(boolean success) {
+        if (this.panel instanceof ResizeableFloatingPanel) {
+            ((ResizeableFloatingPanel) this.panel).setMovingArea(null);
+        }
         if (!success || this.panel == null) {
             this.pendingSnap = null;
             return;
@@ -428,6 +447,9 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         this.moving = moving;
         if (this.panel != null) {
             this.panel.setEnabled(!moving);
+            if (!moving && this.panel instanceof ResizeableFloatingPanel) {
+                ((ResizeableFloatingPanel) this.panel).setMovingArea(null);
+            }
         }
     }
 

@@ -497,9 +497,39 @@ public class ResizeableFloatingPanel extends ModularPanel {
         return super.onMouseRelease(button);
     }
 
+    private Area movingArea = null;
+
+    public void setMovingArea(Area movingArea) {
+        this.movingArea = movingArea;
+    }
+
+    public Area getEffectiveArea() {
+        if (this.movingArea != null && this.movingArea.width > 0 && this.movingArea.height > 0) {
+            return this.movingArea;
+        }
+        return getArea();
+    }
+
+    @Override
+    public boolean canClickThrough() {
+        return false;
+    }
+
+    @Override
+    public boolean disablePanelsBelow() {
+        return this.currentSnap == SnapMode.MAXIMIZED;
+    }
+
+    @Override
+    public void onOpen(ModularScreen screen) {
+        super.onOpen(screen);
+        FloatingPanelNEIHandler.register();
+    }
+
     @Override
     public void onClose() {
         this.currentDragArea = null;
+        this.movingArea = null;
         super.onClose();
     }
 

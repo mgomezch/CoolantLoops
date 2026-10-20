@@ -64,6 +64,7 @@ public class CoolantLoops {
                 .register(new com.gtnewhorizons.coolantloops.client.tooltip.RotorTooltipEventHandler());
             net.minecraftforge.common.MinecraftForge.EVENT_BUS
                 .register(new com.gtnewhorizons.coolantloops.client.renderer.CoolantBathRenderer());
+            com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.register();
         }
     }
 

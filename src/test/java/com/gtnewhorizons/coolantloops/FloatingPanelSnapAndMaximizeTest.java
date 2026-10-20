@@ -299,4 +299,35 @@ public class FloatingPanelSnapAndMaximizeTest {
         assertEquals(SnapMode.NONE, panel.getCurrentSnap());
         assertTrue(panel.getNormalArea().width <= 380);
     }
+
+    @Test
+    void testPanelAndHandleClickPrecedence() {
+        ResizeableFloatingPanel panel = new ResizeableFloatingPanel("panel");
+        assertFalse(panel.canClickThrough(), "Floating panel must not allow clicks through to widgets underneath");
+
+        assertFalse(panel.disablePanelsBelow(), "Non-maximized floating panel should not disable panels below");
+        panel.maximize(new Area(0, 0, 800, 600));
+        assertTrue(panel.disablePanelsBelow(), "Maximized floating panel must disable panels below");
+
+        PanelDragHandle handle = new PanelDragHandle(panel);
+        assertFalse(handle.canClickThrough(), "PanelDragHandle must not allow clicks through");
+        assertEquals(
+            com.cleanroommc.modularui.api.widget.Interactable.Result.STOP,
+            handle.onMousePressed(0),
+            "Left click on handle must STOP propagation to lower layers");
+        assertEquals(
+            com.cleanroommc.modularui.api.widget.Interactable.Result.IGNORE,
+            handle.onMousePressed(1),
+            "Right click should not stop interaction");
+    }
+
+    @Test
+    void testNEIHandlerIntersectsAndMaximize() {
+        Area panelArea = new Area(10, 10, 100, 50);
+        assertTrue(
+            com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.intersects(panelArea, 20, 20, 10, 10));
+        assertFalse(
+            com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.intersects(panelArea, 200, 200, 50, 50));
+        assertFalse(com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.intersects(null, 0, 0, 10, 10));
+    }
 }
