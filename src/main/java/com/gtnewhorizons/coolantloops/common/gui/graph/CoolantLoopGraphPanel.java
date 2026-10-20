@@ -23,7 +23,7 @@ public class CoolantLoopGraphPanel {
     public static final String PANEL_NAME = "coolantLoopGraphPanel";
 
     public static ModularPanel createPanel(PanelSyncManager syncManager, ModularPanel parent, MTECoolantPump pump) {
-        ModularPanel panel = new ResizeableFloatingPanel(PANEL_NAME).relativeToScreen()
+        ModularPanel panel = new ResizeableFloatingPanel(PANEL_NAME, parent).relativeToScreen()
             .center()
             .size(380, 250)
             .resizeableOnDrag(true);

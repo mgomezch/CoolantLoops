@@ -7,9 +7,11 @@ import com.cleanroommc.modularui.api.widget.ResizeDragArea;
 import com.cleanroommc.modularui.drawable.BufferBuilder;
 import com.cleanroommc.modularui.drawable.GuiDraw;
 import com.cleanroommc.modularui.screen.ModularPanel;
+import com.cleanroommc.modularui.screen.ModularScreen;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
 import com.cleanroommc.modularui.utils.Color;
 import com.cleanroommc.modularui.utils.Platform;
+import com.cleanroommc.modularui.widget.sizer.Area;
 
 /**
  * A floating modular panel that provides enhanced draggable borders and visible resize indicators.
@@ -19,6 +21,10 @@ import com.cleanroommc.modularui.utils.Platform;
  * the centers of the 4 edges. When hovered or dragged, indicators expand perceptibly and highlight.
  * Hit detection strictly adheres to the original resize drag area without inflating to the expanded
  * visual indicator geometry.
+ * </p>
+ * <p>
+ * Supports window maximizing on double-click, and modern desktop edge/corner snapping
+ * (top edge maximize, left/right edges spanning to main multiblock GUI boundary, and 4 corner quarters).
  * </p>
  */
 public class ResizeableFloatingPanel extends ModularPanel {
@@ -42,10 +48,293 @@ public class ResizeableFloatingPanel extends ModularPanel {
     private static final int COLOR_HOVER_FILL = 0xFF55D8FF;
     private static final int COLOR_HOVER_LINE = 0xFFFFFFFF;
 
+    public enum SnapMode {
+        NONE,
+        MAXIMIZED,
+        LEFT,
+        RIGHT,
+        TOP_LEFT,
+        BOTTOM_LEFT,
+        TOP_RIGHT,
+        BOTTOM_RIGHT
+    }
+
     private ResizeDragArea currentDragArea = null;
+    private SnapMode currentSnap = SnapMode.NONE;
+    private final Area normalArea = new Area();
+    private boolean hasNormalArea = false;
+    private ModularPanel mainPanel = null;
 
     public ResizeableFloatingPanel(String name) {
         super(name);
+    }
+
+    public ResizeableFloatingPanel(String name, ModularPanel mainPanel) {
+        super(name);
+        this.mainPanel = mainPanel;
+    }
+
+    public ResizeableFloatingPanel setMainPanel(ModularPanel mainPanel) {
+        this.mainPanel = mainPanel;
+        return this;
+    }
+
+    public ModularPanel getMainPanel() {
+        return this.mainPanel;
+    }
+
+    public SnapMode getCurrentSnap() {
+        return this.currentSnap;
+    }
+
+    public Area getNormalArea() {
+        if (!this.hasNormalArea || this.normalArea.width <= 0 || this.normalArea.height <= 0) {
+            Area area = getArea();
+            if (area != null && area.width > 0 && area.height > 0) {
+                this.normalArea.set(area);
+                this.hasNormalArea = true;
+            } else {
+                this.normalArea.set(0, 0, 380, 230);
+            }
+        }
+        return this.normalArea;
+    }
+
+    public void setNormalArea(int x, int y, int width, int height) {
+        this.normalArea.set(x, y, width, height);
+        this.hasNormalArea = true;
+    }
+
+    private ModularScreen getSafeScreen() {
+        try {
+            if (isValid()) {
+                return getScreen();
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    public Area getMainGuiArea() {
+        if (this.mainPanel != null) {
+            Area a = this.mainPanel.getArea();
+            if (a != null && a.width > 0) return a;
+        }
+        ModularScreen screen = getSafeScreen();
+        if (screen != null) {
+            ModularPanel main = screen.getMainPanel();
+            if (main != null && main != this) {
+                Area a = main.getArea();
+                if (a != null && a.width > 0) return a;
+            }
+        }
+        return null;
+    }
+
+    public Area getSnapArea(SnapMode mode) {
+        ModularScreen screen = getSafeScreen();
+        Area screenArea = screen != null ? screen.getScreenArea() : null;
+        return getSnapArea(mode, screenArea);
+    }
+
+    public Area getSnapArea(SnapMode mode, Area screenArea) {
+        if (mode == null || mode == SnapMode.NONE) {
+            return null;
+        }
+        int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 480;
+        int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 270;
+
+        Area mainArea = getMainGuiArea();
+        int defMainW = Math.min(200, scrW / 2);
+        int mainX = (mainArea != null && mainArea.width > 0) ? mainArea.x : (scrW - defMainW) / 2;
+        int mainW = (mainArea != null && mainArea.width > 0) ? mainArea.width : defMainW;
+
+        int minW = getMinDragWidth();
+        int leftW = Math.max(minW, mainX);
+        leftW = Math.min(scrW, leftW);
+
+        int rightX = mainX + mainW;
+        int rightW = Math.max(minW, scrW - rightX);
+        if (rightX + rightW > scrW) {
+            rightX = Math.max(0, scrW - rightW);
+        }
+
+        int halfH = scrH / 2;
+        int botH = scrH - halfH;
+
+        switch (mode) {
+            case MAXIMIZED:
+                return new Area(0, 0, scrW, scrH);
+            case LEFT:
+                return new Area(0, 0, leftW, scrH);
+            case RIGHT:
+                return new Area(rightX, 0, rightW, scrH);
+            case TOP_LEFT:
+                return new Area(0, 0, leftW, halfH);
+            case BOTTOM_LEFT:
+                return new Area(0, halfH, leftW, botH);
+            case TOP_RIGHT:
+                return new Area(rightX, 0, rightW, halfH);
+            case BOTTOM_RIGHT:
+                return new Area(rightX, halfH, rightW, botH);
+            default:
+                return null;
+        }
+    }
+
+    public SnapMode detectSnapMode(int mouseX, int mouseY, Area screenArea) {
+        if (screenArea == null || screenArea.width <= 0 || screenArea.height <= 0) {
+            return SnapMode.NONE;
+        }
+        int scrW = screenArea.width;
+        int scrH = screenArea.height;
+        int edgeThreshold = 5;
+        int cornerZone = Math.max(32, scrH / 6);
+
+        boolean isTop = (mouseY <= edgeThreshold);
+        boolean isBottom = (mouseY >= scrH - 1 - edgeThreshold);
+        boolean isLeft = (mouseX <= edgeThreshold);
+        boolean isRight = (mouseX >= scrW - 1 - edgeThreshold);
+
+        if (isLeft) {
+            if (isTop || mouseY <= cornerZone) return SnapMode.TOP_LEFT;
+            if (isBottom || mouseY >= scrH - cornerZone) return SnapMode.BOTTOM_LEFT;
+            return SnapMode.LEFT;
+        }
+        if (isRight) {
+            if (isTop || mouseY <= cornerZone) return SnapMode.TOP_RIGHT;
+            if (isBottom || mouseY >= scrH - cornerZone) return SnapMode.BOTTOM_RIGHT;
+            return SnapMode.RIGHT;
+        }
+        if (isTop) {
+            if (mouseX <= cornerZone) return SnapMode.TOP_LEFT;
+            if (mouseX >= scrW - cornerZone) return SnapMode.TOP_RIGHT;
+            return SnapMode.MAXIMIZED;
+        }
+        if (isBottom) {
+            if (mouseX <= cornerZone) return SnapMode.BOTTOM_LEFT;
+            if (mouseX >= scrW - cornerZone) return SnapMode.BOTTOM_RIGHT;
+            return SnapMode.NONE;
+        }
+        return SnapMode.NONE;
+    }
+
+    public void applySnap(SnapMode mode) {
+        applySnap(mode, null);
+    }
+
+    public void applySnap(SnapMode mode, Area customScreenArea) {
+        if (mode == null || mode == SnapMode.NONE) {
+            return;
+        }
+        if (this.currentSnap == SnapMode.NONE) {
+            Area cur = getArea();
+            if (cur != null && cur.width > 0 && cur.height > 0) {
+                this.normalArea.set(cur);
+                this.hasNormalArea = true;
+            }
+        }
+        Area target = getSnapArea(mode, customScreenArea);
+        if (target != null) {
+            resizer().resetPosition();
+            resizer().relativeToScreen();
+            resizer().left(target.x);
+            resizer().top(target.y);
+            resizer().width(target.width);
+            resizer().height(target.height);
+            scheduleResize();
+            this.currentSnap = mode;
+        }
+    }
+
+    public void maximize() {
+        applySnap(SnapMode.MAXIMIZED);
+    }
+
+    public void maximize(Area customScreenArea) {
+        applySnap(SnapMode.MAXIMIZED, customScreenArea);
+    }
+
+    public void restore(boolean restorePosition, int mouseX, int mouseY) {
+        restore(restorePosition, mouseX, mouseY, null);
+    }
+
+    public void restore(boolean restorePosition, int mouseX, int mouseY, Area customScreenArea) {
+        if (this.currentSnap == SnapMode.NONE) {
+            return;
+        }
+        Area norm = getNormalArea();
+        int targetW = norm.width > 0 ? norm.width : 380;
+        int targetH = norm.height > 0 ? norm.height : 230;
+
+        int targetX;
+        int targetY;
+
+        Area screenArea = customScreenArea;
+        if (screenArea == null) {
+            ModularScreen screen = getSafeScreen();
+            screenArea = screen != null ? screen.getScreenArea() : null;
+        }
+        int maxScrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 1000;
+        int maxScrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 1000;
+
+        if (restorePosition) {
+            targetX = norm.x;
+            targetY = norm.y;
+            targetX = Math.max(0, Math.min(Math.max(0, maxScrW - targetW), targetX));
+            targetY = Math.max(0, Math.min(Math.max(0, maxScrH - targetH), targetY));
+
+            int availW = maxScrW - targetW;
+            int availH = maxScrH - targetH;
+            float leftRel = availW > 0 ? (float) targetX / (float) availW : 0f;
+            float topRel = availH > 0 ? (float) targetY / (float) availH : 0f;
+            leftRel = Math.max(0f, Math.min(1f, leftRel));
+            topRel = Math.max(0f, Math.min(1f, topRel));
+
+            resizer().resetPosition();
+            resizer().relativeToScreen();
+            resizer().topRelAnchor(topRel, topRel);
+            resizer().leftRelAnchor(leftRel, leftRel);
+            resizer().width(targetW);
+            resizer().height(targetH);
+        } else {
+            targetX = mouseX - targetW / 2;
+            targetY = mouseY - 10;
+            targetX = Math.max(0, Math.min(Math.max(0, maxScrW - targetW), targetX));
+            targetY = Math.max(0, Math.min(Math.max(0, maxScrH - targetH), targetY));
+
+            resizer().resetPosition();
+            resizer().relativeToScreen();
+            resizer().left(targetX);
+            resizer().top(targetY);
+            resizer().width(targetW);
+            resizer().height(targetH);
+        }
+
+        scheduleResize();
+        this.currentSnap = SnapMode.NONE;
+    }
+
+    public void onNormalDrop(int x, int y, int width, int height) {
+        this.normalArea.set(x, y, width, height);
+        this.hasNormalArea = true;
+        this.currentSnap = SnapMode.NONE;
+    }
+
+    @Override
+    public boolean isCurrentlyResizable() {
+        return super.isCurrentlyResizable() && this.currentSnap == SnapMode.NONE;
+    }
+
+    @Override
+    public void onDragResize() {
+        super.onDragResize();
+        if (this.currentSnap == SnapMode.NONE) {
+            Area cur = getArea();
+            if (cur != null && cur.width > 0 && cur.height > 0) {
+                this.normalArea.set(cur);
+                this.hasNormalArea = true;
+            }
+        }
     }
 
     @Override
