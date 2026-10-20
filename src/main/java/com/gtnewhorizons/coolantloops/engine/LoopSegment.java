@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.util.ChunkCoordinates;
+
 /**
  * Represents a discrete physical pipe segment or in-line device passage
  * within a closed coolant loop.
@@ -27,10 +29,29 @@ public class LoopSegment {
 
     public LoopSegment(String id, double length, double diameter, double roughness, double minorLossK,
         double maxPressureBar, double maxTemperatureCelsius, double initialTempCelsius) {
+        this(
+            id,
+            Integer.MIN_VALUE,
+            Integer.MIN_VALUE,
+            Integer.MIN_VALUE,
+            length,
+            diameter,
+            roughness,
+            minorLossK,
+            maxPressureBar,
+            maxTemperatureCelsius,
+            initialTempCelsius);
+    }
+
+    public LoopSegment(String id, int blockX, int blockY, int blockZ, double length, double diameter, double roughness,
+        double minorLossK, double maxPressureBar, double maxTemperatureCelsius, double initialTempCelsius) {
         if (length <= 0 || diameter <= 0) {
             throw new IllegalArgumentException("Length and diameter must be positive");
         }
         this.id = id;
+        this.blockX = blockX;
+        this.blockY = blockY;
+        this.blockZ = blockZ;
         this.length = length;
         this.diameter = diameter;
         this.area = Math.PI * Math.pow(diameter / 2.0, 2);
@@ -39,6 +60,22 @@ public class LoopSegment {
         this.maxPressureBar = maxPressureBar;
         this.maxTemperatureCelsius = maxTemperatureCelsius;
         this.currentTemperatureCelsius = initialTempCelsius;
+    }
+
+    public LoopSegment(String id, ChunkCoordinates coords, double length, double diameter, double roughness,
+        double minorLossK, double maxPressureBar, double maxTemperatureCelsius, double initialTempCelsius) {
+        this(
+            id,
+            coords != null ? coords.posX : Integer.MIN_VALUE,
+            coords != null ? coords.posY : Integer.MIN_VALUE,
+            coords != null ? coords.posZ : Integer.MIN_VALUE,
+            length,
+            diameter,
+            roughness,
+            minorLossK,
+            maxPressureBar,
+            maxTemperatureCelsius,
+            initialTempCelsius);
     }
 
     public String getId() {
@@ -91,6 +128,16 @@ public class LoopSegment {
         this.blockZ = z;
     }
 
+    public void setPosition(ChunkCoordinates coords) {
+        if (coords != null) {
+            setPosition(coords.posX, coords.posY, coords.posZ);
+        } else {
+            this.blockX = Integer.MIN_VALUE;
+            this.blockY = Integer.MIN_VALUE;
+            this.blockZ = Integer.MIN_VALUE;
+        }
+    }
+
     public boolean hasPosition() {
         return blockX != Integer.MIN_VALUE;
     }
@@ -108,6 +155,11 @@ public class LoopSegment {
     public int getBlockZ() {
         if (!hasPosition()) return 0;
         return blockZ;
+    }
+
+    public ChunkCoordinates getCoordinates() {
+        if (!hasPosition()) return null;
+        return new ChunkCoordinates(blockX, blockY, blockZ);
     }
 
     public long getCapacityLiters() {

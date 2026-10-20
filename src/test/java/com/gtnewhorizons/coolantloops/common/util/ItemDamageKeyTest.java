@@ -8,6 +8,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChunkCoordinates;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,47 @@ public class ItemDamageKeyTest {
         assertEquals(10, seg.getBlockX());
         assertEquals(20, seg.getBlockY());
         assertEquals(30, seg.getBlockZ());
+        assertEquals(new ChunkCoordinates(10, 20, 30), seg.getCoordinates());
+
+        // Test instantiation with direct coordinates
+        LoopSegment segWithCoords = new LoopSegment(
+            "pipe_direct",
+            10,
+            20,
+            30,
+            1.0,
+            0.1,
+            0.00005,
+            0.0,
+            100.0,
+            1200.0,
+            20.0);
+        assertTrue(segWithCoords.hasPosition());
+        assertEquals(10, segWithCoords.getBlockX());
+        assertEquals(20, segWithCoords.getBlockY());
+        assertEquals(30, segWithCoords.getBlockZ());
+        assertEquals(new ChunkCoordinates(10, 20, 30), segWithCoords.getCoordinates());
+
+        // Test instantiation with ChunkCoordinates
+        LoopSegment segWithCc = new LoopSegment(
+            "pipe_cc",
+            new ChunkCoordinates(5, 6, 7),
+            1.0,
+            0.1,
+            0.00005,
+            0.0,
+            100.0,
+            1200.0,
+            20.0);
+        assertTrue(segWithCc.hasPosition());
+        assertEquals(5, segWithCc.getBlockX());
+        assertEquals(6, segWithCc.getBlockY());
+        assertEquals(7, segWithCc.getBlockZ());
+        assertEquals(new ChunkCoordinates(5, 6, 7), segWithCc.getCoordinates());
+
+        segWithCc.setPosition((ChunkCoordinates) null);
+        assertFalse(segWithCc.hasPosition());
+        assertNull(segWithCc.getCoordinates());
     }
 
     @Test
