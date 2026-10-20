@@ -345,4 +345,31 @@ public class CoolantLoopGraphTest {
         pump.setSimulatedComputerMonitorCover(false);
         assertFalse(pump.hasComputerMonitorCover());
     }
+
+    @Test
+    public void testEdgeKeyBasics() {
+        CoolantLoopGraphData.EdgeKey key1 = new CoolantLoopGraphData.EdgeKey("hubA", "hubB", "seg1");
+        CoolantLoopGraphData.EdgeKey key2 = new CoolantLoopGraphData.EdgeKey("hubA", "hubB", "seg1");
+        CoolantLoopGraphData.EdgeKey key3 = new CoolantLoopGraphData.EdgeKey("hubA", "hubB", "seg2");
+        CoolantLoopGraphData.EdgeKey key4 = new CoolantLoopGraphData.EdgeKey("hubA", "hubC", "seg1");
+
+        assertEquals(key1, key2);
+        assertEquals(key1.hashCode(), key2.hashCode());
+        assertNotEquals(key1, key3);
+        assertNotEquals(key1, key4);
+        assertNotEquals(key1, null);
+        assertNotEquals(key1, "string");
+
+        assertEquals("hubA", key1.fromHubId);
+        assertEquals("hubB", key1.toHubId);
+        assertEquals("seg1", key1.pathId);
+        assertEquals("hubA->hubB:seg1", key1.toString());
+
+        // Null safety
+        CoolantLoopGraphData.EdgeKey nullKey = new CoolantLoopGraphData.EdgeKey(null, null, null);
+        assertEquals("", nullKey.fromHubId);
+        assertEquals("", nullKey.toHubId);
+        assertEquals("", nullKey.pathId);
+        assertEquals("->:", nullKey.toString());
+    }
 }

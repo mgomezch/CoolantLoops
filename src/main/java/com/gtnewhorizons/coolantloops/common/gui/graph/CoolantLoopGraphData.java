@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import net.minecraft.item.ItemStack;
@@ -139,6 +140,41 @@ public class CoolantLoopGraphData {
         };
     }
 
+    public static final class EdgeKey {
+
+        public final String fromHubId;
+        public final String toHubId;
+        public final String pathId;
+
+        public EdgeKey(String fromHubId, String toHubId, String pathId) {
+            this.fromHubId = fromHubId != null ? fromHubId : "";
+            this.toHubId = toHubId != null ? toHubId : "";
+            this.pathId = pathId != null ? pathId : "";
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            EdgeKey edgeKey = (EdgeKey) o;
+            return Objects.equals(fromHubId, edgeKey.fromHubId) && Objects.equals(toHubId, edgeKey.toHubId)
+                && Objects.equals(pathId, edgeKey.pathId);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = fromHubId.hashCode();
+            result = 31 * result + toHubId.hashCode();
+            result = 31 * result + pathId.hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return fromHubId + "->" + toHubId + ":" + pathId;
+        }
+    }
+
     public String toJson() {
         return GSON.toJson(this);
     }
@@ -220,7 +256,7 @@ public class CoolantLoopGraphData {
 
         // 2. Trace directed paths between Significant Nodes through pipe chains
         int edgeCounter = 0;
-        Set<String> visitedBranchSignatures = new HashSet<>();
+        Set<EdgeKey> visitedBranchKeys = new HashSet<>();
 
         for (String fromHubId : hubNodeMap.keySet()) {
             List<String> rawOuts = graphEdges.get(fromHubId);
@@ -254,13 +290,11 @@ public class CoolantLoopGraphData {
                 }
 
                 if (toHubId != null && !toHubId.equals(fromHubId)) {
-                    String branchSig = fromHubId + "->"
-                        + toHubId
-                        + ":"
-                        + (pathSegments.isEmpty() ? "direct"
-                            : pathSegments.get(0)
-                                .getId());
-                    if (visitedBranchSignatures.add(branchSig)) {
+                    String pathId = pathSegments.isEmpty() ? "direct"
+                        : pathSegments.get(0)
+                            .getId();
+                    EdgeKey branchKey = new EdgeKey(fromHubId, toHubId, pathId);
+                    if (visitedBranchKeys.add(branchKey)) {
                         GraphEdge edge = createGraphEdge(
                             "edge_" + (++edgeCounter),
                             fromHubId,
