@@ -1761,7 +1761,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         boolean shouldTick = (getBaseMetaTileEntity() == null) || (getBaseMetaTileEntity().getTimer() % 100 == 0);
         if (shouldTick) {
             double gasFrac = getDissolvedGasFraction();
-            double cavitationFactor = 1.0 + gasFrac; // k_cavit = 1.0
+            double cavMultiplier = (CoolantLoopDataRegistry.getPhysicsData() != null)
+                ? CoolantLoopDataRegistry.getPhysicsData()
+                    .getCavitationWearMultiplier()
+                : 10.0;
+            double cavitationFactor = 1.0 + cavMultiplier * gasFrac;
             double thermalFactor = RotorThermalHelper.calculateThermalWearMultiplier(th);
             double totalWearMultiplier = cavitationFactor * thermalFactor;
             mRotorDamageAccumulator += totalWearMultiplier;

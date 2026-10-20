@@ -91,15 +91,27 @@ public final class RotorThermalHelper {
         return tFluidK / tMeltK;
     }
 
+    public static double getAlpha() {
+        if (com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.getPhysicsData() != null) {
+            return com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry.getPhysicsData()
+                .getRotorThermalAlpha();
+        }
+        return ALPHA;
+    }
+
     public static double calculateThermalWearMultiplier(double homologousTemp) {
+        return calculateThermalWearMultiplier(homologousTemp, getAlpha());
+    }
+
+    public static double calculateThermalWearMultiplier(double homologousTemp, double alpha) {
         if (homologousTemp < 0.5) {
             return 1.0;
         }
         if (homologousTemp >= 1.0) {
-            return 1.0 + ALPHA;
+            return 1.0 + alpha;
         }
         double norm = (homologousTemp - 0.5) / 0.5;
-        return 1.0 + ALPHA * (norm * norm);
+        return 1.0 + alpha * (norm * norm);
     }
 
     public static boolean isMelted(double homologousTemp) {

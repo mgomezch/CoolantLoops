@@ -67,6 +67,9 @@ public class CoolantDeviceData {
         public int steamExpansionRatio = 160; // 1 L water -> 160 L steam
         public double superheatedTempThreshold = 300.0; // deg C for superheated steam
         public double supercriticalTempThreshold = 700.0; // deg C for supercritical steam
+        public double approachMinDeltaT = 5.0; // Minimum approach temperature difference (pinch point) in deg C
+        public double superheatThresholdDeltaT = 10.0; // Minimum superheat delta above boiling point for producing
+                                                       // superheated vapor
         public double baseMaxHeatPerBatchJoules = 2260000.0; // Base heat transfer cap per 20-tick batch at 1A LV (32
                                                              // EU/t) (equivalent to 1 L distilled water)
         public int batchTicks = 20; // Batch duration (20 ticks = 1 second)
@@ -199,6 +202,8 @@ public class CoolantDeviceData {
             map.put("steamExpansionRatio", steamExpansionRatio);
             map.put("superheatedTempThreshold", superheatedTempThreshold);
             map.put("supercriticalTempThreshold", supercriticalTempThreshold);
+            map.put("approachMinDeltaT", approachMinDeltaT);
+            map.put("superheatThresholdDeltaT", superheatThresholdDeltaT);
             map.put("allowedSecondaryFluids", allowedSecondaryFluids);
             List<Map<String, Object>> coolantMaps = new ArrayList<>();
             for (SecondaryCoolantEntry e : secondaryCoolants) {
@@ -222,6 +227,10 @@ public class CoolantDeviceData {
                 d.superheatedTempThreshold = ((Number) map.get("superheatedTempThreshold")).doubleValue();
             if (map.containsKey("supercriticalTempThreshold"))
                 d.supercriticalTempThreshold = ((Number) map.get("supercriticalTempThreshold")).doubleValue();
+            if (map.containsKey("approachMinDeltaT"))
+                d.approachMinDeltaT = ((Number) map.get("approachMinDeltaT")).doubleValue();
+            if (map.containsKey("superheatThresholdDeltaT"))
+                d.superheatThresholdDeltaT = ((Number) map.get("superheatThresholdDeltaT")).doubleValue();
             if (map.containsKey("allowedSecondaryFluids") && map.get("allowedSecondaryFluids") instanceof List) {
                 d.allowedSecondaryFluids = new ArrayList<>();
                 for (Object item : (List<?>) map.get("allowedSecondaryFluids")) {
@@ -239,6 +248,22 @@ public class CoolantDeviceData {
                 }
             }
             return d;
+        }
+
+        public double getApproachMinDeltaT() {
+            return approachMinDeltaT;
+        }
+
+        public void setApproachMinDeltaT(double approachMinDeltaT) {
+            this.approachMinDeltaT = approachMinDeltaT;
+        }
+
+        public double getSuperheatThresholdDeltaT() {
+            return superheatThresholdDeltaT;
+        }
+
+        public void setSuperheatThresholdDeltaT(double superheatThresholdDeltaT) {
+            this.superheatThresholdDeltaT = superheatThresholdDeltaT;
         }
     }
 

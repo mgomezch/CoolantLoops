@@ -104,14 +104,14 @@ public class RotorThermalWearTest {
         assertEquals(0.0, pump.getRotorDamageAccumulator(), 1e-6, "Integer damage must flush from accumulator");
 
         // Case 3: Combined Cavitation + Thermal Softening:
-        // 50% dissolved gas (cavitation = 1.5) and Th = 0.75 (thermal = 2.0) => 3.0x wear!
+        // 50% dissolved gas (cavitation = 1.0 + 10.0 * 0.5 = 6.0) and Th = 0.75 (thermal = 2.0) => 12.0x wear!
         pump.extractDissolvedGas("Tritium", 100000L); // Clear
         pump.addDissolvedGas("Tritium", 50000L); // 50% of 100,000 L
         assertEquals(0.5, pump.getDissolvedGasFraction(), 1e-6);
 
         long d2 = pump.getRotorDamage();
         pump.degradeRotor(512L);
-        assertEquals(d2 + 3, pump.getRotorDamage(), "Combined wear multiplier 3.0 must inflict 3 damage to rotor");
+        assertEquals(d2 + 12, pump.getRotorDamage(), "Combined wear multiplier 12.0 must inflict 12 damage to rotor");
         assertEquals(0.0, pump.getRotorDamageAccumulator(), 1e-6, "Integer damage must flush from accumulator");
 
         // Case 4: Fractional wear accumulation

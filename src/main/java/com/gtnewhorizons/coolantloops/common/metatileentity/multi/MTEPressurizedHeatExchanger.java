@@ -536,9 +536,11 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         double dt = 0.05; // 1 tick = 0.05 seconds
         double heatTransferredThisTickJoules = 0.0;
 
-        if (hasFlow && secondaryInput != null
-            && matchedCoolant != null
-            && mCurrentCoolantTemp > matchedCoolant.boilingPointCelsius) {
+        double approachMinDeltaT = (pheConfig != null) ? pheConfig.approachMinDeltaT : 5.0;
+        double minTransferTemp = (matchedCoolant != null) ? matchedCoolant.boilingPointCelsius + approachMinDeltaT
+            : Double.POSITIVE_INFINITY;
+
+        if (hasFlow && secondaryInput != null && matchedCoolant != null && mCurrentCoolantTemp > minTransferTemp) {
 
             double boilingTemp = matchedCoolant.boilingPointCelsius;
             double velocity = (mBoundSegment.getArea() > 0)
@@ -558,7 +560,7 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                 double fluidHeatCapacity = effectiveVolume * fluidDensity * fluidSpecificHeat;
 
                 double maxSensibleHeatJoules = (fluidHeatCapacity > 0)
-                    ? fluidHeatCapacity * Math.max(0.0, mCurrentCoolantTemp - boilingTemp)
+                    ? fluidHeatCapacity * Math.max(0.0, mCurrentCoolantTemp - minTransferTemp)
                     : 0.0;
 
                 double convHeatJoules = qWatts * dt;
@@ -585,7 +587,7 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
                     if (fluidHeatCapacity > 0) {
                         double tempDrop = heatTransferredThisTickJoules / fluidHeatCapacity;
-                        double newTemp = Math.max(boilingTemp, mCurrentCoolantTemp - tempDrop);
+                        double newTemp = Math.max(minTransferTemp, mCurrentCoolantTemp - tempDrop);
                         mCurrentCoolantTemp = newTemp;
                         if (mBoundSegment != null) {
                             mBoundSegment.setCurrentTemperatureCelsius(newTemp);

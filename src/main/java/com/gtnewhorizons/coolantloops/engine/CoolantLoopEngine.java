@@ -31,6 +31,7 @@ public class CoolantLoopEngine {
     private boolean isPumpPowered = false;
     private double unpoweredImpellerK = 8.0; // High minor loss coefficient when motor is disengaged
     private double maxPumpHeadPressurePa = Double.POSITIVE_INFINITY; // Maximum stall head (uncapped by default)
+    private double coastDownDecay = 0.98; // Viscous coast-down decay factor per tick when unpowered
 
     // Simulation status
     private boolean isRuptured = false;
@@ -153,7 +154,17 @@ public class CoolantLoopEngine {
                 .getUnpoweredImpellerK();
             this.maxPumpHeadPressurePa = CoolantLoopDataRegistry.getPhysicsData()
                 .getMaxPumpHeadPressurePa();
+            this.coastDownDecay = CoolantLoopDataRegistry.getPhysicsData()
+                .getCoastDownDecay();
         }
+    }
+
+    public double getCoastDownDecay() {
+        return coastDownDecay;
+    }
+
+    public void setCoastDownDecay(double coastDownDecay) {
+        this.coastDownDecay = coastDownDecay;
     }
 
     public double getUnpoweredImpellerK() {
@@ -405,6 +416,10 @@ public class CoolantLoopEngine {
         double deltaQ = (netDeltaP * dt) / denominator;
 
         volumetricFlowRate = Math.min(maxVolumetricFlowRate, Math.max(0.0, volumetricFlowRate + deltaQ));
+
+        if (!isPumpPowered && volumetricFlowRate > 1e-6 && coastDownDecay > 0.0 && coastDownDecay < 1.0) {
+            volumetricFlowRate *= Math.pow(coastDownDecay, dt / 0.05);
+        }
 
         // 4. Pressure distribution and safety verification
         evaluatePressureFieldAndSafety(deltaPPump);

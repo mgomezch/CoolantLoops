@@ -62,6 +62,9 @@ public class CoolantLoopDataRegistryTest {
         assertTrue(Double.isInfinite(phys.getMaxPumpHeadPressurePa()), "Default pump stall head must be uncapped");
         assertEquals(80.0, phys.getPumpMechanicalPowerPerEU(), 1e-4);
         assertEquals(1000L, phys.getFillRateLitersPerTick());
+        assertEquals(4.0, phys.getRotorThermalAlpha(), 1e-4);
+        assertEquals(10.0, phys.getCavitationWearMultiplier(), 1e-4);
+        assertEquals(0.98, phys.getCoastDownDecay(), 1e-4);
 
         // Verify default fluids
         CoolantFluidData fluids = CoolantLoopDataRegistry.getFluidData();
@@ -138,6 +141,8 @@ public class CoolantLoopDataRegistryTest {
         assertEquals(24.0, devices.getPhe().exchangeArea, 1e-4);
         assertEquals(1.2, devices.getPhe().minorLossK, 1e-4);
         assertEquals(160, devices.getPhe().steamExpansionRatio);
+        assertEquals(5.0, devices.getPhe().approachMinDeltaT, 1e-4);
+        assertEquals(10.0, devices.getPhe().superheatThresholdDeltaT, 1e-4);
         assertEquals(1.5, devices.getDegasser().minorLossK, 1e-4);
         assertEquals(0.25, devices.getDegasser().gasExtractionEfficiency, 1e-4);
         assertEquals(8.0, devices.getDegasser().gasExtractionPowerEuPerLiter, 1e-4);
@@ -159,6 +164,9 @@ public class CoolantLoopDataRegistryTest {
             + "pumpMechanicalPowerPerEU: 95.0\n"
             + "fillRateLitersPerTick: 2500\n"
             + "defaultAmbientTemp: 25.0\n"
+            + "rotorThermalAlpha: 5.5\n"
+            + "cavitationWearMultiplier: 15.0\n"
+            + "coastDownDecay: 0.95\n"
             + "standardPassageLength: 6.0\n"
             + "standardPassageDiameter: 0.12\n"
             + "defaultPipeRoughness: 0.00005\n";
@@ -213,6 +221,8 @@ public class CoolantLoopDataRegistryTest {
             + "  steamExpansionRatio: 200\n"
             + "  superheatedTempThreshold: 280.0\n"
             + "  supercriticalTempThreshold: 650.0\n"
+            + "  approachMinDeltaT: 7.5\n"
+            + "  superheatThresholdDeltaT: 15.0\n"
             + "degasser:\n"
             + "  minorLossK: 1.1\n"
             + "  gasExtractionEfficiency: 0.40\n"
@@ -244,6 +254,9 @@ public class CoolantLoopDataRegistryTest {
         assertEquals(95.0, phys.getPumpMechanicalPowerPerEU(), 1e-4);
         assertEquals(2500L, phys.getFillRateLitersPerTick());
         assertEquals(25.0, phys.getDefaultAmbientTemp(), 1e-4);
+        assertEquals(5.5, phys.getRotorThermalAlpha(), 1e-4);
+        assertEquals(15.0, phys.getCavitationWearMultiplier(), 1e-4);
+        assertEquals(0.95, phys.getCoastDownDecay(), 1e-4);
 
         // 2. Verify convective model regenerated with new parameters
         ConvectiveHeatTransferModel model = CoolantLoopDataRegistry.getConvectiveModel();
@@ -279,6 +292,8 @@ public class CoolantLoopDataRegistryTest {
         CoolantDeviceData devices = CoolantLoopDataRegistry.getDeviceData();
         assertEquals(36.0, devices.getPhe().exchangeArea, 1e-4);
         assertEquals(200, devices.getPhe().steamExpansionRatio);
+        assertEquals(7.5, devices.getPhe().approachMinDeltaT, 1e-4);
+        assertEquals(15.0, devices.getPhe().superheatThresholdDeltaT, 1e-4);
         assertEquals(0.40, devices.getDegasser().gasExtractionEfficiency, 1e-4);
         assertEquals(12.0, devices.getDegasser().gasExtractionPowerEuPerLiter, 1e-4);
         assertEquals(1500L, devices.getBath().fillVolumePerSlotLiters);

@@ -23,6 +23,11 @@ public class CoolantPhysicsData {
     private long fillRateLitersPerTick = 1000L; // Loop filling rate from reservoir tank in L/tick
     private double defaultAmbientTemp = 20.0; // Fallback ambient temperature (deg C)
 
+    // Wear and deceleration parameters
+    private double rotorThermalAlpha = 4.0; // Thermal softening and creep wear acceleration exponent
+    private double cavitationWearMultiplier = 10.0; // Cavitation wear multiplier when dissolved gas is present
+    private double coastDownDecay = 0.98; // Viscous coast-down decay factor per tick when unpowered
+
     // Geometry defaults
     private double standardPassageLength = 5.0; // Length of standard core passage (m)
     private double standardPassageDiameter = 0.10; // Inner diameter of core passage (m)
@@ -41,6 +46,10 @@ public class CoolantPhysicsData {
         map.put("pumpMechanicalPowerPerEU", pumpMechanicalPowerPerEU);
         map.put("fillRateLitersPerTick", fillRateLitersPerTick);
         map.put("defaultAmbientTemp", defaultAmbientTemp);
+
+        map.put("rotorThermalAlpha", rotorThermalAlpha);
+        map.put("cavitationWearMultiplier", cavitationWearMultiplier);
+        map.put("coastDownDecay", coastDownDecay);
 
         map.put("standardPassageLength", standardPassageLength);
         map.put("standardPassageDiameter", standardPassageDiameter);
@@ -69,6 +78,12 @@ public class CoolantPhysicsData {
             data.fillRateLitersPerTick = ((Number) map.get("fillRateLitersPerTick")).longValue();
         if (map.containsKey("defaultAmbientTemp"))
             data.defaultAmbientTemp = ((Number) map.get("defaultAmbientTemp")).doubleValue();
+
+        if (map.containsKey("rotorThermalAlpha"))
+            data.rotorThermalAlpha = ((Number) map.get("rotorThermalAlpha")).doubleValue();
+        if (map.containsKey("cavitationWearMultiplier"))
+            data.cavitationWearMultiplier = ((Number) map.get("cavitationWearMultiplier")).doubleValue();
+        if (map.containsKey("coastDownDecay")) data.coastDownDecay = ((Number) map.get("coastDownDecay")).doubleValue();
 
         if (map.containsKey("standardPassageLength"))
             data.standardPassageLength = ((Number) map.get("standardPassageLength")).doubleValue();
@@ -182,5 +197,29 @@ public class CoolantPhysicsData {
 
     public void setDefaultPipeRoughness(double defaultPipeRoughness) {
         this.defaultPipeRoughness = defaultPipeRoughness;
+    }
+
+    public double getRotorThermalAlpha() {
+        return rotorThermalAlpha;
+    }
+
+    public void setRotorThermalAlpha(double rotorThermalAlpha) {
+        this.rotorThermalAlpha = rotorThermalAlpha;
+    }
+
+    public double getCavitationWearMultiplier() {
+        return cavitationWearMultiplier;
+    }
+
+    public void setCavitationWearMultiplier(double cavitationWearMultiplier) {
+        this.cavitationWearMultiplier = cavitationWearMultiplier;
+    }
+
+    public double getCoastDownDecay() {
+        return coastDownDecay;
+    }
+
+    public void setCoastDownDecay(double coastDownDecay) {
+        this.coastDownDecay = coastDownDecay;
     }
 }
