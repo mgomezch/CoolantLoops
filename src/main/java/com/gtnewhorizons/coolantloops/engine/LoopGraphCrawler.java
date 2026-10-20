@@ -12,6 +12,7 @@ import java.util.Queue;
 import java.util.Set;
 
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
@@ -223,6 +224,14 @@ public class LoopGraphCrawler {
             this.z = z;
         }
 
+        public BlockPosCoord(ChunkCoordinates coords) {
+            this(coords != null ? coords.posX : 0, coords != null ? coords.posY : 0, coords != null ? coords.posZ : 0);
+        }
+
+        public ChunkCoordinates toChunkCoordinates() {
+            return new ChunkCoordinates(x, y, z);
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -305,6 +314,54 @@ public class LoopGraphCrawler {
      * Crawls the loop from a starting port (discharge) until returning to the target port (suction).
      */
     public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            new BlockPosCoord(pumpX, pumpY, pumpZ),
+            null,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+            null,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
+            null,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
         int targetZ, ForgeDirection targetSuctionSide, String pumpId) {
         return crawl(
             startX,
@@ -316,6 +373,54 @@ public class LoopGraphCrawler {
             targetZ,
             targetSuctionSide,
             pumpId,
+            null,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            new BlockPosCoord(pumpX, pumpY, pumpZ),
+            null,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+            null,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
             null,
             null);
     }
@@ -341,6 +446,54 @@ public class LoopGraphCrawler {
      * providing the active pump reference to multi-block passages.
      */
     public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ, ICoolantLoopPump pump) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            new BlockPosCoord(pumpX, pumpY, pumpZ),
+            pump,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos, ICoolantLoopPump pump) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+            pump,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos, ICoolantLoopPump pump) {
+        return crawl(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
+            pump,
+            null);
+    }
+
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
         int targetZ, ForgeDirection targetSuctionSide, String pumpId, ICoolantLoopPump pump) {
         return crawl(
             startX,
@@ -352,6 +505,55 @@ public class LoopGraphCrawler {
             targetZ,
             targetSuctionSide,
             pumpId,
+            pump,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ,
+        ICoolantLoopPump pump) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            new BlockPosCoord(pumpX, pumpY, pumpZ),
+            pump,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos, ICoolantLoopPump pump) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+            pump,
+            null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos, ICoolantLoopPump pump) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
             pump,
             null);
     }
@@ -370,6 +572,60 @@ public class LoopGraphCrawler {
             pumpId,
             pump,
             null);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ,
+        ICoolantLoopPump pump, Materials expectedTankMaterial) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            new BlockPosCoord(pumpX, pumpY, pumpZ),
+            pump,
+            expectedTankMaterial);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos, ICoolantLoopPump pump,
+        Materials expectedTankMaterial) {
+        return startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+            pump,
+            expectedTankMaterial);
+    }
+
+    public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+        int targetY, int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos, ICoolantLoopPump pump,
+        Materials expectedTankMaterial) {
+        return new CrawlSession(
+            this.world,
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
+            pump,
+            expectedTankMaterial,
+            this.maxDepth,
+            MAX_CRAWL_TICKS);
     }
 
     public CrawlSession startSession(int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
@@ -474,11 +730,17 @@ public class LoopGraphCrawler {
         return false;
     }
 
+    public static boolean isPumpActive(World world, ChunkCoordinates coord) {
+        if (world == null || coord == null) return false;
+        return isPumpActive(world, coord.posX, coord.posY, coord.posZ);
+    }
+
     public static boolean isPumpActive(World world, BlockPosCoord pumpPos) {
         if (world == null || pumpPos == null) return false;
         return isPumpActive(world, pumpPos.x, pumpPos.y, pumpPos.z);
     }
 
+    @Deprecated
     public static boolean isPumpActive(World world, String pumpId) {
         if (world == null || pumpId == null) return false;
         BlockPosCoord pos = BlockPosCoord.parse(pumpId);
@@ -609,8 +871,10 @@ public class LoopGraphCrawler {
         private boolean isDone = false;
         private CrawlResult result = null;
 
+        private String fallbackPumpId = null;
+
         public CrawlSession(World world, int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
-            int targetY, int targetZ, ForgeDirection targetSuctionSide, String pumpId, ICoolantLoopPump pump,
+            int targetY, int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos, ICoolantLoopPump pump,
             Materials expectedTankMaterial, int maxSteps, int maxTicks) {
             this.world = world;
             this.startX = startX;
@@ -621,8 +885,8 @@ public class LoopGraphCrawler {
             this.targetY = targetY;
             this.targetZ = targetZ;
             this.targetSuctionSide = targetSuctionSide;
-            this.pumpId = pumpId;
-            this.pumpPos = BlockPosCoord.parse(pumpId);
+            this.pumpPos = pumpPos;
+            this.pumpId = pumpPos != null ? pumpPos.toString() : null;
             this.pump = pump;
             this.expectedTankMaterial = expectedTankMaterial;
             this.maxSteps = maxSteps > 0 ? maxSteps : DEFAULT_MAX_STEPS;
@@ -640,6 +904,77 @@ public class LoopGraphCrawler {
             ForgeDirection firstEntrySide = startDir.getOpposite();
 
             frontier.add(new FrontierStep(sourceNodeId, firstX, firstY, firstZ, firstEntrySide, null, null));
+        }
+
+        public CrawlSession(World world, int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+            int targetY, int targetZ, ForgeDirection targetSuctionSide, int pumpX, int pumpY, int pumpZ,
+            ICoolantLoopPump pump, Materials expectedTankMaterial, int maxSteps, int maxTicks) {
+            this(
+                world,
+                startX,
+                startY,
+                startZ,
+                startDir,
+                targetX,
+                targetY,
+                targetZ,
+                targetSuctionSide,
+                new BlockPosCoord(pumpX, pumpY, pumpZ),
+                pump,
+                expectedTankMaterial,
+                maxSteps,
+                maxTicks);
+        }
+
+        public CrawlSession(World world, int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+            int targetY, int targetZ, ForgeDirection targetSuctionSide, ChunkCoordinates pumpPos, ICoolantLoopPump pump,
+            Materials expectedTankMaterial, int maxSteps, int maxTicks) {
+            this(
+                world,
+                startX,
+                startY,
+                startZ,
+                startDir,
+                targetX,
+                targetY,
+                targetZ,
+                targetSuctionSide,
+                pumpPos != null ? new BlockPosCoord(pumpPos) : null,
+                pump,
+                expectedTankMaterial,
+                maxSteps,
+                maxTicks);
+        }
+
+        public CrawlSession(World world, int startX, int startY, int startZ, ForgeDirection startDir, int targetX,
+            int targetY, int targetZ, ForgeDirection targetSuctionSide, String pumpId, ICoolantLoopPump pump,
+            Materials expectedTankMaterial, int maxSteps, int maxTicks) {
+            this(
+                world,
+                startX,
+                startY,
+                startZ,
+                startDir,
+                targetX,
+                targetY,
+                targetZ,
+                targetSuctionSide,
+                BlockPosCoord.parse(pumpId),
+                pump,
+                expectedTankMaterial,
+                maxSteps,
+                maxTicks);
+            if (this.pumpPos == null && pumpId != null) {
+                this.fallbackPumpId = pumpId;
+            }
+        }
+
+        public BlockPosCoord getPumpPos() {
+            return pumpPos;
+        }
+
+        public String getPumpId() {
+            return pumpPos != null ? pumpPos.toString() : fallbackPumpId;
         }
 
         public boolean isDone() {
@@ -777,8 +1112,11 @@ public class LoopGraphCrawler {
                             boolean conflicting;
                             if (otherPumpPos != null && this.pumpPos != null) {
                                 conflicting = !otherPumpPos.equals(this.pumpPos) && isPumpActive(world, otherPumpPos);
+                            } else if (otherPumpPos != null) {
+                                conflicting = isPumpActive(world, otherPumpPos);
                             } else if (otherPump != null) {
-                                conflicting = !otherPump.equals(this.pumpId) && isPumpActive(world, otherPump);
+                                String currentPump = getPumpId();
+                                conflicting = !otherPump.equals(currentPump) && isPumpActive(world, otherPump);
                             } else {
                                 conflicting = false;
                             }
@@ -789,7 +1127,7 @@ public class LoopGraphCrawler {
                                         tile.xCoord,
                                         tile.yCoord,
                                         tile.zCoord,
-                                        otherPump != null ? otherPump : otherPumpPos.toString()));
+                                        otherPumpPos != null ? otherPumpPos.toString() : otherPump));
                                 return true;
                             }
                         }
@@ -1697,8 +2035,8 @@ public class LoopGraphCrawler {
                 for (TileEntityManifold tile : mg.tiles) {
                     if (this.pumpPos != null) {
                         tile.setActivePumpPos(this.pumpPos);
-                    } else if (this.pumpId != null) {
-                        tile.setActivePumpId(this.pumpId);
+                    } else if (getPumpId() != null) {
+                        tile.setActivePumpId(getPumpId());
                     }
                 }
             }
@@ -1736,6 +2074,30 @@ public class LoopGraphCrawler {
      * Crawls the loop from a starting port (discharge) until returning to the target port (suction),
      * enforcing DAG topology with single source and sink, manifold group discovery, and unidirectional alignment.
      */
+    public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
+        int targetZ, ForgeDirection targetSuctionSide, BlockPosCoord pumpPos, ICoolantLoopPump pump,
+        Materials expectedTankMaterial) {
+
+        CrawlSession session = startSession(
+            startX,
+            startY,
+            startZ,
+            startDir,
+            targetX,
+            targetY,
+            targetZ,
+            targetSuctionSide,
+            pumpPos,
+            pump,
+            expectedTankMaterial);
+
+        while (!session.isDone()) {
+            session.step(STEPS_PER_TICK);
+        }
+
+        return session.getResult();
+    }
+
     public CrawlResult crawl(int startX, int startY, int startZ, ForgeDirection startDir, int targetX, int targetY,
         int targetZ, ForgeDirection targetSuctionSide, String pumpId, ICoolantLoopPump pump,
         Materials expectedTankMaterial) {

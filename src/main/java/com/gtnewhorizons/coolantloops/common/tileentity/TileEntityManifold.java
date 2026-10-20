@@ -13,6 +13,7 @@ import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
@@ -505,10 +506,22 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         return activePumpPos;
     }
 
+    public ChunkCoordinates getActivePumpCoordinates() {
+        return activePumpPos != null ? activePumpPos.toChunkCoordinates() : null;
+    }
+
     public void setActivePumpPos(LoopGraphCrawler.BlockPosCoord activePumpPos) {
         this.activePumpPos = activePumpPos;
         this.activePumpId = activePumpPos != null ? activePumpPos.toString() : null;
         markDirty();
+    }
+
+    public void setActivePumpPos(int px, int py, int pz) {
+        setActivePumpPos(new LoopGraphCrawler.BlockPosCoord(px, py, pz));
+    }
+
+    public void setActivePumpPos(ChunkCoordinates coord) {
+        setActivePumpPos(coord != null ? new LoopGraphCrawler.BlockPosCoord(coord) : null);
     }
 
     public String getActivePumpId() {

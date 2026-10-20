@@ -693,7 +693,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             sucTE.getYCoord(),
             sucTE.getZCoord(),
             sucTE.getFrontFacing(),
-            "pump:" + te.getXCoord() + ":" + te.getYCoord() + ":" + te.getZCoord(),
+            te.getXCoord(),
+            te.getYCoord(),
+            te.getZCoord(),
             this,
             mTankMaterial);
 

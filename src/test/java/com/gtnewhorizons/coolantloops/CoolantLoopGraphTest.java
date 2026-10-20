@@ -7,6 +7,9 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 import net.minecraft.init.Bootstrap;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.world.World;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,8 @@ import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutEdge;
 import com.gtnewhorizons.coolantloops.common.gui.graph.SugiyamaLayout.LayoutNode;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
+import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
+import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 
 import cpw.mods.fml.common.ICrashCallable;
 import cpw.mods.fml.common.Loader;
@@ -371,5 +376,95 @@ public class CoolantLoopGraphTest {
         assertEquals("", nullKey.toHubId);
         assertEquals("", nullKey.pathId);
         assertEquals("->:", nullKey.toString());
+    }
+
+    @Test
+    public void testBlockPosCoordChunkCoordinatesConversion() {
+        ChunkCoordinates cc = new ChunkCoordinates(15, 64, -25);
+        LoopGraphCrawler.BlockPosCoord bpc = new LoopGraphCrawler.BlockPosCoord(cc);
+        assertEquals(15, bpc.x);
+        assertEquals(64, bpc.y);
+        assertEquals(-25, bpc.z);
+
+        ChunkCoordinates convertedBack = bpc.toChunkCoordinates();
+        assertEquals(15, convertedBack.posX);
+        assertEquals(64, convertedBack.posY);
+        assertEquals(-25, convertedBack.posZ);
+
+        LoopGraphCrawler.BlockPosCoord nullBpc = new LoopGraphCrawler.BlockPosCoord((ChunkCoordinates) null);
+        assertEquals(0, nullBpc.x);
+        assertEquals(0, nullBpc.y);
+        assertEquals(0, nullBpc.z);
+    }
+
+    @Test
+    public void testTileEntityManifoldCoordinateAccessors() {
+        TileEntityManifold mf = new TileEntityManifold();
+        assertNull(mf.getActivePumpPos());
+        assertNull(mf.getActivePumpCoordinates());
+        assertNull(mf.getActivePumpId());
+
+        mf.setActivePumpPos(10, 20, 30);
+        assertNotNull(mf.getActivePumpPos());
+        assertEquals(10, mf.getActivePumpPos().x);
+        assertEquals(20, mf.getActivePumpPos().y);
+        assertEquals(30, mf.getActivePumpPos().z);
+        assertEquals(new ChunkCoordinates(10, 20, 30), mf.getActivePumpCoordinates());
+        assertEquals("pump:10:20:30", mf.getActivePumpId());
+
+        mf.setActivePumpPos(new ChunkCoordinates(40, 50, 60));
+        assertEquals(40, mf.getActivePumpPos().x);
+        assertEquals(50, mf.getActivePumpPos().y);
+        assertEquals(60, mf.getActivePumpPos().z);
+        assertEquals(new ChunkCoordinates(40, 50, 60), mf.getActivePumpCoordinates());
+
+        mf.setActivePumpPos((ChunkCoordinates) null);
+        assertNull(mf.getActivePumpPos());
+        assertNull(mf.getActivePumpCoordinates());
+        assertNull(mf.getActivePumpId());
+    }
+
+    @Test
+    public void testIsPumpActiveCoordinates() {
+        assertFalse(LoopGraphCrawler.isPumpActive(null, 10, 20, 30));
+        assertFalse(LoopGraphCrawler.isPumpActive(null, new ChunkCoordinates(10, 20, 30)));
+        assertFalse(LoopGraphCrawler.isPumpActive(null, new LoopGraphCrawler.BlockPosCoord(10, 20, 30)));
+        assertFalse(LoopGraphCrawler.isPumpActive(null, (String) null));
+        assertFalse(LoopGraphCrawler.isPumpActive(null, (ChunkCoordinates) null));
+        assertFalse(LoopGraphCrawler.isPumpActive(null, (LoopGraphCrawler.BlockPosCoord) null));
+
+        World mockWorld = Mockito.mock(World.class);
+        gregtech.api.metatileentity.BaseMetaTileEntity mockGtte = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
+        MTECoolantPump mockPump = Mockito.mock(MTECoolantPump.class);
+
+        Mockito.when(mockWorld.getTileEntity(10, 20, 30))
+            .thenReturn((TileEntity) mockGtte);
+        Mockito.when(mockGtte.getMetaTileEntity())
+            .thenReturn(mockPump);
+        Mockito.when(mockGtte.isInvalid())
+            .thenReturn(false);
+        Mockito.when(mockPump.getBaseMetaTileEntity())
+            .thenReturn(mockGtte);
+        Mockito.when(mockPump.isLoopFormed())
+            .thenReturn(true);
+
+        assertTrue(LoopGraphCrawler.isPumpActive(mockWorld, 10, 20, 30));
+        assertTrue(LoopGraphCrawler.isPumpActive(mockWorld, new ChunkCoordinates(10, 20, 30)));
+        assertTrue(LoopGraphCrawler.isPumpActive(mockWorld, new LoopGraphCrawler.BlockPosCoord(10, 20, 30)));
+        assertTrue(LoopGraphCrawler.isPumpActive(mockWorld, "pump:10:20:30"));
+
+        // If loop is unformed:
+        Mockito.when(mockPump.isLoopFormed())
+            .thenReturn(false);
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, 10, 20, 30));
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new ChunkCoordinates(10, 20, 30)));
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new LoopGraphCrawler.BlockPosCoord(10, 20, 30)));
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, "pump:10:20:30"));
+
+        // Other position where tile entity is null:
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, 99, 99, 99));
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new ChunkCoordinates(99, 99, 99)));
+        assertFalse(LoopGraphCrawler.isPumpActive(mockWorld, new LoopGraphCrawler.BlockPosCoord(99, 99, 99)));
     }
 }
