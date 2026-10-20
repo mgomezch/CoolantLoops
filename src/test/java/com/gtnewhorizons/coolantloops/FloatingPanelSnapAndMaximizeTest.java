@@ -218,4 +218,85 @@ public class FloatingPanelSnapAndMaximizeTest {
         assertFalse(start4);
         assertEquals(SnapMode.NONE, panel.getCurrentSnap(), "Panel must be restored on second double-click");
     }
+
+    @Test
+    void testDynamicScreenSizeChangeWhileMaximized() {
+        ResizeableFloatingPanel panel = new ResizeableFloatingPanel("panel");
+        Area screenArea = new Area(0, 0, 800, 600);
+        panel.screenAreaSupplier(() -> screenArea);
+        panel.getArea()
+            .set(50, 40, 380, 230);
+
+        panel.maximize(screenArea);
+        assertEquals(SnapMode.MAXIMIZED, panel.getCurrentSnap());
+        Area initialSnap = panel.getSnapArea(panel.getCurrentSnap());
+        assertEquals(800, initialSnap.width);
+        assertEquals(600, initialSnap.height);
+
+        // GUI scale change: screen expands to 1200x900
+        screenArea.set(0, 0, 1200, 900);
+        panel.checkScreenDimensions();
+
+        assertEquals(SnapMode.MAXIMIZED, panel.getCurrentSnap());
+        Area expandedSnap = panel.getSnapArea(panel.getCurrentSnap());
+        assertEquals(1200, expandedSnap.width);
+        assertEquals(900, expandedSnap.height);
+
+        // GUI scale change: screen shrinks to 480x270
+        screenArea.set(0, 0, 480, 270);
+        panel.checkScreenDimensions();
+
+        assertEquals(SnapMode.MAXIMIZED, panel.getCurrentSnap());
+        Area shrunkSnap = panel.getSnapArea(panel.getCurrentSnap());
+        assertEquals(480, shrunkSnap.width);
+        assertEquals(270, shrunkSnap.height);
+    }
+
+    @Test
+    void testDynamicScreenSizeChangeWhileSnappedLeft() {
+        ModularPanel mainPanel = new ModularPanel("main");
+        mainPanel.getArea()
+            .set(300, 200, 200, 200); // Main GUI at x=300..500
+        ResizeableFloatingPanel panel = new ResizeableFloatingPanel("panel", mainPanel);
+        Area screenArea = new Area(0, 0, 800, 600);
+        panel.screenAreaSupplier(() -> screenArea);
+
+        panel.applySnap(SnapMode.LEFT, screenArea);
+        assertEquals(SnapMode.LEFT, panel.getCurrentSnap());
+        Area snap1 = panel.getSnapArea(SnapMode.LEFT, screenArea);
+        assertEquals(300, snap1.width);
+        assertEquals(600, snap1.height);
+
+        // Screen changes to 1200x800, main GUI moves to x=500..700
+        screenArea.set(0, 0, 1200, 800);
+        mainPanel.getArea()
+            .set(500, 300, 200, 200);
+        panel.checkScreenDimensions();
+
+        assertEquals(SnapMode.LEFT, panel.getCurrentSnap());
+        Area snap2 = panel.getSnapArea(SnapMode.LEFT, screenArea);
+        assertEquals(500, snap2.width);
+        assertEquals(800, snap2.height);
+    }
+
+    @Test
+    void testRestoreAfterScreenShrink() {
+        ResizeableFloatingPanel panel = new ResizeableFloatingPanel("panel");
+        Area screenArea = new Area(0, 0, 800, 600);
+        panel.screenAreaSupplier(() -> screenArea);
+        panel.getArea()
+            .set(100, 100, 380, 230);
+
+        panel.maximize(screenArea);
+        assertEquals(SnapMode.MAXIMIZED, panel.getCurrentSnap());
+
+        // Screen shrinks dramatically to 300x200 (smaller than normal 380x230 panel)
+        screenArea.set(0, 0, 300, 200);
+        panel.checkScreenDimensions();
+
+        // Restore should clamp dimensions within the smaller 300x200 screen
+        panel.restore(true, 0, 0, screenArea);
+        assertEquals(SnapMode.NONE, panel.getCurrentSnap());
+        assertTrue(panel.getNormalArea().width <= 380);
+    }
 }

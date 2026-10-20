@@ -105,6 +105,63 @@ public class ResizeableFloatingPanel extends ModularPanel {
         this.hasNormalArea = true;
     }
 
+    private int lastKnownScreenWidth = -1;
+    private int lastKnownScreenHeight = -1;
+    private java.util.function.Supplier<Area> screenAreaSupplier;
+
+    public ResizeableFloatingPanel screenAreaSupplier(java.util.function.Supplier<Area> supplier) {
+        this.screenAreaSupplier = supplier;
+        return this;
+    }
+
+    public static Area getClientScreenArea() {
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+            if (mc != null && mc.displayWidth > 0 && mc.displayHeight > 0) {
+                net.minecraft.client.gui.ScaledResolution sr = new net.minecraft.client.gui.ScaledResolution(
+                    mc,
+                    mc.displayWidth,
+                    mc.displayHeight);
+                int sw = sr.getScaledWidth();
+                int sh = sr.getScaledHeight();
+                if (sw > 0 && sh > 0) {
+                    return new Area(0, 0, sw, sh);
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    public Area getSafeScreenArea() {
+        if (this.screenAreaSupplier != null) {
+            Area a = this.screenAreaSupplier.get();
+            if (a != null && a.width > 0 && a.height > 0) return a;
+        }
+        Area clientArea = getClientScreenArea();
+        if (clientArea != null) {
+            return clientArea;
+        }
+        ModularScreen screen = getSafeScreen();
+        if (screen != null) {
+            Area area = screen.getScreenArea();
+            if (area != null && area.width > 0 && area.height > 0) {
+                return area;
+            }
+        }
+        if (this.mainPanel != null) {
+            try {
+                if (this.mainPanel.isValid() && this.mainPanel.getScreen() != null) {
+                    Area area = this.mainPanel.getScreen()
+                        .getScreenArea();
+                    if (area != null && area.width > 0 && area.height > 0) {
+                        return area;
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+        return new Area(0, 0, 480, 270);
+    }
+
     private ModularScreen getSafeScreen() {
         try {
             if (isValid()) {
@@ -131,17 +188,17 @@ public class ResizeableFloatingPanel extends ModularPanel {
     }
 
     public Area getSnapArea(SnapMode mode) {
-        ModularScreen screen = getSafeScreen();
-        Area screenArea = screen != null ? screen.getScreenArea() : null;
-        return getSnapArea(mode, screenArea);
+        return getSnapArea(mode, null);
     }
 
     public Area getSnapArea(SnapMode mode, Area screenArea) {
         if (mode == null || mode == SnapMode.NONE) {
             return null;
         }
-        int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 480;
-        int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 270;
+        Area safeScreen = (screenArea != null && screenArea.width > 0 && screenArea.height > 0) ? screenArea
+            : getSafeScreenArea();
+        int scrW = safeScreen.width;
+        int scrH = safeScreen.height;
 
         Area mainArea = getMainGuiArea();
         int defMainW = Math.min(200, scrW / 2);
@@ -182,11 +239,10 @@ public class ResizeableFloatingPanel extends ModularPanel {
     }
 
     public SnapMode detectSnapMode(int mouseX, int mouseY, Area screenArea) {
-        if (screenArea == null || screenArea.width <= 0 || screenArea.height <= 0) {
-            return SnapMode.NONE;
-        }
-        int scrW = screenArea.width;
-        int scrH = screenArea.height;
+        Area safeScreen = (screenArea != null && screenArea.width > 0 && screenArea.height > 0) ? screenArea
+            : getSafeScreenArea();
+        int scrW = safeScreen.width;
+        int scrH = safeScreen.height;
         int edgeThreshold = 5;
         int cornerZone = Math.max(32, scrH / 6);
 
@@ -226,6 +282,9 @@ public class ResizeableFloatingPanel extends ModularPanel {
         if (mode == null || mode == SnapMode.NONE) {
             return;
         }
+        Area screenArea = (customScreenArea != null && customScreenArea.width > 0 && customScreenArea.height > 0)
+            ? customScreenArea
+            : getSafeScreenArea();
         if (this.currentSnap == SnapMode.NONE) {
             Area cur = getArea();
             if (cur != null && cur.width > 0 && cur.height > 0) {
@@ -233,8 +292,10 @@ public class ResizeableFloatingPanel extends ModularPanel {
                 this.hasNormalArea = true;
             }
         }
-        Area target = getSnapArea(mode, customScreenArea);
+        Area target = getSnapArea(mode, screenArea);
         if (target != null) {
+            this.lastKnownScreenWidth = screenArea.width;
+            this.lastKnownScreenHeight = screenArea.height;
             resizer().resetPosition();
             resizer().relativeToScreen();
             resizer().left(target.x);
@@ -254,6 +315,70 @@ public class ResizeableFloatingPanel extends ModularPanel {
         applySnap(SnapMode.MAXIMIZED, customScreenArea);
     }
 
+    @Override
+    public void beforeResize(boolean full) {
+        super.beforeResize(full);
+        checkScreenDimensions();
+    }
+
+    @Override
+    public void onResized() {
+        super.onResized();
+        checkScreenDimensions();
+    }
+
+    @Override
+    public void onUpdate() {
+        super.onUpdate();
+        checkScreenDimensions();
+    }
+
+    public void checkScreenDimensions() {
+        Area screenArea = getSafeScreenArea();
+        if (screenArea != null && screenArea.width > 0 && screenArea.height > 0) {
+            if (this.lastKnownScreenWidth < 0 || this.lastKnownScreenHeight < 0) {
+                this.lastKnownScreenWidth = screenArea.width;
+                this.lastKnownScreenHeight = screenArea.height;
+                return;
+            }
+            if (screenArea.width != this.lastKnownScreenWidth || screenArea.height != this.lastKnownScreenHeight) {
+                this.lastKnownScreenWidth = screenArea.width;
+                this.lastKnownScreenHeight = screenArea.height;
+                onScreenSizeChanged(screenArea);
+            }
+        }
+    }
+
+    public void onScreenSizeChanged(Area screenArea) {
+        if (this.currentSnap != SnapMode.NONE) {
+            applySnap(this.currentSnap, screenArea);
+        } else {
+            if (this.hasNormalArea) {
+                int maxW = Math.max(getMinDragWidth(), screenArea.width);
+                int maxH = Math.max(getMinDragHeight(), screenArea.height);
+                this.normalArea.width = Math.min(this.normalArea.width, maxW);
+                this.normalArea.height = Math.min(this.normalArea.height, maxH);
+                this.normalArea.x = Math.max(0, Math.min(screenArea.width - this.normalArea.width, this.normalArea.x));
+                this.normalArea.y = Math
+                    .max(0, Math.min(screenArea.height - this.normalArea.height, this.normalArea.y));
+            }
+            Area cur = getArea();
+            if (cur != null && cur.width > 0 && cur.height > 0) {
+                int curW = Math.min(cur.width, screenArea.width);
+                int curH = Math.min(cur.height, screenArea.height);
+                int curX = Math.max(0, Math.min(screenArea.width - curW, cur.x));
+                int curY = Math.max(0, Math.min(screenArea.height - curH, cur.y));
+                resizer().resetPosition();
+                resizer().relativeToScreen();
+                resizer().left(curX);
+                resizer().top(curY);
+                resizer().width(curW);
+                resizer().height(curH);
+                scheduleResize();
+            }
+        }
+    }
+
     public void restore(boolean restorePosition, int mouseX, int mouseY) {
         restore(restorePosition, mouseX, mouseY, null);
     }
@@ -262,20 +387,20 @@ public class ResizeableFloatingPanel extends ModularPanel {
         if (this.currentSnap == SnapMode.NONE) {
             return;
         }
+        Area screenArea = (customScreenArea != null && customScreenArea.width > 0 && customScreenArea.height > 0)
+            ? customScreenArea
+            : getSafeScreenArea();
+        int maxScrW = screenArea.width;
+        int maxScrH = screenArea.height;
+
         Area norm = getNormalArea();
         int targetW = norm.width > 0 ? norm.width : 380;
         int targetH = norm.height > 0 ? norm.height : 230;
+        targetW = Math.min(targetW, maxScrW);
+        targetH = Math.min(targetH, maxScrH);
 
         int targetX;
         int targetY;
-
-        Area screenArea = customScreenArea;
-        if (screenArea == null) {
-            ModularScreen screen = getSafeScreen();
-            screenArea = screen != null ? screen.getScreenArea() : null;
-        }
-        int maxScrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 1000;
-        int maxScrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 1000;
 
         if (restorePosition) {
             targetX = norm.x;

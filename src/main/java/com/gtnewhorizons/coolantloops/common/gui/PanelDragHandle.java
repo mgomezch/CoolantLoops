@@ -104,6 +104,9 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
 
     public PanelDragHandle screenAreaSupplier(java.util.function.Supplier<Area> screenAreaSupplier) {
         this.screenAreaSupplier = screenAreaSupplier;
+        if (this.panel instanceof ResizeableFloatingPanel) {
+            ((ResizeableFloatingPanel) this.panel).screenAreaSupplier(screenAreaSupplier);
+        }
         return this;
     }
 
@@ -130,11 +133,15 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
             Area a = this.screenAreaSupplier.get();
             if (a != null) return a;
         }
-        if (this.panel != null && this.panel.getScreen() != null) {
-            return this.panel.getScreen()
-                .getScreenArea();
+        if (this.panel instanceof ResizeableFloatingPanel) {
+            return ((ResizeableFloatingPanel) this.panel).getSafeScreenArea();
         }
-        return null;
+        if (this.panel != null && this.panel.getScreen() != null) {
+            Area a = this.panel.getScreen()
+                .getScreenArea();
+            if (a != null && a.width > 0 && a.height > 0) return a;
+        }
+        return ResizeableFloatingPanel.getClientScreenArea();
     }
 
     @Override
@@ -159,10 +166,11 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
             this.lastClickTime = 0L;
             if (this.panel instanceof ResizeableFloatingPanel) {
                 ResizeableFloatingPanel rfp = (ResizeableFloatingPanel) this.panel;
+                Area sa = getScreenArea();
                 if (rfp.getCurrentSnap() != ResizeableFloatingPanel.SnapMode.NONE) {
-                    rfp.restore(true, 0, 0);
+                    rfp.restore(true, 0, 0, sa);
                 } else {
-                    rfp.maximize();
+                    rfp.maximize(sa);
                 }
                 return false;
             }
@@ -211,13 +219,14 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         if (this.wasSnappedOnDragStart && this.hasDragged) {
             if (this.panel instanceof ResizeableFloatingPanel) {
                 ResizeableFloatingPanel rfp = (ResizeableFloatingPanel) this.panel;
+                Area sa = getScreenArea();
                 Area currentSnappedArea = this.panel.getArea();
                 int currentW = currentSnappedArea != null && currentSnappedArea.width > 0 ? currentSnappedArea.width
-                    : 480;
+                    : (sa != null && sa.width > 0 ? sa.width : 480);
                 float ratioX = currentW > 0 ? (float) (this.dragStartAbsX - currentSnappedArea.x) / (float) currentW
                     : 0.5f;
 
-                rfp.restore(false, absX, absY);
+                rfp.restore(false, absX, absY, sa);
                 Area norm = rfp.getNormalArea();
                 int normW = norm.width > 0 ? norm.width : 380;
                 int normH = norm.height > 0 ? norm.height : 230;
@@ -233,8 +242,8 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         }
 
         Area screenArea = getScreenArea();
-        int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 1000;
-        int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 1000;
+        int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 480;
+        int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 270;
         int maxX = Math.max(0, scrW - this.movingArea.width);
         int maxY = Math.max(0, scrH - this.movingArea.height);
 
@@ -268,6 +277,7 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
 
         if (this.panel instanceof ResizeableFloatingPanel) {
             ResizeableFloatingPanel rfp = (ResizeableFloatingPanel) this.panel;
+            Area screenArea = getScreenArea();
 
             // If click ended without any dragging movement, leave current state intact
             if (!this.hasDragged) {
@@ -277,22 +287,26 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
 
             // Snapping to screen edge or corner
             if (this.pendingSnap != null && this.pendingSnap != ResizeableFloatingPanel.SnapMode.NONE) {
-                rfp.applySnap(this.pendingSnap);
+                rfp.applySnap(this.pendingSnap, screenArea);
                 this.pendingSnap = null;
                 return;
             }
 
             // Normal drop at dragged position
-            Area screenArea = getScreenArea();
-            int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 1000;
-            int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 1000;
+            int scrW = screenArea != null && screenArea.width > 0 ? screenArea.width : 480;
+            int scrH = screenArea != null && screenArea.height > 0 ? screenArea.height : 270;
             int curW = this.movingArea.width > 0 ? this.movingArea.width : this.panel.getArea().width;
             int curH = this.movingArea.height > 0 ? this.movingArea.height : this.panel.getArea().height;
 
+            curW = Math.min(curW, scrW);
+            curH = Math.min(curH, scrH);
+            int curX = Math.max(0, Math.min(scrW - curW, this.movingArea.x));
+            int curY = Math.max(0, Math.min(scrH - curH, this.movingArea.y));
+
             int availW = scrW - curW;
             int availH = scrH - curH;
-            float left = availW > 0 ? (float) this.movingArea.x / (float) availW : 0f;
-            float top = availH > 0 ? (float) this.movingArea.y / (float) availH : 0f;
+            float left = availW > 0 ? (float) curX / (float) availW : 0f;
+            float top = availH > 0 ? (float) curY / (float) availH : 0f;
             left = Math.max(0f, Math.min(1f, left));
             top = Math.max(0f, Math.min(1f, top));
 
@@ -310,7 +324,7 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
                 .height(curH);
             this.panel.scheduleResize();
 
-            rfp.onNormalDrop(this.movingArea.x, this.movingArea.y, curW, curH);
+            rfp.onNormalDrop(curX, curY, curW, curH);
             this.pendingSnap = null;
         } else {
             if (this.hasDragged) {
@@ -346,11 +360,12 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         int curY = ctx.transformY(0, 0);
         ctx.translate(-curX, -curY);
 
+        Area screenArea = getScreenArea();
         // Draw snap preview highlight if hovering over a snap zone
         if (this.panel instanceof ResizeableFloatingPanel && this.pendingSnap != null
             && this.pendingSnap != ResizeableFloatingPanel.SnapMode.NONE) {
             ResizeableFloatingPanel rfp = (ResizeableFloatingPanel) this.panel;
-            Area snapArea = rfp.getSnapArea(this.pendingSnap);
+            Area snapArea = rfp.getSnapArea(this.pendingSnap, screenArea);
             if (snapArea != null) {
                 drawSnapPreview(snapArea);
             }
