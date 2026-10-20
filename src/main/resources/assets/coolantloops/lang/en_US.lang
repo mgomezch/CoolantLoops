@@ -112,6 +112,7 @@ coolantloops.chat.instrument.tracked_metric=Instrumentation computer tracked met
 # Manifold & Creative Reservoir Chat
 coolantloops.chat.manifold.orient=Manifold: Plane oriented to %s (normal: %s)
 coolantloops.chat.manifold.connection=Manifold: %s connection %s
+coolantloops.chat.manifold.invalid_connection=Manifold: Cannot connect on %s side (no valid device)
 coolantloops.chat.manifold.info=Manifold: Plane = %s, normal = %s, inline group size = %d/8 blocks, flow = %.2f L/s, temp = %.1f °C
 
 coolantloops.manifold.plane.yz=YZ (east-west normal)

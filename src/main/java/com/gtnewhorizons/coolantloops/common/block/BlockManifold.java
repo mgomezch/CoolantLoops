@@ -97,7 +97,7 @@ public class BlockManifold extends BlockContainer {
                     ForgeDirection opp = dir.getOpposite();
                     TileEntity thisTe = world.getTileEntity(x - dir.offsetX, y - dir.offsetY, z - dir.offsetZ);
                     if (thisTe instanceof TileEntityManifold thisManifold) {
-                        if (!thisManifold.hasSamePlaneOrientation(neighborManifold)) {
+                        if (!thisManifold.isInPlane(dir) || !thisManifold.hasSamePlaneOrientation(neighborManifold)) {
                             return true;
                         }
                     }
@@ -110,6 +110,16 @@ public class BlockManifold extends BlockContainer {
             return true;
         }
         return super.shouldSideBeRendered(world, x, y, z, side);
+    }
+
+    @Override
+    @cpw.mods.fml.relauncher.SideOnly(cpw.mods.fml.relauncher.Side.CLIENT)
+    public int colorMultiplier(IBlockAccess world, int x, int y, int z) {
+        TileEntity te = world.getTileEntity(x, y, z);
+        if (te instanceof TileEntityManifold manifold) {
+            return manifold.getColorMultiplier();
+        }
+        return super.colorMultiplier(world, x, y, z);
     }
 
     @Override
@@ -267,15 +277,25 @@ public class BlockManifold extends BlockContainer {
                 } else {
                     // Regular rightclick with wrench: Toggle connection on wrenching side
                     ForgeDirection wrenchingSide = GTUtility.determineWrenchingSide(clickedSide, hitX, hitY, hitZ);
-                    boolean connected = manifold.toggleConnectionWithNeighbor(wrenchingSide);
-                    world.markBlockForUpdate(x, y, z);
-                    world.notifyBlocksOfNeighborChange(x, y, z, this);
-                    player.addChatMessage(
-                        new ChatComponentText(
-                            com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
-                                "coolantloops.chat.manifold.connection",
-                                wrenchingSide.name(),
-                                connected ? "CONNECTED" : "DISCONNECTED")));
+                    if (!manifold.isConnectionAllowed(wrenchingSide)) {
+                        manifold.setConnected(wrenchingSide, false);
+                        world.markBlockForUpdate(x, y, z);
+                        world.notifyBlocksOfNeighborChange(x, y, z, this);
+                        player.addChatMessage(
+                            new ChatComponentText(
+                                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
+                                    .format("coolantloops.chat.manifold.invalid_connection", wrenchingSide.name())));
+                    } else {
+                        boolean connected = manifold.toggleConnectionWithNeighbor(wrenchingSide);
+                        world.markBlockForUpdate(x, y, z);
+                        world.notifyBlocksOfNeighborChange(x, y, z, this);
+                        player.addChatMessage(
+                            new ChatComponentText(
+                                com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                                    "coolantloops.chat.manifold.connection",
+                                    wrenchingSide.name(),
+                                    connected ? "CONNECTED" : "DISCONNECTED")));
+                    }
                 }
                 GTModHandler.damageOrDechargeItem(held, 1, 1000, player);
                 GTUtility.sendSoundToPlayers(world, SoundResource.GTCEU_OP_WRENCH, 1.0F, 1.0F, x, y, z);

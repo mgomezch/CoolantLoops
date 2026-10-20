@@ -135,6 +135,19 @@ public class MTECoolantPipe extends MTEFluidPipe {
         }
     }
 
+    public Materials getPipeMaterial() {
+        return mMaterial;
+    }
+
+    public short[] getPipeMaterialRgba() {
+        return mMaterial != null && mMaterial.mRGBa != null ? mMaterial.mRGBa : new short[] { 255, 255, 255, 255 };
+    }
+
+    public int getPipeMaterialColorInt() {
+        short[] rgba = getPipeMaterialRgba();
+        return ((rgba[0] & 0xFF) << 16) | ((rgba[1] & 0xFF) << 8) | (rgba[2] & 0xFF);
+    }
+
     @Override
     public String getLocalizedName() {
         String matName = mMaterial != null ? mMaterial.mDefaultLocalName : "Unknown";

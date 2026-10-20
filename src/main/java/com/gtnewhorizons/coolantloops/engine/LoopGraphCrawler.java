@@ -2046,13 +2046,16 @@ public class LoopGraphCrawler {
                 return;
             }
 
-            // 4. Update pump ownership on all claimed manifold blocks
+            // 4. Update pump ownership and loop material on all claimed manifold blocks
             for (ManifoldGroup mg : allManifoldGroups) {
                 for (TileEntityManifold tile : mg.tiles) {
                     if (this.pumpPos != null) {
                         tile.setActivePumpPos(this.pumpPos);
                     } else if (getPumpId() != null) {
                         tile.setActivePumpId(getPumpId());
+                    }
+                    if (this.detectedLoopMaterial != null) {
+                        tile.setActiveMaterial(this.detectedLoopMaterial);
                     }
                 }
             }

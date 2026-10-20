@@ -20,11 +20,13 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
+import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
+import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.metatileentity.IConnectable;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 
@@ -42,6 +44,9 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     private double currentTemperatureCelsius = 20.0;
     private double minorLossK = 0.3; // Manifold flow splitting/merging resistance
     private double totalInputFlowRate = 0.0;
+
+    private Materials activeMaterial = null;
+    private boolean validatingNeighbors = false;
 
     private LoopGraphCrawler.BlockPosCoord activePumpPos = null;
     private String activePumpId = null;
@@ -188,19 +193,41 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     }
 
     /**
+     * Checks whether the adjacent block in the given direction is a valid device for connection:
+     * - Lateral side on main plane: MUST be another manifold block with matching plane orientation.
+     * - Normal side (input/output): MUST be a high-pressure pipe (MTECoolantPipe).
+     * All other blocks, air, or manifolds along the normal axis are invalid.
+     */
+    public boolean isValidConnectionTarget(ForgeDirection dir) {
+        if (dir == null || dir == ForgeDirection.UNKNOWN) return false;
+        if (worldObj == null) return false;
+        TileEntity neighbor = worldObj.getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+        if (neighbor == null) return false;
+
+        if (isInPlane(dir)) {
+            if (neighbor instanceof TileEntityManifold neighborManifold) {
+                return hasSamePlaneOrientation(neighborManifold) && neighborManifold.isInPlane(dir.getOpposite());
+            }
+            return false;
+        } else if (isNormalDirection(dir)) {
+            if (neighbor instanceof IGregTechTileEntity gte) {
+                return gte.getMetaTileEntity() instanceof MTECoolantPipe;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    /**
      * Checks whether connection to an adjacent block in the given direction is allowed.
-     * Adjacent manifolds MUST share the exact same main-plane orientation.
+     * When attached to a world, strictly verifies that the target device is valid:
+     * - Lateral side: compatible manifold sharing the same plane orientation.
+     * - Normal side: high-pressure coolant pipe only (no direct manifold-to-manifold normal chaining).
      */
     public boolean isConnectionAllowed(ForgeDirection dir) {
         if (dir == null || dir == ForgeDirection.UNKNOWN) return false;
         if (worldObj != null) {
-            TileEntity neighbor = worldObj
-                .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (neighbor instanceof TileEntityManifold neighborManifold) {
-                if (!hasSamePlaneOrientation(neighborManifold)) {
-                    return false;
-                }
-            }
+            return isValidConnectionTarget(dir);
         }
         return true;
     }
@@ -210,45 +237,154 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
     }
 
     /**
-     * Inspects all 6 neighbors. If an adjacent manifold has an incompatible main-plane orientation,
-     * automatically disconnects the mutual connection. If an adjacent manifold has a compatible
-     * main-plane orientation and is in-plane, connects the mutual connection.
+     * Inspects all 6 neighbors. Retracts any connection facing an invalid target (air, incompatible manifold,
+     * or non-pipe on normal faces). Forms mutual connections with compatible in-plane manifolds,
+     * and maintains connections to adjacent high-pressure pipes.
+     * Updates and propagates the pipe tier material color across the manifold group.
      */
     public boolean validateConnectionsWithNeighbors() {
-        if (worldObj == null) return false;
+        if (worldObj == null || validatingNeighbors) return false;
+        validatingNeighbors = true;
         boolean changed = false;
-        for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
-            TileEntity neighbor = worldObj
-                .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (neighbor instanceof TileEntityManifold neighborManifold) {
-                if (!hasSamePlaneOrientation(neighborManifold)) {
+        try {
+            for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+                if (!isValidConnectionTarget(dir)) {
                     if (isConnected(dir)) {
                         setConnected(dir, false);
                         changed = true;
                     }
-                    if (neighborManifold.isConnected(dir.getOpposite())) {
-                        neighborManifold.setConnected(dir.getOpposite(), false);
-                        changed = true;
+                    TileEntity neighbor = worldObj
+                        .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                    if (neighbor instanceof TileEntityManifold neighborManifold) {
+                        if (neighborManifold.isConnected(dir.getOpposite())) {
+                            neighborManifold.setConnected(dir.getOpposite(), false);
+                            changed = true;
+                        }
                     }
-                } else if (isInPlane(dir) && neighborManifold.isInPlane(dir.getOpposite())) {
-                    if (!isConnected(dir)) {
-                        setConnected(dir, true);
-                        changed = true;
+                } else if (isInPlane(dir)) {
+                    TileEntity neighbor = worldObj
+                        .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                    if (neighbor instanceof TileEntityManifold neighborManifold) {
+                        if (hasSamePlaneOrientation(neighborManifold)
+                            && neighborManifold.isInPlane(dir.getOpposite())) {
+                            if (!isConnected(dir)) {
+                                setConnected(dir, true);
+                                changed = true;
+                            }
+                            if (!neighborManifold.isConnected(dir.getOpposite())) {
+                                neighborManifold.setConnected(dir.getOpposite(), true);
+                                changed = true;
+                            }
+                        }
                     }
-                    if (!neighborManifold.isConnected(dir.getOpposite())) {
-                        neighborManifold.setConnected(dir.getOpposite(), true);
-                        changed = true;
+                } else if (isNormalDirection(dir)) {
+                    TileEntity neighbor = worldObj
+                        .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                    if (neighbor instanceof IGregTechTileEntity gte
+                        && gte.getMetaTileEntity() instanceof MTECoolantPipe pipe) {
+                        if (pipe.canConnect(dir.getOpposite(), this)) {
+                            if (!isConnected(dir)) {
+                                setConnected(dir, true);
+                                changed = true;
+                            }
+                        }
                     }
                 }
             }
+            updateGroupPipeMaterial();
+        } finally {
+            validatingNeighbors = false;
         }
         if (changed) {
             markDirty();
             if (!worldObj.isRemote) {
                 worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+                worldObj.notifyBlocksOfNeighborChange(xCoord, yCoord, zCoord, getBlockType());
             }
         }
         return changed;
+    }
+
+    // --- High-Pressure Pipe Material Color Adoption ---
+
+    public Materials getActiveMaterial() {
+        if (activeMaterial == null && worldObj != null) {
+            return resolveActiveMaterial();
+        }
+        return activeMaterial;
+    }
+
+    public void setActiveMaterial(Materials mat) {
+        if (this.activeMaterial != mat) {
+            this.activeMaterial = mat;
+            markDirty();
+            if (worldObj != null && !worldObj.isRemote) {
+                worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+            }
+        }
+    }
+
+    public Materials resolveActiveMaterial() {
+        if (worldObj == null) return activeMaterial;
+        for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+            if (isNormalDirection(dir) && isConnected(dir)) {
+                TileEntity te = worldObj
+                    .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                if (te instanceof IGregTechTileEntity gte && gte.getMetaTileEntity() instanceof MTECoolantPipe pipe) {
+                    return pipe.mMaterial;
+                }
+            }
+        }
+        for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+            if (isInPlane(dir) && isConnected(dir)) {
+                TileEntity te = worldObj
+                    .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
+                if (te instanceof TileEntityManifold neighbor && hasSamePlaneOrientation(neighbor)) {
+                    if (neighbor.isConnected(dir.getOpposite()) && neighbor.activeMaterial != null) {
+                        return neighbor.activeMaterial;
+                    }
+                }
+            }
+        }
+        return activeMaterial;
+    }
+
+    public Materials findGroupPipeMaterial() {
+        if (worldObj == null) return null;
+        List<TileEntityManifold> group = findContiguousGroup();
+        for (TileEntityManifold m : group) {
+            for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+                if (m.isNormalDirection(dir) && m.isConnected(dir)) {
+                    TileEntity te = m.worldObj
+                        .getTileEntity(m.xCoord + dir.offsetX, m.yCoord + dir.offsetY, m.zCoord + dir.offsetZ);
+                    if (te instanceof IGregTechTileEntity gte
+                        && gte.getMetaTileEntity() instanceof MTECoolantPipe pipe) {
+                        if (pipe.mMaterial != null) {
+                            return pipe.mMaterial;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void updateGroupPipeMaterial() {
+        if (worldObj == null) return;
+        Materials mat = findGroupPipeMaterial();
+        List<TileEntityManifold> group = findContiguousGroup();
+        for (TileEntityManifold m : group) {
+            m.setActiveMaterial(mat);
+        }
+    }
+
+    public int getColorMultiplier() {
+        Materials mat = getActiveMaterial();
+        if (mat != null && mat.mRGBa != null) {
+            short[] rgba = mat.mRGBa;
+            return ((rgba[0] & 0xFF) << 16) | ((rgba[1] & 0xFF) << 8) | (rgba[2] & 0xFF);
+        }
+        return 0xFFFFFF;
     }
 
     /**
@@ -598,6 +734,11 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         if (nbt.hasKey("outputSide")) {
             this.outputSide = ForgeDirection.getOrientation(nbt.getInteger("outputSide"));
         }
+        if (nbt.hasKey("pipeMaterial")) {
+            this.activeMaterial = Materials.get(nbt.getString("pipeMaterial"));
+        } else {
+            this.activeMaterial = null;
+        }
     }
 
     @Override
@@ -606,6 +747,9 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         nbt.setInteger("facing", facing.ordinal());
         nbt.setByte("connections", connections);
         nbt.setDouble("temp", currentTemperatureCelsius);
+        if (activeMaterial != null) {
+            nbt.setString("pipeMaterial", activeMaterial.mName);
+        }
         if (activePumpPos != null) {
             nbt.setInteger("pumpX", activePumpPos.x);
             nbt.setInteger("pumpY", activePumpPos.y);

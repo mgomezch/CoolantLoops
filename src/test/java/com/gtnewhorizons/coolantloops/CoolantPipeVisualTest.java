@@ -298,4 +298,232 @@ public class CoolantPipeVisualTest {
         assertEquals(21.0, box.maxY, 1e-6);
         assertEquals(31.0, box.maxZ, 1e-6);
     }
+
+    @Test
+    public void testManifoldDisallowsDirectNormalConnectionToAnotherManifold() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m1 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m1.xCoord = 10;
+        m1.yCoord = 64;
+        m1.zCoord = 10;
+        m1.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH); // Z normal
+        m1.setWorldObj(mockWorld);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m2 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m2.xCoord = 10;
+        m2.yCoord = 64;
+        m2.zCoord = 9; // NORTH of m1 (along normal axis)
+        m2.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        m2.setWorldObj(mockWorld);
+
+        Mockito.when(mockWorld.getTileEntity(10, 64, 10))
+            .thenReturn(m1);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(m2);
+
+        // NORTH is normal direction: valid connection target MUST NOT be another manifold
+        assertFalse(m1.isValidConnectionTarget(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertFalse(m1.isConnectionAllowed(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertFalse(m2.isValidConnectionTarget(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+        assertFalse(m2.isConnectionAllowed(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+
+        // Attempting to toggle connection with wrench must fail and stay disconnected
+        assertFalse(m1.toggleConnectionWithNeighbor(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertFalse(m1.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertFalse(m2.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+
+        // Force connection bits on both
+        m1.setConnected(net.minecraftforge.common.util.ForgeDirection.NORTH, true);
+        m2.setConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH, true);
+        assertTrue(m1.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertTrue(m2.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+
+        // validateConnectionsWithNeighbors must automatically retract normal connection between manifolds
+        m1.validateConnectionsWithNeighbors();
+        assertFalse(
+            m1.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH),
+            "m1 must automatically retract normal connection to m2");
+        assertFalse(
+            m2.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH),
+            "m2 must automatically retract normal connection to m1");
+    }
+
+    @Test
+    public void testManifoldDisallowsConnectionToAirOrInvalidDevice() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m.xCoord = 10;
+        m.yCoord = 64;
+        m.zCoord = 10;
+        m.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH); // Z normal, XY in-plane
+        m.setWorldObj(mockWorld);
+
+        // In empty world, getTileEntity returns null (air)
+        Mockito.when(mockWorld.getTileEntity(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(null);
+
+        // All 6 directions have no valid device to connect to
+        for (net.minecraftforge.common.util.ForgeDirection dir : net.minecraftforge.common.util.ForgeDirection.VALID_DIRECTIONS) {
+            assertFalse(m.isValidConnectionTarget(dir), "Air must not be valid connection target on side " + dir);
+            assertFalse(m.isConnectionAllowed(dir), "Connection must not be allowed to air on side " + dir);
+            assertFalse(m.toggleConnectionWithNeighbor(dir), "Wrench must refuse to extend to air on side " + dir);
+            assertFalse(m.isConnected(dir));
+        }
+
+        // Force connection bits
+        m.setConnections((byte) 0x3F);
+        m.validateConnectionsWithNeighbors();
+        assertEquals(0, m.getConnectionsMask(), "All connections must automatically retract when facing air");
+    }
+
+    @Test
+    public void testManifoldAllowsNormalConnectionToCoolantPipeOnly() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m.xCoord = 10;
+        m.yCoord = 64;
+        m.zCoord = 10;
+        m.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH); // Z normal: NORTH and SOUTH are normal faces
+        m.setWorldObj(mockWorld);
+
+        // Put coolant pipe at (10, 64, 9) (NORTH)
+        MTECoolantPipe pipe = new MTECoolantPipe("coolantpipe.steel", 0.5f, Materials.Steel, 240, 2500, true);
+        gregtech.api.metatileentity.BaseMetaPipeEntity mockPipeTile = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaPipeEntity.class);
+        Mockito.when(mockPipeTile.getMetaTileEntity())
+            .thenReturn(pipe);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(mockPipeTile);
+
+        // Put regular GT machine (not MTECoolantPipe) at (10, 64, 11) (SOUTH)
+        gregtech.api.metatileentity.BaseMetaTileEntity mockMachineTile = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaTileEntity.class);
+        gregtech.api.metatileentity.implementations.MTEBasicMachine mockMachine = Mockito
+            .mock(gregtech.api.metatileentity.implementations.MTEBasicMachine.class);
+        Mockito.when(mockMachineTile.getMetaTileEntity())
+            .thenReturn(mockMachine);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 11))
+            .thenReturn(mockMachineTile);
+
+        // NORTH (coolant pipe) must be valid
+        assertTrue(m.isValidConnectionTarget(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertTrue(m.isConnectionAllowed(net.minecraftforge.common.util.ForgeDirection.NORTH));
+
+        // SOUTH (regular machine) must be invalid
+        assertFalse(m.isValidConnectionTarget(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+        assertFalse(m.isConnectionAllowed(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+
+        // validateConnectionsWithNeighbors must keep/enable NORTH and retract SOUTH
+        m.setConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH, true);
+        m.validateConnectionsWithNeighbors();
+        assertTrue(m.isConnected(net.minecraftforge.common.util.ForgeDirection.NORTH));
+        assertFalse(m.isConnected(net.minecraftforge.common.util.ForgeDirection.SOUTH));
+    }
+
+    @Test
+    public void testManifoldAdoptsCoolantPipeColor() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m.xCoord = 10;
+        m.yCoord = 64;
+        m.zCoord = 10;
+        m.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        m.setWorldObj(mockWorld);
+
+        // Initially no pipe: color multiplier is default 0xFFFFFF
+        assertEquals(0xFFFFFF, m.getColorMultiplier());
+
+        // Connect Steel pipe to NORTH
+        MTECoolantPipe steelPipe = new MTECoolantPipe("coolantpipe.steel", 0.5f, Materials.Steel, 240, 2500, true);
+        gregtech.api.metatileentity.BaseMetaPipeEntity mockSteelTile = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaPipeEntity.class);
+        Mockito.when(mockSteelTile.getMetaTileEntity())
+            .thenReturn(steelPipe);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(mockSteelTile);
+
+        m.validateConnectionsWithNeighbors();
+        assertEquals(Materials.Steel, m.getActiveMaterial());
+        short[] steelRgba = Materials.Steel.mRGBa;
+        int expectedSteelColor = ((steelRgba[0] & 0xFF) << 16) | ((steelRgba[1] & 0xFF) << 8) | (steelRgba[2] & 0xFF);
+        assertEquals(expectedSteelColor, m.getColorMultiplier());
+
+        // Replace with Titanium pipe
+        MTECoolantPipe titaniumPipe = new MTECoolantPipe(
+            "coolantpipe.titanium",
+            0.5f,
+            Materials.Titanium,
+            480,
+            5000,
+            true);
+        gregtech.api.metatileentity.BaseMetaPipeEntity mockTitaniumTile = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaPipeEntity.class);
+        Mockito.when(mockTitaniumTile.getMetaTileEntity())
+            .thenReturn(titaniumPipe);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(mockTitaniumTile);
+
+        m.validateConnectionsWithNeighbors();
+        assertEquals(Materials.Titanium, m.getActiveMaterial());
+        short[] tiRgba = Materials.Titanium.mRGBa;
+        int expectedTiColor = ((tiRgba[0] & 0xFF) << 16) | ((tiRgba[1] & 0xFF) << 8) | (tiRgba[2] & 0xFF);
+        assertEquals(expectedTiColor, m.getColorMultiplier());
+
+        // Disconnect pipe (air at NORTH)
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(null);
+        m.validateConnectionsWithNeighbors();
+        assertNull(m.getActiveMaterial());
+        assertEquals(0xFFFFFF, m.getColorMultiplier());
+    }
+
+    @Test
+    public void testManifoldGroupColorPropagation() {
+        net.minecraft.world.World mockWorld = Mockito.mock(net.minecraft.world.World.class);
+
+        // 1x2 in-plane manifold group (Z normal, EAST/WEST in-plane)
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m1 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m1.xCoord = 10;
+        m1.yCoord = 64;
+        m1.zCoord = 10;
+        m1.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        m1.setWorldObj(mockWorld);
+
+        com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold m2 = new com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold();
+        m2.xCoord = 11;
+        m2.yCoord = 64;
+        m2.zCoord = 10;
+        m2.setFacing(net.minecraftforge.common.util.ForgeDirection.NORTH);
+        m2.setWorldObj(mockWorld);
+
+        Mockito.when(mockWorld.getTileEntity(10, 64, 10))
+            .thenReturn(m1);
+        Mockito.when(mockWorld.getTileEntity(11, 64, 10))
+            .thenReturn(m2);
+
+        // Steel pipe connected ONLY to m1 at NORTH (10, 64, 9)
+        MTECoolantPipe pipe = new MTECoolantPipe("coolantpipe.steel", 0.5f, Materials.Steel, 240, 2500, true);
+        gregtech.api.metatileentity.BaseMetaPipeEntity mockPipeTile = Mockito
+            .mock(gregtech.api.metatileentity.BaseMetaPipeEntity.class);
+        Mockito.when(mockPipeTile.getMetaTileEntity())
+            .thenReturn(pipe);
+        Mockito.when(mockWorld.getTileEntity(10, 64, 9))
+            .thenReturn(mockPipeTile);
+
+        // Validate connections
+        m1.validateConnectionsWithNeighbors();
+        m2.validateConnectionsWithNeighbors();
+
+        // Both manifolds in the group must assume Steel color
+        assertEquals(Materials.Steel, m1.getActiveMaterial());
+        assertEquals(Materials.Steel, m2.getActiveMaterial());
+        short[] steelRgba = Materials.Steel.mRGBa;
+        int expectedColor = ((steelRgba[0] & 0xFF) << 16) | ((steelRgba[1] & 0xFF) << 8) | (steelRgba[2] & 0xFF);
+        assertEquals(expectedColor, m1.getColorMultiplier());
+        assertEquals(expectedColor, m2.getColorMultiplier());
+    }
 }
