@@ -154,21 +154,29 @@ public class PressurizedDegasserTest {
             1e-6,
             "Mass transfer extraction rate must be 25% of crossing volume (1.0 L/s)");
 
-        // High Power: 2048 EU/t (1 EV hatch)
-        // Energy limit = 2048 / 8 = 256 L/s
-        double maxGasEnergyHigh = 2048.0 / 8.0;
-        double actualExtractedHigh = Math.min(maxGasEnergyHigh, maxGasMassPerSec);
+        // Energy consumption per liter produced: 8.0 EU/L
+        double powerPerLiter = 8.0;
+
+        // Ample buffered energy: 100 EU available -> extracts full 1.0 L, costing 8 EU
+        long availableEUHigh = 100L;
+        long affordableLitersHigh = (long) (availableEUHigh / powerPerLiter);
+        double extractedHigh = Math.min((double) affordableLitersHigh, maxGasMassPerSec);
         assertEquals(
             1.0,
-            actualExtractedHigh,
+            extractedHigh,
             1e-6,
-            "Mass transfer rate (1.0 L/s) constrains extraction under high power");
+            "With sufficient energy, extraction matches mass transfer limit (1.0 L/s)");
+        long drainedEUHigh = (long) Math.ceil(extractedHigh * powerPerLiter);
+        assertEquals(8L, drainedEUHigh, "Drains exactly 8 EU for 1 liter produced");
 
-        // Low Power: 4 EU/t
-        // Energy limit = 4 / 8 = 0.5 L/s
-        double maxGasEnergyLow = 4.0 / 8.0;
-        double actualExtractedLow = Math.min(maxGasEnergyLow, maxGasMassPerSec);
-        assertEquals(0.5, actualExtractedLow, 1e-6, "Energy limit (0.5 L/s) constrains extraction under low power");
+        // Limited buffered energy: 4 EU available (< 8 EU needed for 1 whole liter)
+        // Degasser produces 0 whole liters, drains 0 EU, and does not powerfail
+        long availableEULow = 4L;
+        long affordableLitersLow = (long) (availableEULow / powerPerLiter);
+        double extractedLow = Math.min((double) affordableLitersLow, maxGasMassPerSec);
+        assertEquals(0.0, extractedLow, 1e-6, "Insufficient buffered EU prevents whole liter gas extraction");
+        long drainedEULow = (long) Math.ceil(extractedLow * powerPerLiter);
+        assertEquals(0L, drainedEULow, "Drains 0 EU when no gas is extracted");
     }
 
     @Test
@@ -224,8 +232,7 @@ public class PressurizedDegasserTest {
 
         double crossingVolume = (1000.0 / loopVolume) * (flowRateLs * dt);
         double maxGasMassPerSec = 0.25 * crossingVolume; // 1.0 L/s
-        double maxGasEnergyHigh = 2048.0 / 8.0; // 256 L/s
-        double baseExtract = Math.min(maxGasEnergyHigh, maxGasMassPerSec);
+        double baseExtract = maxGasMassPerSec;
         assertEquals(1.0, baseExtract, 1e-6);
 
         // 100% efficiency (0 issues)

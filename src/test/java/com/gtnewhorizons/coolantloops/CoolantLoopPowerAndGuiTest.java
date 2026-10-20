@@ -5,9 +5,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 import net.minecraft.init.Bootstrap;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.gtnewhorizons.coolantloops.common.gui.CoolantLoopMachineGui;
-import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedInput;
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedOutput;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
@@ -33,6 +36,7 @@ import cpw.mods.fml.relauncher.Side;
 import gregtech.GTMod;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
+import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.common.GTProxy;
 import gregtech.common.data.GTPowerfailTracker;
@@ -77,6 +81,16 @@ public class CoolantLoopPowerAndGuiTest {
             sideField.setAccessible(true);
             sideField.set(null, Side.SERVER);
         } catch (Throwable ignored) {}
+
+        registerFluidIfMissing("deuterium");
+        registerFluidIfMissing("tritium");
+    }
+
+    private static void registerFluidIfMissing(String name) {
+        if (FluidRegistry.getFluid(name) == null) {
+            Fluid f = new Fluid(name);
+            FluidRegistry.registerFluid(f);
+        }
     }
 
     @BeforeEach
@@ -345,11 +359,11 @@ public class CoolantLoopPowerAndGuiTest {
     }
 
     // =========================================================================
-    // 4. Pressurized Degasser Power Draw & Powerfail
+    // 4. Pressurized Degasser Power Draw & No Powerfail on Empty Buffer
     // =========================================================================
 
     @Test
-    public void testDegasserPowerDrawAndAtomicPowerfail() {
+    public void testDegasserPowerDrawAndNoPowerfailOnEmptyBuffer() {
         boolean[] allowed = new boolean[] { true };
         MTEPressurizedDegasser degasser = new MTEPressurizedDegasser("degasser_power");
         IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
@@ -361,42 +375,62 @@ public class CoolantLoopPowerAndGuiTest {
         degasser.addBottomHatch(createMockHatchBase(outlet), 2);
 
         ICoolantLoopPump mockPump = Mockito.mock(ICoolantLoopPump.class);
+        Mockito.when(mockPump.getCurrentFillLiters())
+            .thenReturn(10000L);
         degasser.setConnectedPump(mockPump);
 
-        // 1 EV hatch (tier 4 -> 15/16ths of 2048V = 1920 EU/t)
+        // 1 EV hatch (tier 4 -> 15/16ths of 2048V = 1920 EU/t capacity)
         long[] hatch1EU = new long[] { 5000L };
         MTEHatchEnergy evHatch = createMockEnergyHatch(4, hatch1EU);
         degasser.mEnergyHatches.add(evHatch);
         assertEquals(1920L, degasser.getRequiredPowerDrawEU());
 
-        // Step degassing with sufficient power
+        // 1. When loop has no dissolved gases, zero EU is drained
         assertTrue(degasser.stepDegassing(0.04, 0.05));
-        assertEquals(5000L - 1920L, hatch1EU[0]);
-        assertEquals(1920L, degasser.getLastDrainedEU());
+        assertEquals(5000L, hatch1EU[0], "No gas in loop: zero EU drained");
+        assertEquals(0L, degasser.getLastDrainedEU());
         assertTrue(degasser.isAllowedToWork());
 
-        // Add 2nd EV hatch -> overclocks to 4A EV = 8192V -> 15/16ths = 7680 EU/t
-        long[] hatch2EU = new long[] { 10000L };
-        MTEHatchEnergy evHatch2 = createMockEnergyHatch(4, hatch2EU);
-        degasser.mEnergyHatches.add(evHatch2);
-        assertEquals(7680L, degasser.getRequiredPowerDrawEU());
+        // 2. Add an output hatch that accepts Deuterium and add dissolved Deuterium to pump
+        MTEHatchOutput outputHatch = new MTEHatchOutput("output", 4, new String[0], null);
+        outputHatch.setBaseMetaTileEntity(createMockHatchBase(outputHatch));
+        degasser.mOutputHatches.add(outputHatch);
 
-        // Step degassing with 2 hatches
-        assertTrue(degasser.stepDegassing(0.04, 0.05));
-        assertEquals(0L, hatch1EU[0]);
-        assertEquals(10000L - (7680L - 3080L), hatch2EU[0]); // 10000 - 4600 = 5400
-        assertEquals(7680L, degasser.getLastDrainedEU());
+        Map<String, Long> gases = new HashMap<>();
+        gases.put("Deuterium", 1000L);
+        Mockito.when(mockPump.getDissolvedGases())
+            .thenReturn(gases);
+        Mockito.when(mockPump.extractDissolvedGas(Mockito.eq("Deuterium"), Mockito.anyLong()))
+            .thenAnswer(inv -> {
+                long requested = inv.getArgument(1);
+                long toExtract = Math.min(requested, gases.getOrDefault("Deuterium", 0L));
+                gases.put("Deuterium", gases.getOrDefault("Deuterium", 0L) - toExtract);
+                return toExtract;
+            });
 
-        // Now drop power below 7680 EU total: hatch1 = 0, hatch2 = 2000
-        hatch2EU[0] = 2000L;
-        assertFalse(degasser.stepDegassing(0.04, 0.05));
+        // Flow rate: 40 L/s, dt = 1.0 s -> crossing = (1000 / 10000) * 40 = 4 L.
+        // Extraction with EV overclock (64x) capped by 1000L.
+        assertTrue(degasser.stepDegassing(0.04, 1.0));
+        assertTrue(degasser.getLastDrainedEU() > 0L, "Active degassing drains EU per liter produced");
+        assertTrue(degasser.getTotalExtractedLiters() > 0L);
+        assertTrue(degasser.isAllowedToWork());
 
-        // Verify atomic behavior and standard GT5U powerfail
-        assertFalse(degasser.isAllowedToWork());
-        assertEquals(2000L, hatch2EU[0], "Atomic drain: buffer must not be modified");
-        assertEquals(0L, degasser.getLastDrainedEU());
-        Mockito.verify(mockTracker, Mockito.times(1))
-            .createPowerfailEvent(mockBase);
+        // 3. Exhaust energy buffer completely: hatch1EU = 0
+        hatch1EU[0] = 0L;
+        long extractedBefore = degasser.getTotalExtractedLiters();
+
+        // Step degassing with empty buffer: must NOT powerfail!
+        assertTrue(degasser.stepDegassing(0.04, 0.05), "Degasser must succeed even when energy buffer is empty");
+        assertTrue(degasser.isAllowedToWork(), "Degasser must remain operational (no powerfail)");
+        assertEquals(0L, degasser.getLastDrainedEU(), "Zero EU drained when buffer is empty");
+        assertEquals(
+            extractedBefore,
+            degasser.getTotalExtractedLiters(),
+            "No additional gas produced when buffer is empty");
+
+        // Verify that NO powerfail event was fired to GTPowerfailTracker
+        Mockito.verify(mockTracker, Mockito.never())
+            .createPowerfailEvent(Mockito.any());
     }
 
     // =========================================================================
@@ -463,11 +497,15 @@ public class CoolantLoopPowerAndGuiTest {
         assertEquals(0L, pump.getPowerConsumptionEU(), "Disabled pump must report 0 EU/t");
     }
 
-    private IGregTechTileEntity createMockHatchBase(MTEHatchPressurizedFluid hatch) {
+    private IGregTechTileEntity createMockHatchBase(gregtech.api.interfaces.metatileentity.IMetaTileEntity hatch) {
         IGregTechTileEntity mockBase = Mockito.mock(IGregTechTileEntity.class);
         Mockito.when(mockBase.getMetaTileEntity())
             .thenReturn(hatch);
-        hatch.setBaseMetaTileEntity(mockBase);
+        Mockito.when(mockBase.isServerSide())
+            .thenReturn(true);
+        if (hatch instanceof gregtech.api.metatileentity.MetaTileEntity mte) {
+            mte.setBaseMetaTileEntity(mockBase);
+        }
         return mockBase;
     }
 }

@@ -437,6 +437,24 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         return false;
     }
 
+    public long getStoredEnergy() {
+        List<MTEHatchEnergy> hatches = getValidEnergyHatches();
+        if (!hatches.isEmpty()) {
+            long totalStored = 0L;
+            for (MTEHatchEnergy h : hatches) {
+                IGregTechTileEntity bte = h.getBaseMetaTileEntity();
+                if (bte != null) {
+                    totalStored += bte.getStoredEU();
+                }
+            }
+            return totalStored;
+        }
+        if (getBaseMetaTileEntity() != null) {
+            return getBaseMetaTileEntity().getStoredEU();
+        }
+        return 0L;
+    }
+
     /**
      * Executes one time step of degassing based on power consumption, flow rate, and dissolved gas concentration.
      */
@@ -454,37 +472,18 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         double effFactor = getEfficiencyFactor();
         if (effFactor <= 0.0) {
             mLastDrainedEU = 0L;
+            if (getBaseMetaTileEntity() != null) {
+                getBaseMetaTileEntity().setActive(false);
+            }
             return true; // No degassing possible with 0 efficiency
         }
 
-        long requiredEU = getRequiredPowerDrawEU();
-        if (requiredEU <= 0L) {
-            mLastDrainedEU = 0L;
-            return true;
-        }
-
-        if (!drainEnergy(requiredEU)) {
-            return triggerPowerfail();
-        }
-
-        mLastDrainedEU = requiredEU;
-        if (getBaseMetaTileEntity() != null) {
-            getBaseMetaTileEntity().setActive(true);
-        }
-
-        // 3. Degassing rate limits:
-        // A. Energy limit: gas extracted per second for consumed EU
-        double powerPerLiter = (CoolantLoopDataRegistry.getDeviceData() != null)
-            ? CoolantLoopDataRegistry.getDeviceData()
-                .getDegasser().gasExtractionPowerEuPerLiter
-            : 8.0;
-        if (powerPerLiter <= 0.0) powerPerLiter = 8.0;
-        double maxGasEnergyPerSec = (double) mLastDrainedEU / powerPerLiter;
-        double maxGasEnergyThisTick = maxGasEnergyPerSec * dt;
-
-        // B. Mass transfer limit: fraction of dissolved gas volume crossing the degasser
         double flowRateLs = coolantFlowRateM3s * 1000.0;
         if (flowRateLs <= 0.0) {
+            mLastDrainedEU = 0L;
+            if (getBaseMetaTileEntity() != null) {
+                getBaseMetaTileEntity().setActive(false);
+            }
             return true; // No fluid crossing the degasser
         }
 
@@ -496,8 +495,18 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
         Map<String, Long> dissolvedGases = mConnectedPump.getDissolvedGases();
         if (dissolvedGases == null || dissolvedGases.isEmpty()) {
+            mLastDrainedEU = 0L;
+            if (getBaseMetaTileEntity() != null) {
+                getBaseMetaTileEntity().setActive(false);
+            }
             return true;
         }
+
+        double powerPerLiter = (CoolantLoopDataRegistry.getDeviceData() != null)
+            ? CoolantLoopDataRegistry.getDeviceData()
+                .getDegasser().gasExtractionPowerEuPerLiter
+            : 8.0;
+        if (powerPerLiter < 0.0) powerPerLiter = 0.0;
 
         double extractionEff = (CoolantLoopDataRegistry.getDeviceData() != null)
             ? CoolantLoopDataRegistry.getDeviceData()
@@ -505,6 +514,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             : 0.25;
 
         double overclockMultiplier = getOverclockMultiplier();
+        long totalDrainedThisStep = 0L;
 
         // Process each dissolved gas species
         for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
@@ -512,51 +522,73 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             long gasLiters = entry.getValue();
             if (gasLiters <= 0L) continue;
 
+            Fluid fluid = resolveGasFluid(gasName);
+            if (fluid == null) continue;
+
+            int hatchSpace = getOutputHatchAvailableSpace(fluid);
+            if (hatchSpace <= 0) continue;
+
             double cGas = (double) gasLiters / (double) loopVolume;
             double vCrossing = cGas * qTick;
             double maxGasMassThisTick = Math.min((double) gasLiters, extractionEff * vCrossing * overclockMultiplier);
 
-            double toExtract = Math.min(maxGasEnergyThisTick, maxGasMassThisTick) * effFactor;
+            double toExtract = maxGasMassThisTick * effFactor;
             if (toExtract <= 0.0) continue;
-
-            Fluid fluid = resolveGasFluid(gasName);
-            if (fluid == null) continue;
-
-            // Check if at least one output hatch can accept this gas fluid
-            if (!canOutputHatchAccept(fluid)) {
-                continue; // Hatches full or locked to another fluid
-            }
 
             // Accumulate fractional liters
             double currentAccum = mExtractionAccumulators.getOrDefault(gasName, 0.0) + toExtract;
             if (currentAccum >= 1.0) {
                 int wholeLiters = (int) Math.floor(currentAccum);
-                long extracted = mConnectedPump.extractDissolvedGas(gasName, wholeLiters);
-                if (extracted > 0L) {
-                    mExtractionAccumulators.put(gasName, currentAccum - (double) extracted);
-                    mTotalExtractedLiters += extracted;
-                    dumpFluidToOutputHatches(new FluidStack(fluid, (int) extracted));
-                } else {
-                    mExtractionAccumulators.put(gasName, currentAccum);
+
+                int affordableLiters = Math.min(wholeLiters, hatchSpace);
+                if (powerPerLiter > 0.0) {
+                    long availableEU = getStoredEnergy();
+                    int maxAffordableFromEnergy = (int) Math
+                        .min((long) affordableLiters, (long) (availableEU / powerPerLiter));
+                    affordableLiters = Math.max(0, maxAffordableFromEnergy);
                 }
+
+                if (affordableLiters > 0) {
+                    long extracted = mConnectedPump.extractDissolvedGas(gasName, affordableLiters);
+                    if (extracted > 0L) {
+                        long euToDrain = (long) Math.ceil(extracted * powerPerLiter);
+                        drainEnergy(euToDrain);
+                        totalDrainedThisStep += euToDrain;
+                        mTotalExtractedLiters += extracted;
+                        dumpFluidToOutputHatches(new FluidStack(fluid, (int) extracted));
+                    }
+                }
+                // Unextracted whole liters remain dissolved in the coolant loop (flowing past),
+                // so we deduct all processed whole liters to keep only the fractional remainder.
+                currentAccum -= (double) wholeLiters;
+                mExtractionAccumulators.put(gasName, Math.max(0.0, currentAccum));
             } else {
                 mExtractionAccumulators.put(gasName, currentAccum);
             }
         }
 
+        mLastDrainedEU = totalDrainedThisStep;
+        if (getBaseMetaTileEntity() != null) {
+            getBaseMetaTileEntity().setActive(totalDrainedThisStep > 0L);
+        }
+
         return true;
     }
 
-    protected boolean canOutputHatchAccept(Fluid fluid) {
-        if (fluid == null || mOutputHatches.isEmpty()) return false;
-        FluidStack testStack = new FluidStack(fluid, 1);
+    protected int getOutputHatchAvailableSpace(Fluid fluid) {
+        if (fluid == null || mOutputHatches.isEmpty()) return 0;
+        int totalSpace = 0;
+        FluidStack testStack = new FluidStack(fluid, Integer.MAX_VALUE);
         for (MTEHatchOutput hatch : mOutputHatches) {
             if (hatch == null || !hatch.isValid()) continue;
-            if (hatch.canStoreFluid(testStack) && hatch.fill(testStack, false) > 0) {
-                return true;
-            }
+            if (!hatch.canStoreFluid(testStack)) continue;
+            totalSpace += hatch.fill(testStack, false);
         }
-        return false;
+        return totalSpace;
+    }
+
+    protected boolean canOutputHatchAccept(Fluid fluid) {
+        return getOutputHatchAvailableSpace(fluid) > 0;
     }
 
     protected int dumpFluidToOutputHatches(FluidStack stack) {
