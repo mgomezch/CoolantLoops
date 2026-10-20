@@ -1199,7 +1199,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 }
 
                 mLoopStatus = String.format(
-                    "Actively decelerating flow: %.1f L/s -> 0.0 L/s (Power: %.1f kW)",
+                    "Actively decelerating flow: %.1f L/s -> 0.0 L/s (power: %.1f kW)",
                     mEngine.getFlowRateLitersPerSecond(),
                     mechanicalWatts / 1000.0);
 

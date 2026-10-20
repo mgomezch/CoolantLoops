@@ -10,7 +10,7 @@
     "H": {"name": "gregtech:gt.blockmachines", "meta": 15101, "label": "Pressurized Fluid Hatch"},
     "D": {"name": "gregtech:gt.blockmachines", "meta": 111, "label": "Maintenance Hatch"},
     "E": {"name": "gregtech:gt.blockmachines", "meta": 43, "label": "EV Energy Hatch"},
-    "I": {"name": "gregtech:gt.blockmachines", "meta": 31, "label": "Secondary Input Hatch (Distilled Water)"},
+    "I": {"name": "gregtech:gt.blockmachines", "meta": 31, "label": "Secondary Input Hatch (distilled water)"},
     "O": {"name": "gregtech:gt.blockmachines", "meta": 41, "label": "Secondary Output Hatch (Steam)"}
   },
   "layers": [

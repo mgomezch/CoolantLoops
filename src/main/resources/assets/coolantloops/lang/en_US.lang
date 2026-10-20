@@ -154,7 +154,7 @@ gt.scanner.coolant_pump.impeller_thermal.softening=, thermal softening active
 # Pump Loop Status & Failure Messages
 coolantloops.pump.status.waiting=Waiting for loop formation...
 coolantloops.pump.status.formed=Pump structure formed successfully
-coolantloops.pump.status.unpowered=Pump unpowered (No EU in Energy Hatch)
+coolantloops.pump.status.unpowered=Pump unpowered (no EU in energy hatch)
 coolantloops.pump.status.missing_tank=Missing Railcraft tank above pump!
 coolantloops.pump.status.missing_or_mismatched_tank=Missing or mismatched Railcraft tank above pump!
 coolantloops.pump.status.unrecognized_tank=Unrecognized Railcraft tank material above pump!
@@ -185,12 +185,12 @@ coolantloops.pump.status.refuse_gas=Pump refused to start: Gaseous fluid (%s) ca
 coolantloops.pump.status.refuse_lava=Pump refused to start: Lava is too viscous here!
 coolantloops.pump.status.refuse_solidify=Pump refused to start: Reservoir coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.
 
-coolantloops.pump.status.filling_paused=Filling paused (Pump disabled): %d / %d L
-coolantloops.pump.status.stopping_paused=Stopping paused (Pump disabled): %d / %d L in loop
-coolantloops.pump.status.disabled_coasting=Pump disabled (Coasting down): %.1f L/s
+coolantloops.pump.status.filling_paused=Filling paused (pump disabled): %d / %d L
+coolantloops.pump.status.stopping_paused=Stopping paused (pump disabled): %d / %d L in loop
+coolantloops.pump.status.disabled_coasting=Pump disabled (coasting down): %.1f L/s
 
-coolantloops.pump.status.stopping_active=Stopping pump (Draining loop to reservoir): %d / %d L in loop (%.1f L/s)
-coolantloops.pump.status.stopping_reservoir_full=Stopping paused (Reservoir full): %d / %d L in loop. Drain reservoir to resume pump shutdown.
+coolantloops.pump.status.stopping_active=Stopping pump (draining loop to reservoir): %d / %d L in loop (%.1f L/s)
+coolantloops.pump.status.stopping_reservoir_full=Stopping paused (reservoir full): %d / %d L in loop. Drain reservoir to resume pump shutdown.
 coolantloops.pump.status.drained_complete=Flow stopped. Loop drained completely back to reservoir.
 coolantloops.pump.status.draining_paused=Flow stopped. Draining paused: Reservoir full (%d L remaining in loop)
 coolantloops.pump.status.draining_loop=Draining loop to reservoir: %d / %d L remaining
@@ -199,9 +199,9 @@ coolantloops.pump.status.flow_stopped_empty=Flow stopped. Loop empty.
 coolantloops.pump.status.filling_loop=Filling loop: %d / %d L (%.1f%%)
 coolantloops.pump.status.filling_failed=Filling failed: Reservoir dry! (%d / %d L filled)
 coolantloops.pump.status.filled_circulating=Loop filled (%d L). Beginning circulation.
-coolantloops.pump.status.accelerating=Accelerating: %.1f L/s (Consuming %d EU/t, target %.1f L/s)
-coolantloops.pump.status.circulating=Circulating: %.1f L/s (Consuming %d EU/t, target %.1f L/s)
-coolantloops.pump.status.loop_active=Loop active: %d pipe segments, %d devices (Filled %d L)
+coolantloops.pump.status.accelerating=Accelerating: %.1f L/s (consuming %d EU/t, target %.1f L/s)
+coolantloops.pump.status.circulating=Circulating: %.1f L/s (consuming %d EU/t, target %.1f L/s)
+coolantloops.pump.status.loop_active=Loop active: %d pipe segments, %d devices (filled %d L)
 coolantloops.pump.status.refuse_solidify_coolant=Pump refused to start: Coolant temperature (%.1f °C) is below declared GregTech melting point (%.1f °C) for %s! Fluid would solidify.
 
 coolantloops.pump.status.catastrophic_fuel=Catastrophic pump failure: %s is a liquid nuclear fuel, not a coolant! Impeller disintegrated!

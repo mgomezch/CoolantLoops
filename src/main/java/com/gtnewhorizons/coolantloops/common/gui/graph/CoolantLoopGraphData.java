@@ -333,7 +333,7 @@ public class CoolantLoopGraphData {
                     .getCurrentTemperatureCelsius();
             }
             pressure = 1.0;
-            extra.put("Suction Pressure", "1.00 bar (Tank Head)");
+            extra.put("Suction Pressure", "1.00 bar (tank head)");
             extra.put("Return Temperature", String.format(Locale.US, "%.1f °C", temp));
         } else if (fn.type == NodeType.MANIFOLD_GROUP) {
             label = "Manifold Group";
@@ -349,12 +349,12 @@ public class CoolantLoopGraphData {
                 int ins = mg.inputPorts.size();
                 int outs = mg.outputPorts.size();
                 if (ins < outs) {
-                    label = "Manifold (Splitter)";
+                    label = "Manifold (splitter)";
                 } else if (ins > outs) {
-                    label = "Manifold (Combiner)";
+                    label = "Manifold (combiner)";
                 }
                 extra.put("Blocks", String.valueOf(mg.blockCoords.size()));
-                extra.put("Ports", String.format("%d In / %d Out", ins, outs));
+                extra.put("Ports", String.format("%d in / %d out", ins, outs));
             }
 
         } else if (fn.type == NodeType.DEVICE) {
