@@ -163,6 +163,7 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             status.put("state", pump.getLoopStateName());
             status.put("status", pump.getLoopStatus());
             status.put("powerEU", pump.getPowerConsumptionEU());
+            status.put("mechanicalPowerWatts", pump.getPumpMechanicalPowerWatts());
             status.put("dischargeDisabled", pump.isDischargeHatchDisabled());
             status.put("tankMaterial", pump.getTankMaterial() != null ? pump.getTankMaterial().mDefaultLocalName : "");
             CoolantFluidProperty prop = pump.getCoolantFluidProperty();
@@ -176,6 +177,7 @@ public class LoopInstrumentEnvironment extends ManagedEnvironment implements Nam
             status.put("state", "STOPPED");
             status.put("status", "No coolant loop pump connected");
             status.put("powerEU", 0L);
+            status.put("mechanicalPowerWatts", 0.0);
             status.put("dischargeDisabled", false);
             status.put("tankMaterial", "");
             status.put("fluidName", "");

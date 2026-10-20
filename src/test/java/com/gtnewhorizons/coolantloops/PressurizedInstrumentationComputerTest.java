@@ -248,6 +248,15 @@ class PressurizedInstrumentationComputerTest {
         assertEquals("NORTH", map.get("facing"));
         assertEquals(25.5, (Double) map.get("pressureBar"), 1e-4);
 
+        // Test getPumpStatus disconnected
+        Object[] pumpRes = ocEnv.getPumpStatus(mockContext, mockArgs);
+        assertNotNull(pumpRes);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> pumpMap = (Map<String, Object>) pumpRes[0];
+        assertEquals(Boolean.FALSE, pumpMap.get("connected"));
+        assertEquals(0L, pumpMap.get("powerEU"));
+        assertEquals(0.0, (Double) pumpMap.get("mechanicalPowerWatts"), 1e-4);
+
         // Test setTrackedMetric string
         Mockito.when(mockArgs.isString(0))
             .thenReturn(true);
@@ -441,6 +450,8 @@ class PressurizedInstrumentationComputerTest {
             .thenReturn(0.5);
         Mockito.when(mockPump.getPowerConsumptionEU())
             .thenReturn(2048L);
+        Mockito.when(mockPump.getPumpMechanicalPowerWatts())
+            .thenReturn(139264.0);
         Mockito.when(mockPump.getMaxFlowRateLitersPerSecond())
             .thenReturn(1200.0);
         Mockito.when(mockPump.getPeakLoopPressureBar())
@@ -473,6 +484,7 @@ class PressurizedInstrumentationComputerTest {
         assertEquals(Boolean.TRUE, pumpMap.get("formed"));
         assertEquals("CIRCULATING", pumpMap.get("state"));
         assertEquals(2048L, pumpMap.get("powerEU"));
+        assertEquals(139264.0, (Double) pumpMap.get("mechanicalPowerWatts"), 1e-4);
 
         // 2. getImpellerStatus
         Object[] impRes = ocEnv.getImpellerStatus(ctx, args);

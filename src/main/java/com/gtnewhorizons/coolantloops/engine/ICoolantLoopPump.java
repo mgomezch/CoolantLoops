@@ -204,6 +204,13 @@ public interface ICoolantLoopPump {
     }
 
     /**
+     * Gets the produced mechanical power in Watts delivered to the fluid by the pump motor and impeller.
+     */
+    default double getPumpMechanicalPowerWatts() {
+        return 0.0;
+    }
+
+    /**
      * Gets the total fluid capacity in liters of the attached reservoir tank.
      */
     default long getReservoirCapacityLiters() {

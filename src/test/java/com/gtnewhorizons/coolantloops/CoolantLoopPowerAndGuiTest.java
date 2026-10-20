@@ -399,6 +399,70 @@ public class CoolantLoopPowerAndGuiTest {
             .createPowerfailEvent(mockBase);
     }
 
+    // =========================================================================
+    // 5. Pump Electrical Consumption and Mechanical Power Reporting
+    // =========================================================================
+
+    @Test
+    public void testPumpElectricalAndMechanicalPowerReporting() {
+        boolean[] allowed = new boolean[] { true };
+        MTECoolantPump pump = new MTECoolantPump("pump_power_reporting");
+        IGregTechTileEntity mockBase = createMockBaseMetaTileEntity(allowed);
+        pump.setBaseMetaTileEntity(mockBase);
+
+        // 1 EV hatch (tier 4 -> 2048 EU/t, 1 amp)
+        long[] hatchEU = new long[] { 50000L };
+        pump.mEnergyHatches.add(createMockEnergyHatch(4, hatchEU));
+        assertEquals(2048L, pump.getRequiredPowerDrawEU());
+
+        // 1. Stopped / Empty
+        pump.setLoopState(MTECoolantPump.LoopState.STOPPED);
+        assertEquals(0L, pump.getPowerConsumptionEU(), "Stopped pump must report 0 EU/t");
+        assertEquals(0.0, pump.getPumpMechanicalPowerWatts(), 1e-4, "Stopped pump must report 0 mechanical watts");
+
+        // 2. Filling state
+        pump.setLoopState(MTECoolantPump.LoopState.FILLING);
+        assertEquals(2048L, pump.getPowerConsumptionEU(), "Filling pump must report full power draw (2048 EU/t)");
+        assertEquals(0.0, pump.getPumpMechanicalPowerWatts(), 1e-4, "Filling pump has 0 mechanical watts");
+
+        // 3. Circulating state
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+        assertEquals(2048L, pump.getPowerConsumptionEU(), "Circulating pump must report 2048 EU/t");
+        pump.getEngine()
+            .setPumpMechanicalPowerWatts(139264.0);
+        assertEquals(
+            139264.0,
+            pump.getPumpMechanicalPowerWatts(),
+            1e-4,
+            "Pump must report engine produced mechanical watts");
+
+        // 4. Decelerating with flow > 0 (Phase A active braking)
+        pump.setLoopState(MTECoolantPump.LoopState.DECELERATING);
+        pump.getEngine()
+            .setVolumetricFlowRate(0.05); // 50 L/s > 1e-5
+        assertEquals(2048L, pump.getPowerConsumptionEU(), "Active deceleration with flow must report 2048 EU/t");
+
+        // 5. Decelerating with flow == 0 (Phase B fluid draining to reservoir)
+        pump.getEngine()
+            .setVolumetricFlowRate(0.0);
+        assertEquals(0L, pump.getPowerConsumptionEU(), "Deceleration phase B without flow must report 0 EU/t");
+
+        // 6. Overclocked pump with 2 EV hatches (4 amps -> 8192 EU/t)
+        long[] hatch2EU = new long[] { 50000L };
+        pump.mEnergyHatches.add(createMockEnergyHatch(4, hatch2EU));
+        assertEquals(8192L, pump.getRequiredPowerDrawEU());
+
+        pump.setLoopState(MTECoolantPump.LoopState.CIRCULATING);
+        assertEquals(8192L, pump.getPowerConsumptionEU(), "Circulating pump with 2 hatches must report 8192 EU/t");
+
+        pump.setLoopState(MTECoolantPump.LoopState.FILLING);
+        assertEquals(8192L, pump.getPowerConsumptionEU(), "Filling pump with 2 hatches must report 8192 EU/t");
+
+        // 7. Allowed to work = false disables power consumption
+        allowed[0] = false;
+        assertEquals(0L, pump.getPowerConsumptionEU(), "Disabled pump must report 0 EU/t");
+    }
+
     private IGregTechTileEntity createMockHatchBase(MTEHatchPressurizedFluid hatch) {
         IGregTechTileEntity mockBase = Mockito.mock(IGregTechTileEntity.class);
         Mockito.when(mockBase.getMetaTileEntity())

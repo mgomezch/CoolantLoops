@@ -1912,13 +1912,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     @Override
     public long getPowerConsumptionEU() {
-        if (mLoopState == LoopState.CIRCULATING && mEngine != null && mEngine.isPumpPowered()) {
-            long voltage = getMaxInputVoltage();
-            long amps = (mEnergyHatches != null && mEnergyHatches.size() >= 2) ? 4 : 2;
-            long eu = voltage * amps;
-            return eu > 0 ? eu : 512;
+        if (mPowerFailed || !isAllowedToWork()) {
+            return 0L;
+        }
+        if (mLoopState == LoopState.CIRCULATING || mLoopState == LoopState.FILLING) {
+            return getRequiredPowerDrawEU();
+        }
+        if (mLoopState == LoopState.DECELERATING && (mEngine == null || mEngine.getVolumetricFlowRate() > 1e-5)) {
+            return getRequiredPowerDrawEU();
         }
         return 0L;
+    }
+
+    @Override
+    public double getPumpMechanicalPowerWatts() {
+        return mEngine != null ? mEngine.getPumpMechanicalPowerWatts() : 0.0;
     }
 
     @Override
