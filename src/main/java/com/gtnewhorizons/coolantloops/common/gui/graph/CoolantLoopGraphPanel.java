@@ -7,13 +7,10 @@ import com.cleanroommc.modularui.utils.Color;
 import com.cleanroommc.modularui.value.sync.PanelSyncManager;
 import com.cleanroommc.modularui.value.sync.StringSyncValue;
 import com.cleanroommc.modularui.widgets.ButtonWidget;
-import com.cleanroommc.modularui.widgets.ItemDisplayWidget;
 import com.cleanroommc.modularui.widgets.layout.Flow;
 import com.gtnewhorizons.coolantloops.common.gui.PanelDragHandle;
 import com.gtnewhorizons.coolantloops.common.gui.ResizeableFloatingPanel;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
-
-import gregtech.api.enums.ItemList;
 
 /**
  * Builds the floating, movable, resizable Coolant Loop Graph window.
@@ -46,12 +43,6 @@ public class CoolantLoopGraphPanel {
             .height(18)
             .crossAxisAlignment(Alignment.CrossAxis.CENTER)
             .marginBottom(3)
-            // Screen icon
-            .child(
-                new ItemDisplayWidget().item(ItemList.Cover_Screen.get(1L))
-                    .size(16, 16)
-                    .displayAmount(false)
-                    .marginRight(4))
             // Draggable header area
             .child(
                 new PanelDragHandle(panel).expanded()
