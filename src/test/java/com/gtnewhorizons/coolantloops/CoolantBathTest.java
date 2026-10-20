@@ -656,4 +656,52 @@ public class CoolantBathTest {
         assertEquals(Items.feather, restored.transformedOutput.getItem());
         assertEquals(0.5, restored.getProgressFraction(), 1e-2);
     }
+
+    @Test
+    public void testConfiguredConvectiveModel() {
+        MTECoolantBath bath = new MTECoolantBath("test.bath.conv");
+        assertNotNull(bath.getConvectiveModel(), "Convective model must not be null");
+
+        // Custom convective model with double the heat transfer
+        ConvectiveHeatTransferModel customModel = new ConvectiveHeatTransferModel(2.0, 10.0, 1000.0, 2000.0, 50000.0);
+        bath.setConvectiveModel(customModel);
+        assertSame(customModel, bath.getConvectiveModel(), "Bath must use explicitly configured convective model");
+
+        // Set up single slot with hot item
+        bath.mSlots = new CoolantBathSlot[15];
+        double initialTemp = 500.0;
+        double heatCapacity = 1000.0;
+        double surfaceArea = 0.5;
+        bath.mSlots[0] = new CoolantBathSlot(
+            new ItemStack(Items.iron_ingot),
+            initialTemp,
+            20.0,
+            0,
+            1000,
+            heatCapacity,
+            surfaceArea,
+            false,
+            true,
+            true,
+            null);
+
+        LoopSegment seg = new LoopSegment("test_conv_seg", 1.0, 0.05, 10.0, 0.0, 20.0, 100.0, 100.0);
+        seg.setCurrentTemperatureCelsius(20.0);
+
+        double flowRateM3s = 0.05; // 1 m/s velocity through 0.05 m^2 segment
+        double dt = 1.0;
+        bath.processThermalExchange(flowRateM3s, dt, CoolantFluidProperty.WATER, seg);
+
+        // Verify temperature reduction matches custom model exactly
+        double velocity = flowRateM3s / seg.getArea();
+        double expectedQDotWatts = customModel.computeHeatTransferRate(velocity, surfaceArea, initialTemp, 20.0);
+        double expectedDeltaEJoules = expectedQDotWatts * dt;
+        double expectedFinalTemp = initialTemp - (expectedDeltaEJoules / heatCapacity);
+
+        assertEquals(
+            expectedFinalTemp,
+            bath.mSlots[0].currentTemp,
+            1e-4,
+            "Slot temperature must match heat transfer calculated with configured convective model");
+    }
 }

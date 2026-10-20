@@ -74,6 +74,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
     protected ICoolantLoopPump mConnectedPump = null;
 
     protected double mCurrentCoolantTemp = 20.0;
+    protected ConvectiveHeatTransferModel mConvectiveModel = null;
     public int mGlassTier = -1;
     public int mStructureTier = 0; // 1: 5x7 (15 slots), 2: 7x9 (35 slots), 3: 9x11 (63 slots)
     public int mInteriorWidth = 3;
@@ -207,6 +208,18 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         this.mConnectedPump = pump;
     }
 
+    public ConvectiveHeatTransferModel getConvectiveModel() {
+        if (mConvectiveModel != null) {
+            return mConvectiveModel;
+        }
+        ConvectiveHeatTransferModel cfg = CoolantLoopDataRegistry.getConvectiveModel();
+        return cfg != null ? cfg : ConvectiveHeatTransferModel.DEFAULT;
+    }
+
+    public void setConvectiveModel(ConvectiveHeatTransferModel aModel) {
+        this.mConvectiveModel = aModel;
+    }
+
     @Override
     public void processThermalExchange(double coolantFlowRateM3s, double dt, CoolantFluidProperty fluid,
         LoopSegment segment) {
@@ -221,7 +234,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         if (activeCount <= 0) return;
 
         double velocity = segment.getArea() > 0 ? (coolantFlowRateM3s / segment.getArea()) : 0.0;
-        ConvectiveHeatTransferModel conv = ConvectiveHeatTransferModel.DEFAULT;
+        ConvectiveHeatTransferModel conv = getConvectiveModel();
 
         double totalHeatToCoolantJoules = 0.0;
         for (int i = 0; i < mSlots.length; i++) {
