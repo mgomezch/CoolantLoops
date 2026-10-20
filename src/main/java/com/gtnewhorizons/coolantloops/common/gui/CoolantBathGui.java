@@ -18,16 +18,19 @@ public class CoolantBathGui extends CoolantLoopMachineGui<MTECoolantBath> {
 
     @Override
     protected int getBasePanelWidth() {
-        return 200;
+        return multiblock.mMachine ? 200 : super.getBasePanelWidth();
     }
 
     @Override
     protected int getBasePanelHeight() {
-        return 235;
+        return multiblock.mMachine ? 235 : super.getBasePanelHeight();
     }
 
     @Override
     public Flow createMainColumn(ModularPanel panel, PanelSyncManager syncManager) {
+        if (!multiblock.mMachine) {
+            return super.createMainColumn(panel, syncManager);
+        }
         return Flow.column()
             .padding(4)
             .child(new CoolantBathGridWidget(multiblock))

@@ -26,7 +26,8 @@ class CreativeHeatReservoirTest {
 
     @BeforeAll
     static void initEnvironment() {
-        Thread.currentThread().setName("Server thread");
+        Thread.currentThread()
+            .setName("Server thread");
         try {
             Loader mockLoader = Mockito.mock(Loader.class);
             Mockito.when(mockLoader.getCallableCrashInformation())
@@ -197,9 +198,13 @@ class CreativeHeatReservoirTest {
         assertNotNull(window, "ModularWindow must not be null");
         assertEquals(176, window.getSize().width);
         assertEquals(115, window.getSize().height);
-        assertFalse(window.getChildren().isEmpty(), "Window must contain UI widgets");
+        assertFalse(
+            window.getChildren()
+                .isEmpty(),
+            "Window must contain UI widgets");
 
-        List<Widget> widgetsWithTooltips = window.getChildren().stream()
+        List<Widget> widgetsWithTooltips = window.getChildren()
+            .stream()
             .filter(Widget::hasTooltip)
             .collect(Collectors.toList());
 
@@ -222,7 +227,8 @@ class CreativeHeatReservoirTest {
 
     @Test
     void testCoolantLocalizationTooltipLines() {
-        List<String> tempBtnLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp");
+        List<String> tempBtnLines = CoolantLocalization
+            .getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp");
         assertEquals(5, tempBtnLines.size());
         assertEquals("Decrease target temperature", tempBtnLines.get(0));
         assertEquals("Left-click: -10 °C", tempBtnLines.get(1));
@@ -230,12 +236,14 @@ class CreativeHeatReservoirTest {
         assertEquals("Ctrl-click: -1000 °C", tempBtnLines.get(3));
         assertEquals("Right-click: -1 °C", tempBtnLines.get(4));
 
-        List<String> tempInputLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.temp_tooltip");
+        List<String> tempInputLines = CoolantLocalization
+            .getTooltipLines("coolantloops.gui.creative_reservoir.input.temp_tooltip");
         assertEquals(2, tempInputLines.size());
         assertEquals("Target temperature in °C (min: -273.15 °C)", tempInputLines.get(0));
         assertEquals("Right-click to clear", tempInputLines.get(1));
 
-        List<String> areaInputLines = CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.input.area_tooltip");
+        List<String> areaInputLines = CoolantLocalization
+            .getTooltipLines("coolantloops.gui.creative_reservoir.input.area_tooltip");
         assertEquals(2, areaInputLines.size());
         assertEquals("Heat-transfer area in m² (min: 0.1 m²)", areaInputLines.get(0));
         assertEquals("Right-click to clear", areaInputLines.get(1));

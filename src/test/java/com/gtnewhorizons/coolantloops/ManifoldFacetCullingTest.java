@@ -24,7 +24,8 @@ public class ManifoldFacetCullingTest {
 
     @BeforeAll
     static void initEnvironment() {
-        Thread.currentThread().setName("Server thread");
+        Thread.currentThread()
+            .setName("Server thread");
         try {
             cpw.mods.fml.common.Loader mockLoader = Mockito.mock(cpw.mods.fml.common.Loader.class);
             Mockito.when(mockLoader.getCallableCrashInformation())
@@ -51,8 +52,10 @@ public class ManifoldFacetCullingTest {
         BlockManifold manifold = new BlockManifold();
         IBlockAccess world = Mockito.mock(IBlockAccess.class);
         Block opaqueBlock = Mockito.mock(Block.class);
-        Mockito.when(opaqueBlock.isOpaqueCube()).thenReturn(true);
-        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt())).thenReturn(opaqueBlock);
+        Mockito.when(opaqueBlock.isOpaqueCube())
+            .thenReturn(true);
+        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(opaqueBlock);
 
         // Recessed central plate / nozzle box entirely within (0.0, 1.0)
         AxisAlignedBB recessedBox = AxisAlignedBB.getBoundingBox(0.25, 0.25, 0.3125, 0.75, 0.75, 0.6875);
@@ -63,8 +66,7 @@ public class ManifoldFacetCullingTest {
         for (int side = 0; side < 6; side++) {
             assertTrue(
                 manifold.shouldSideBeRendered(world, 10, 20, 30, side),
-                "Recessed facet for side " + side + " must not be culled against opaque block"
-            );
+                "Recessed facet for side " + side + " must not be culled against opaque block");
         }
     }
 
@@ -73,8 +75,10 @@ public class ManifoldFacetCullingTest {
         BlockManifold manifold = new BlockManifold();
         IBlockAccess world = Mockito.mock(IBlockAccess.class);
         Block opaqueBlock = Mockito.mock(Block.class);
-        Mockito.when(opaqueBlock.isOpaqueCube()).thenReturn(true);
-        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt())).thenReturn(opaqueBlock);
+        Mockito.when(opaqueBlock.isOpaqueCube())
+            .thenReturn(true);
+        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(opaqueBlock);
 
         // Box touching WEST boundary at minX = 0.0, but recessed on all other sides
         AxisAlignedBB westBoundaryBox = AxisAlignedBB.getBoundingBox(0.0, 0.25, 0.25, 0.75, 0.75, 0.75);
@@ -83,30 +87,24 @@ public class ManifoldFacetCullingTest {
         // West face (side 4) touches boundary and neighbor is opaque -> culled to prevent z-fighting
         assertFalse(
             manifold.shouldSideBeRendered(world, 9, 20, 30, 4),
-            "Boundary facet at minX=0.0 against opaque block must be culled"
-        );
+            "Boundary facet at minX=0.0 against opaque block must be culled");
 
         // Other faces are recessed -> must not be culled
         assertTrue(
             manifold.shouldSideBeRendered(world, 11, 20, 30, 5),
-            "Recessed East facet (maxX=0.75) must be rendered"
-        );
+            "Recessed East facet (maxX=0.75) must be rendered");
         assertTrue(
             manifold.shouldSideBeRendered(world, 10, 19, 30, 0),
-            "Recessed Down facet (minY=0.25) must be rendered"
-        );
+            "Recessed Down facet (minY=0.25) must be rendered");
         assertTrue(
             manifold.shouldSideBeRendered(world, 10, 21, 30, 1),
-            "Recessed Up facet (maxY=0.75) must be rendered"
-        );
+            "Recessed Up facet (maxY=0.75) must be rendered");
         assertTrue(
             manifold.shouldSideBeRendered(world, 10, 20, 29, 2),
-            "Recessed North facet (minZ=0.25) must be rendered"
-        );
+            "Recessed North facet (minZ=0.25) must be rendered");
         assertTrue(
             manifold.shouldSideBeRendered(world, 10, 20, 31, 3),
-            "Recessed South facet (maxZ=0.75) must be rendered"
-        );
+            "Recessed South facet (maxZ=0.75) must be rendered");
     }
 
     @Test
@@ -114,8 +112,10 @@ public class ManifoldFacetCullingTest {
         BlockManifold manifold = new BlockManifold();
         IBlockAccess world = Mockito.mock(IBlockAccess.class);
         Block transparentBlock = Mockito.mock(Block.class);
-        Mockito.when(transparentBlock.isOpaqueCube()).thenReturn(false);
-        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt())).thenReturn(transparentBlock);
+        Mockito.when(transparentBlock.isOpaqueCube())
+            .thenReturn(false);
+        Mockito.when(world.getBlock(Mockito.anyInt(), Mockito.anyInt(), Mockito.anyInt()))
+            .thenReturn(transparentBlock);
 
         AxisAlignedBB westBoundaryBox = AxisAlignedBB.getBoundingBox(0.0, 0.25, 0.25, 0.75, 0.75, 0.75);
         RenderBlockManifold.CURRENT_BOUNDS.set(westBoundaryBox);
@@ -123,8 +123,7 @@ public class ManifoldFacetCullingTest {
         // West face (side 4) touches boundary, but neighbor is transparent/air -> rendered
         assertTrue(
             manifold.shouldSideBeRendered(world, 9, 20, 30, 4),
-            "Boundary facet against non-opaque block must be rendered"
-        );
+            "Boundary facet against non-opaque block must be rendered");
     }
 
     @Test
@@ -133,25 +132,27 @@ public class ManifoldFacetCullingTest {
         IBlockAccess world = Mockito.mock(IBlockAccess.class);
         TileEntityManifold neighborManifold = Mockito.mock(TileEntityManifold.class);
 
-        Mockito.when(world.getBlock(9, 20, 30)).thenReturn(manifold);
-        Mockito.when(world.getTileEntity(9, 20, 30)).thenReturn(neighborManifold);
+        Mockito.when(world.getBlock(9, 20, 30))
+            .thenReturn(manifold);
+        Mockito.when(world.getTileEntity(9, 20, 30))
+            .thenReturn(neighborManifold);
 
         // When testing side 4 (WEST), the opposite direction on the neighbor is EAST
-        Mockito.when(neighborManifold.isConnected(ForgeDirection.EAST)).thenReturn(true);
+        Mockito.when(neighborManifold.isConnected(ForgeDirection.EAST))
+            .thenReturn(true);
 
         AxisAlignedBB westBoundaryBox = AxisAlignedBB.getBoundingBox(0.0, 0.25, 0.25, 0.75, 0.75, 0.75);
         RenderBlockManifold.CURRENT_BOUNDS.set(westBoundaryBox);
 
         assertFalse(
             manifold.shouldSideBeRendered(world, 9, 20, 30, 4),
-            "Boundary facet connecting to another connected manifold should be culled for a seamless joint"
-        );
+            "Boundary facet connecting to another connected manifold should be culled for a seamless joint");
 
         // If neighbor is NOT connected back towards us, the boundary facet must be rendered as an end cap
-        Mockito.when(neighborManifold.isConnected(ForgeDirection.EAST)).thenReturn(false);
+        Mockito.when(neighborManifold.isConnected(ForgeDirection.EAST))
+            .thenReturn(false);
         assertTrue(
             manifold.shouldSideBeRendered(world, 9, 20, 30, 4),
-            "Boundary facet facing disconnected neighbor manifold must be rendered"
-        );
+            "Boundary facet facing disconnected neighbor manifold must be rendered");
     }
 }

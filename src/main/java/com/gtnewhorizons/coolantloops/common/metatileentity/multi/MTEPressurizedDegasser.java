@@ -30,6 +30,7 @@ import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
+import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -41,6 +42,8 @@ import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.error.StructureError;
+import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
@@ -58,6 +61,7 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
 
     protected MTEHatchPressurizedFluid mPrimaryInlet = null;
     protected MTEHatchPressurizedFluid mPrimaryOutlet = null;
+    protected int mCasing = 0;
     protected ICoolantLoopPump mConnectedPump = null;
 
     protected double mCurrentCoolantTemp = 20.0;
@@ -147,33 +151,54 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
     }
 
     @Override
-    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+    public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> aErrors) {
         mPrimaryInlet = null;
         mPrimaryOutlet = null;
         mEnergyHatches.clear();
         mOutputHatches.clear();
         mMaintenanceHatches.clear();
+        mCasing = 0;
 
-        if (!checkPiece("degasser_3x3x7", 1, 0, 1)) {
-            return false;
+        if (!checkPiece("degasser_3x3x7", 1, 0, 1, aErrors)) {
+            return;
         }
 
-        if (mPrimaryInlet == null || mPrimaryOutlet == null) {
-            return false;
+        checkCasingMin(aErrors, mCasing, 48);
+        if (mPrimaryInlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_inlet"));
+        }
+        if (mPrimaryOutlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_outlet"));
         }
 
-        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2
-            || mOutputHatches.isEmpty()
-            || mMaintenanceHatches.size() != 1) {
-            return false;
+        if (mEnergyHatches.isEmpty()) {
+            checkHasEnergyHatch(aErrors);
+        } else if (mEnergyHatches.size() > 2) {
+            checkHatchMax(aErrors, HatchElement.Energy, 2);
+        }
+        for (MTEHatchEnergy eh : mEnergyHatches) {
+            if (!isSingleAmpEnergyHatch(eh)) {
+                aErrors.add(StructureErrors.of("coolantloops.structure.error.single_amp_energy_required"));
+                break;
+            }
+        }
+
+        checkHasOutputHatch(aErrors);
+        checkOneMaintenanceHatch(aErrors);
+
+        if (!aErrors.isEmpty()) {
+            return;
         }
 
         checkMaintenance();
         if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
             aBaseMetaTileEntity.enableWorking();
         }
+    }
 
-        return true;
+    @Override
+    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+        return checkMachine_TT(aBaseMetaTileEntity);
     }
 
     public static boolean isSingleAmpEnergyHatch(MTEHatchEnergy hatch) {
@@ -256,12 +281,14 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
                     'C',
                     StructureUtility.ofChain(
                         GTStructureUtility.ofHatchAdder(MTEPressurizedDegasser::addBottomHatch, 48 + 2, 1),
-                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2)))
+                        StructureUtility
+                            .onElementPass(t -> t.mCasing++, StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2))))
                 .addElement(
                     'T',
                     StructureUtility.ofChain(
                         GTStructureUtility.ofHatchAdder(MTEPressurizedDegasser::addTopHatch, 48 + 2, 2),
-                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2)))
+                        StructureUtility
+                            .onElementPass(t -> t.mCasing++, StructureUtility.ofBlock(GregTechAPI.sBlockCasings4, 2))))
                 .build();
         }
         return STRUCTURE_DEFINITION;

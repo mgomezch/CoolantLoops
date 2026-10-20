@@ -29,6 +29,7 @@ import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
+import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
@@ -41,6 +42,8 @@ import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.error.StructureError;
+import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
@@ -60,6 +63,7 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
 
     protected MTEHatchPressurizedFluid mPrimaryInlet = null;
     protected MTEHatchPressurizedFluid mPrimaryOutlet = null;
+    protected int mCasing = 0;
 
     protected double mCurrentCoolantTemp = 20.0;
     protected double mExchangeArea = 24.0; // 24 m^2 internal tube bundle area
@@ -145,35 +149,44 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
     }
 
     @Override
-    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+    public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> aErrors) {
         mPrimaryInlet = null;
         mPrimaryOutlet = null;
         mInputHatches.clear();
         mOutputHatches.clear();
         mMaintenanceHatches.clear();
         mEnergyHatches.clear();
+        mCasing = 0;
 
-        java.util.List<gregtech.api.structure.error.StructureError> errors = new java.util.ArrayList<>();
-        if (!checkPiece("exchanger_3x5x3", 1, 1, 0, errors)) {
-            return false;
+        if (!checkPiece("exchanger_3x5x3", 1, 1, 0, aErrors)) {
+            return;
         }
 
-        if (mMaintenanceHatches.size() != 1) {
-            return false;
-        }
-        if (mEnergyHatches.size() < 1 || mEnergyHatches.size() > 2) {
-            return false;
+        checkCasingMin(aErrors, mCasing, 15);
+        checkOneMaintenanceHatch(aErrors);
+        if (mEnergyHatches.isEmpty()) {
+            checkHasEnergyHatch(aErrors);
+        } else if (mEnergyHatches.size() > 2) {
+            checkHatchMax(aErrors, HatchElement.Energy, 2);
         }
         for (MTEHatchEnergy eh : mEnergyHatches) {
             if (!isSingleAmpEnergyHatch(eh)) {
-                return false;
+                aErrors.add(StructureErrors.of("coolantloops.structure.error.single_amp_energy_required"));
+                break;
             }
         }
-        if (mPrimaryInlet == null || mPrimaryOutlet == null) {
-            return false;
+        checkOneInputHatch(aErrors);
+        checkOneOutputHatch(aErrors);
+
+        if (mPrimaryInlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_inlet"));
         }
-        if (mInputHatches.size() != 1 || mOutputHatches.size() != 1) {
-            return false;
+        if (mPrimaryOutlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_outlet"));
+        }
+
+        if (!aErrors.isEmpty()) {
+            return;
         }
 
         if (mPrimaryInlet != null) {
@@ -211,8 +224,11 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
         if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
             aBaseMetaTileEntity.enableWorking();
         }
+    }
 
-        return true;
+    @Override
+    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+        return checkMachine_TT(aBaseMetaTileEntity);
     }
 
     @Override
@@ -814,7 +830,8 @@ public class MTEPressurizedHeatExchanger extends MTEEnhancedMultiBlockBase<MTEPr
                             MTEPressurizedHeatExchanger::addMaintenanceOrEnergyHatch,
                             CASING_INDEX_HEAT_PROOF,
                             1),
-                        StructureUtility.ofBlock(GregTechAPI.sBlockCasings1, 11)))
+                        StructureUtility
+                            .onElementPass(t -> t.mCasing++, StructureUtility.ofBlock(GregTechAPI.sBlockCasings1, 11))))
                 .addElement('h', StructureUtility.ofBlock(GregTechAPI.sBlockCasings10, 10))
                 .addElement('l', StructureUtility.ofBlock(GregTechAPI.sBlockCasings10, 9))
                 .addElement('c', GTStructureUtility.ofSheetMetal(Materials.Copper))

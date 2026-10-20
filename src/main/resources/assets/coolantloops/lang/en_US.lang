@@ -259,3 +259,16 @@ coolantloops.gui.title.loop_graph=Coolant loop flow graph
 coolantloops.gui.button.loop_graph=Coolant loop flow graph
 coolantloops.gui.button.loop_graph.tooltip=Inspect coolant loop flow graph and telemetry
 coolantloops.gui.button.loop_graph.requires_monitor=Requires computer monitor cover on controller
+
+# Multiblock structure error messages
+coolantloops.structure.error.missing_primary_inlet=Missing primary pressurized fluid inlet hatch
+coolantloops.structure.error.missing_primary_outlet=Missing primary pressurized fluid outlet hatch
+coolantloops.structure.error.single_amp_energy_required=Energy hatch must be single-amp (max 2A)
+coolantloops.structure.error.pump.missing_or_mismatched_tank=Missing, incomplete, or mismatched Railcraft tank directly above pump
+coolantloops.structure.error.pump.corner_frame=Requires %s frame box
+coolantloops.structure.error.pump.casing_req=Requires Tungstensteel Pipe Casing or valid hatch
+coolantloops.structure.error.pump.invalid_hatch=Invalid hatch (only Pressurized Fluid, Maintenance, and Energy hatches allowed)
+coolantloops.structure.error.missing_suction_hatch=Missing pressurized suction hatch (input mode)
+coolantloops.structure.error.missing_discharge_hatch=Missing pressurized discharge hatch (output mode)
+coolantloops.structure.error.duplicate_pump_hatches=Requires exactly 1 suction and 1 discharge hatch
+

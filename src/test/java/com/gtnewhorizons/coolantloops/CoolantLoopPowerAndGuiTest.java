@@ -222,7 +222,8 @@ public class CoolantLoopPowerAndGuiTest {
         assertFalse(invokeShouldDisplayBatchMode(pheGui), "Heat Exchanger GUI must hide batch mode button");
         assertFalse(invokeShouldDisplayBatchMode(degasserGui), "Degasser GUI must hide batch mode button");
 
-        // Verify supportsSingleRecipeLocking, supportsVoidProtection, supportsInputSeparation, supportsBatchMode return false
+        // Verify supportsSingleRecipeLocking, supportsVoidProtection, supportsInputSeparation, supportsBatchMode return
+        // false
         assertFalse(pump.supportsSingleRecipeLocking());
         assertFalse(phe.supportsSingleRecipeLocking());
         assertFalse(degasser.supportsSingleRecipeLocking());

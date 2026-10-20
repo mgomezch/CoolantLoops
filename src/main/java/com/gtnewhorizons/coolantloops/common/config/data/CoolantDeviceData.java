@@ -69,7 +69,8 @@ public class CoolantDeviceData {
         public double supercriticalTempThreshold = 700.0; // deg C for supercritical steam
         public double maxTempDropPerTick = 40.0; // Maximum primary temperature drop per tick
         public double coolingFactor = 0.5; // Primary temperature relaxation factor
-        public double baseMaxHeatPerBatchJoules = 2260000.0; // Base heat transfer cap per 20-tick batch at 1A LV (32 EU/t) (equivalent to 1 L distilled water)
+        public double baseMaxHeatPerBatchJoules = 2260000.0; // Base heat transfer cap per 20-tick batch at 1A LV (32
+                                                             // EU/t) (equivalent to 1 L distilled water)
         public int batchTicks = 20; // Batch duration (20 ticks = 1 second)
         public List<String> allowedSecondaryFluids = new ArrayList<>(
             Arrays.asList(

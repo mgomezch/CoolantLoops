@@ -1434,7 +1434,8 @@ public class CoolantPumpStructureTest {
         boolean foundCasingLine = false;
         for (String line : structInfo) {
             assertFalse(line.contains("at least"), "Must not require minimum casings: " + line);
-            if (line.toLowerCase().contains("casing")) {
+            if (line.toLowerCase()
+                .contains("casing")) {
                 foundCasingLine = true;
             }
         }

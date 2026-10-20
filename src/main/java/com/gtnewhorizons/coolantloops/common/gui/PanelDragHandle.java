@@ -103,7 +103,8 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
         if (this.panel == null) return;
         ModularGuiContext ctx = this.panel.getContext();
         if (ctx == null) return;
-        Area screenArea = this.panel.getScreen().getScreenArea();
+        Area screenArea = this.panel.getScreen()
+            .getScreenArea();
         int maxX = Math.max(0, screenArea.width - this.movingArea.width);
         int maxY = Math.max(0, screenArea.height - this.movingArea.height);
         int newX = ctx.getAbsMouseX() - this.relativeClickX;
@@ -122,17 +123,22 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
     @Override
     public void onDragEnd(boolean success) {
         if (success && this.panel != null) {
-            Area screenArea = this.panel.getScreen().getScreenArea();
+            Area screenArea = this.panel.getScreen()
+                .getScreenArea();
             int availW = screenArea.width - this.panel.getArea().width;
             int availH = screenArea.height - this.panel.getArea().height;
             float left = availW > 0 ? (float) this.movingArea.x / (float) availW : 0f;
             float top = availH > 0 ? (float) this.movingArea.y / (float) availH : 0f;
             left = Math.max(0f, Math.min(1f, left));
             top = Math.max(0f, Math.min(1f, top));
-            this.panel.resizer().resetPosition();
-            this.panel.resizer().relativeToScreen();
-            this.panel.resizer().topRelAnchor(top, top);
-            this.panel.resizer().leftRelAnchor(left, left);
+            this.panel.resizer()
+                .resetPosition();
+            this.panel.resizer()
+                .relativeToScreen();
+            this.panel.resizer()
+                .topRelAnchor(top, top);
+            this.panel.resizer()
+                .leftRelAnchor(left, left);
             this.panel.scheduleResize();
         }
     }
@@ -165,7 +171,10 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
             int c = this.textColor != null ? this.textColor.getAsInt() : theme.getTextColor();
             renderer.setColor(c);
             renderer.setShadow(theme.getTextShadow());
-            renderer.setAlignment(this.alignment != null ? this.alignment : Alignment.CenterLeft, getArea().paddedWidth(), getArea().paddedHeight());
+            renderer.setAlignment(
+                this.alignment != null ? this.alignment : Alignment.CenterLeft,
+                getArea().paddedWidth(),
+                getArea().paddedHeight());
             renderer.setScale(this.titleKey.getScale());
             renderer.setSimulate(false);
             renderer.draw(this.titleKey.getFormatted());

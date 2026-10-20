@@ -1,6 +1,8 @@
 package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -41,6 +43,8 @@ import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.metatileentity.implementations.MTEHatchOutputBus;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.error.StructureError;
+import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
@@ -534,7 +538,7 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
     }
 
     @Override
-    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+    public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> aErrors) {
         mPrimaryInlet = null;
         mPrimaryOutlet = null;
         mInputBusses.clear();
@@ -543,29 +547,82 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
         mGlassTier = -1;
         mStructureTier = 0;
 
-        if (checkPiece("bath_9x11x3", 4, 0, 0)) {
-            if (mGlassTier >= 6) { // LuV
-                mStructureTier = 3;
-                mInteriorWidth = 7;
-                mInteriorLength = 9;
+        List<StructureError> errors9 = new ArrayList<>();
+        List<StructureError> errors7 = new ArrayList<>();
+        List<StructureError> errors5 = new ArrayList<>();
+
+        boolean matched9 = checkPiece("bath_9x11x3", 4, 0, 0, errors9);
+        boolean matched7 = false;
+        boolean matched5 = false;
+
+        if (matched9) {
+            mStructureTier = 3;
+            mInteriorWidth = 7;
+            mInteriorLength = 9;
+            if (mGlassTier < 6) { // LuV
+                aErrors.add(StructureErrors.glassTierNotEnough(6));
             }
-        } else if (checkPiece("bath_7x9x3", 3, 0, 0)) {
-            if (mGlassTier >= 5) { // IV
+        } else {
+            mPrimaryInlet = null;
+            mPrimaryOutlet = null;
+            mInputBusses.clear();
+            mOutputBusses.clear();
+            mMaintenanceHatches.clear();
+            mGlassTier = -1;
+
+            matched7 = checkPiece("bath_7x9x3", 3, 0, 0, errors7);
+            if (matched7) {
                 mStructureTier = 2;
                 mInteriorWidth = 5;
                 mInteriorLength = 7;
-            }
-        } else if (checkPiece("bath_5x7x3", 2, 0, 0)) {
-            if (mGlassTier >= 4) { // EV
-                mStructureTier = 1;
-                mInteriorWidth = 3;
-                mInteriorLength = 5;
+                if (mGlassTier < 5) { // IV
+                    aErrors.add(StructureErrors.glassTierNotEnough(5));
+                }
+            } else {
+                mPrimaryInlet = null;
+                mPrimaryOutlet = null;
+                mInputBusses.clear();
+                mOutputBusses.clear();
+                mMaintenanceHatches.clear();
+                mGlassTier = -1;
+
+                matched5 = checkPiece("bath_5x7x3", 2, 0, 0, errors5);
+                if (matched5) {
+                    mStructureTier = 1;
+                    mInteriorWidth = 3;
+                    mInteriorLength = 5;
+                    if (mGlassTier < 4) { // EV
+                        aErrors.add(StructureErrors.glassTierNotEnough(4));
+                    }
+                }
             }
         }
 
-        if (mStructureTier == 0) return false;
-        if (mPrimaryInlet == null || mPrimaryOutlet == null) return false;
-        if (mInputBusses.isEmpty() || mOutputBusses.isEmpty()) return false;
+        if (mStructureTier == 0) {
+            int intendedTier = detectIntendedTier(aBaseMetaTileEntity);
+            if (intendedTier == 3) {
+                aErrors.addAll(errors9);
+            } else if (intendedTier == 2) {
+                aErrors.addAll(errors7);
+            } else {
+                aErrors.addAll(errors5);
+            }
+            return;
+        }
+
+        if (mPrimaryInlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_inlet"));
+        }
+        if (mPrimaryOutlet == null) {
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_primary_outlet"));
+        }
+        checkHasInputBus(aErrors);
+        checkHasOutputBus(aErrors);
+        checkOneMaintenanceHatch(aErrors);
+
+        if (!aErrors.isEmpty()) {
+            return;
+        }
 
         int totalSlots = mInteriorWidth * mInteriorLength;
         if (mSlots == null || mSlots.length != totalSlots) {
@@ -576,10 +633,37 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
             mSlots = newSlots;
         }
 
+        checkMaintenance();
         if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
             aBaseMetaTileEntity.enableWorking();
         }
-        return true;
+    }
+
+    @Override
+    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+        return checkMachine_TT(aBaseMetaTileEntity);
+    }
+
+    protected int detectIntendedTier(IGregTechTileEntity aBaseMetaTileEntity) {
+        if (aBaseMetaTileEntity == null) return 1;
+        net.minecraft.world.World world = aBaseMetaTileEntity.getWorld();
+        if (world == null) return 1;
+        ForgeDirection front = aBaseMetaTileEntity.getFrontFacing();
+        ForgeDirection right = (front != null && front != ForgeDirection.UNKNOWN) ? front.getRotation(ForgeDirection.UP)
+            : ForgeDirection.WEST;
+        int x = aBaseMetaTileEntity.getXCoord();
+        int y = aBaseMetaTileEntity.getYCoord();
+        int z = aBaseMetaTileEntity.getZCoord();
+
+        if (!world.isAirBlock(x + right.offsetX * 4, y, z + right.offsetZ * 4)
+            || !world.isAirBlock(x - right.offsetX * 4, y, z - right.offsetZ * 4)) {
+            return 3;
+        }
+        if (!world.isAirBlock(x + right.offsetX * 3, y, z + right.offsetZ * 3)
+            || !world.isAirBlock(x - right.offsetX * 3, y, z - right.offsetZ * 3)) {
+            return 2;
+        }
+        return 1;
     }
 
     @Override

@@ -502,8 +502,10 @@ public class TileEntityLoopInstrument extends TileEntity
         builder.widget(
             new TextWidget()
                 .setStringSupplier(
-                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization
-                        .format("coolantloops.gui.instrument.measured", formatMetricValue(getDisplayValue()), trackedMetric.unit))
+                    () -> com.gtnewhorizons.coolantloops.common.util.CoolantLocalization.format(
+                        "coolantloops.gui.instrument.measured",
+                        formatMetricValue(getDisplayValue()),
+                        trackedMetric.unit))
                 .setDefaultColor(Color.rgb(255, 220, 100))
                 .setPos(12, 38));
 
@@ -562,10 +564,7 @@ public class TileEntityLoopInstrument extends TileEntity
             new FakeSyncWidget.IntegerSyncer(
                 () -> facing.ordinal(),
                 val -> this.facing = ForgeDirection.getOrientation(val)));
-        builder.widget(
-            new FakeSyncWidget.DoubleSyncer(
-                () -> getCurrentValue(),
-                val -> this.clientMeasuredValue = val));
+        builder.widget(new FakeSyncWidget.DoubleSyncer(() -> getCurrentValue(), val -> this.clientMeasuredValue = val));
 
         return builder.build();
     }

@@ -93,7 +93,8 @@ public class BlockManifold extends BlockContainer {
             if (neighbor == this) {
                 TileEntity te = world.getTileEntity(x, y, z);
                 if (te instanceof TileEntityManifold neighborManifold) {
-                    ForgeDirection opp = ForgeDirection.getOrientation(side).getOpposite();
+                    ForgeDirection opp = ForgeDirection.getOrientation(side)
+                        .getOpposite();
                     if (neighborManifold.isConnected(opp)) {
                         return false;
                     }

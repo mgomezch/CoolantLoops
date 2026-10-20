@@ -45,6 +45,7 @@ import com.gtnewhorizons.modularui.common.widget.ButtonWidget;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
+import gregtech.api.enums.HatchElement;
 import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
@@ -57,6 +58,9 @@ import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.error.PositionedStructureError;
+import gregtech.api.structure.error.StructureError;
+import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.TurbineStatCalculator;
@@ -306,7 +310,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     @Override
-    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+    public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> aErrors) {
         mDischargeHatch = null;
         mSuctionHatch = null;
         mEnergyHatches.clear();
@@ -319,7 +323,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 || mLoopStatus.equals(CoolantLocalization.get("coolantloops.pump.status.formed"))) {
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.missing_or_mismatched_tank");
             }
-            return false;
+            aErrors.add(StructureErrors.of("coolantloops.structure.error.pump.missing_or_mismatched_tank"));
+            return;
         }
 
         int x = aBaseMetaTileEntity.getXCoord();
@@ -344,9 +349,19 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 for (int ly = 0; ly < 2; ly++) {
                     int cy = y + ly;
                     Block block = world.getBlock(cx, cy, cz);
+                    String matName = mTankMaterial != null ? mTankMaterial.mDefaultLocalName : "Matching";
                     if (!(block instanceof BlockFrameBox)) {
                         mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.corner_frame", cx, cy, cz);
-                        return false;
+                        aErrors.add(
+                            new PositionedStructureError(
+                                cx,
+                                cy,
+                                cz,
+                                Collections.singletonList(
+                                    StatCollector.translateToLocalFormatted(
+                                        "coolantloops.structure.error.pump.corner_frame",
+                                        matName))));
+                        return;
                     }
                     int meta = world.getBlockMetadata(cx, cy, cz);
                     Materials frameMat = BlockFrameBox.getMaterial(meta);
@@ -357,8 +372,17 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                             cy,
                             cz,
                             frameMat != null ? frameMat.mDefaultLocalName : "unknown",
-                            mTankMaterial.mDefaultLocalName);
-                        return false;
+                            matName);
+                        aErrors.add(
+                            new PositionedStructureError(
+                                cx,
+                                cy,
+                                cz,
+                                Collections.singletonList(
+                                    StatCollector.translateToLocalFormatted(
+                                        "coolantloops.structure.error.pump.corner_frame",
+                                        matName))));
+                        return;
                     }
                 }
             }
@@ -397,15 +421,33 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                                     mEnergyHatches.add((MTEHatchEnergy) mte);
                                 }
                             } else {
-                                mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.invalid_hatch", bx, by, bz);
-                                return false;
+                                mLoopStatus = CoolantLocalization
+                                    .format("coolantloops.pump.status.invalid_hatch", bx, by, bz);
+                                aErrors.add(
+                                    new PositionedStructureError(
+                                        bx,
+                                        by,
+                                        bz,
+                                        Collections.singletonList(
+                                            StatCollector
+                                                .translateToLocal("coolantloops.structure.error.pump.invalid_hatch"))));
+                                return;
                             }
                         } else if (GregTechAPI.sBlockCasings2 != null) {
                             Block block = world.getBlock(bx, by, bz);
                             int meta = world.getBlockMetadata(bx, by, bz);
                             if (block != GregTechAPI.sBlockCasings2 || meta != 15) {
-                                mLoopStatus = CoolantLocalization.format("coolantloops.pump.status.casing_req", bx, by, bz);
-                                return false;
+                                mLoopStatus = CoolantLocalization
+                                    .format("coolantloops.pump.status.casing_req", bx, by, bz);
+                                aErrors.add(
+                                    new PositionedStructureError(
+                                        bx,
+                                        by,
+                                        bz,
+                                        Collections.singletonList(
+                                            StatCollector
+                                                .translateToLocal("coolantloops.structure.error.pump.casing_req"))));
+                                return;
                             }
                         }
                     }
@@ -418,31 +460,39 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         mDischargeHatch = ph;
                     } else {
                         mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
-                        return false;
+                        aErrors.add(StructureErrors.of("coolantloops.structure.error.duplicate_pump_hatches"));
+                        return;
                     }
                 } else if (ph.isInput()) {
                     if (mSuctionHatch == null) {
                         mSuctionHatch = ph;
                     } else {
                         mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
-                        return false;
+                        aErrors.add(StructureErrors.of("coolantloops.structure.error.duplicate_pump_hatches"));
+                        return;
                     }
                 }
             }
 
-            if (mDischargeHatch == null || mSuctionHatch == null) {
+            if (mDischargeHatch == null) {
                 mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
-                return false;
+                aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_discharge_hatch"));
+            }
+            if (mSuctionHatch == null) {
+                mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_hatches");
+                aErrors.add(StructureErrors.of("coolantloops.structure.error.missing_suction_hatch"));
             }
 
-            if (mMaintenanceHatches.size() != 1) {
-                mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_maintenance");
-                return false;
+            checkOneMaintenanceHatch(aErrors);
+
+            if (mEnergyHatches.isEmpty()) {
+                checkHasEnergyHatch(aErrors);
+            } else if (mEnergyHatches.size() > 2) {
+                checkHatchMax(aErrors, HatchElement.Energy, 2);
             }
 
-            if (mEnergyHatches.isEmpty() || mEnergyHatches.size() > 2) {
-                mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.req_energy");
-                return false;
+            if (!aErrors.isEmpty()) {
+                return;
             }
 
             final int casingIndex = 16 + 15;
@@ -484,13 +534,14 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         checkMaintenance();
         mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.formed");
         if (mActiveCrawl != null && !mActiveCrawl.isDone()) {
-            return false;
+            return;
         }
-        boolean loopFormed = crawlLoopGraph();
-        if (!loopFormed) {
-            return false;
-        }
-        return true;
+        crawlLoopGraph();
+    }
+
+    @Override
+    public boolean checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack) {
+        return checkMachine_TT(aBaseMetaTileEntity);
     }
 
     /**

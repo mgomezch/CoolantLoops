@@ -205,7 +205,8 @@ public class LoopSegment {
     public long getDissolvedGasAmount(String gasName) {
         if (gasName == null) return 0L;
         for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
-            if (entry.getKey().equalsIgnoreCase(gasName)) {
+            if (entry.getKey()
+                .equalsIgnoreCase(gasName)) {
                 return entry.getValue();
             }
         }

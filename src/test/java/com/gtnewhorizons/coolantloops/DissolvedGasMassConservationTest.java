@@ -119,7 +119,8 @@ public class DissolvedGasMassConservationTest {
         assertEquals(10.0, seg2.getDissolvedGasPercentage(), 1e-6);
 
         // Segment gas sum must equal engine total gas
-        assertEquals(engine.getTotalDissolvedGasLiters(),
+        assertEquals(
+            engine.getTotalDissolvedGasLiters(),
             seg1.getTotalDissolvedGasLiters() + seg2.getTotalDissolvedGasLiters());
 
         // Extraction from engine

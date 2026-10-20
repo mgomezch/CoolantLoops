@@ -164,7 +164,8 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 return Interactable.ClickResult.IGNORE;
             }
             if (button == 1) {
-                this.handler.getText().clear();
+                this.handler.getText()
+                    .clear();
                 forceFocus();
                 return Interactable.ClickResult.SUCCESS;
             }
@@ -173,7 +174,12 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
 
         @Override
         public void onRemoveFocus() {
-            if (this.handler.getText().isEmpty() || this.handler.getText().get(0).trim().isEmpty()) {
+            if (this.handler.getText()
+                .isEmpty()
+                || this.handler.getText()
+                    .get(0)
+                    .trim()
+                    .isEmpty()) {
                 setValue(this.clearDefaultValue);
                 if (this.customSetter != null) {
                     this.customSetter.accept(getValue());
@@ -194,14 +200,12 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
 
         // Title
         builder.widget(
-            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.title"))
-                .setPos(10, 8)
+            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.title")).setPos(10, 8)
                 .setSize(156, 12));
 
         // Row 1: Target Temperature
         builder.widget(
-            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.temperature"))
-                .setPos(10, 22)
+            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.temperature")).setPos(10, 22)
                 .setSize(156, 10));
 
         // Row 1: Minus button
@@ -210,7 +214,8 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
                 .setOnClick((clickData, widget) -> adjustTargetTemperature(-getTemperatureStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_MINUS_LARGE)
-                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp"))
+                .addTooltips(
+                    CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_temp"))
                 .setPos(10, 34)
                 .setSize(18, 18));
 
@@ -234,27 +239,26 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
 
         // Row 1: Plus button
         builder.widget(
-            new ButtonWidget()
-                .setOnClick((clickData, widget) -> adjustTargetTemperature(getTemperatureStep(clickData)))
+            new ButtonWidget().setOnClick((clickData, widget) -> adjustTargetTemperature(getTemperatureStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_PLUS_LARGE)
-                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_temp"))
+                .addTooltips(
+                    CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_temp"))
                 .setPos(148, 34)
                 .setSize(18, 18));
 
         // Row 2: Heat-Transfer Area
         builder.widget(
-            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.area"))
-                .setPos(10, 56)
+            new TextWidget(Text.localised("coolantloops.gui.creative_reservoir.area")).setPos(10, 56)
                 .setSize(156, 10));
 
         // Row 2: Minus button
         builder.widget(
-            new ButtonWidget()
-                .setOnClick((clickData, widget) -> adjustHeatTransferArea(-getAreaStep(clickData)))
+            new ButtonWidget().setOnClick((clickData, widget) -> adjustHeatTransferArea(-getAreaStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_MINUS_LARGE)
-                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_area"))
+                .addTooltips(
+                    CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.decrease_area"))
                 .setPos(10, 68)
                 .setSize(18, 18));
 
@@ -278,27 +282,28 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
 
         // Row 2: Plus button
         builder.widget(
-            new ButtonWidget()
-                .setOnClick((clickData, widget) -> adjustHeatTransferArea(getAreaStep(clickData)))
+            new ButtonWidget().setOnClick((clickData, widget) -> adjustHeatTransferArea(getAreaStep(clickData)))
                 .setPlayClickSound(true)
                 .setBackground(GTUITextures.BUTTON_STANDARD, GTUITextures.OVERLAY_BUTTON_PLUS_LARGE)
-                .addTooltips(CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_area"))
+                .addTooltips(
+                    CoolantLocalization.getTooltipLines("coolantloops.gui.creative_reservoir.btn.increase_area"))
                 .setPos(148, 68)
                 .setSize(18, 18));
 
         // Row 3: Status / Telemetry readout
         builder.widget(
-            new TextWidget()
-                .setStringSupplier(() -> CoolantLocalization.format(
-                    "coolantloops.gui.creative_reservoir.status",
-                    targetTemperatureCelsius,
-                    heatTransferArea))
+            new TextWidget().setStringSupplier(
+                () -> CoolantLocalization
+                    .format("coolantloops.gui.creative_reservoir.status", targetTemperatureCelsius, heatTransferArea))
                 .setDefaultColor(Color.rgb(160, 210, 255))
                 .setPos(10, 94)
                 .setSize(156, 12));
 
         // Syncers to ensure client tile entity mirrors server state for real-time string supplier
-        builder.widget(new FakeSyncWidget.DoubleSyncer(() -> targetTemperatureCelsius, val -> this.targetTemperatureCelsius = val));
+        builder.widget(
+            new FakeSyncWidget.DoubleSyncer(
+                () -> targetTemperatureCelsius,
+                val -> this.targetTemperatureCelsius = val));
         builder.widget(new FakeSyncWidget.DoubleSyncer(() -> heatTransferArea, val -> this.heatTransferArea = val));
 
         return builder.build();

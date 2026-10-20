@@ -4,11 +4,11 @@ import net.minecraft.item.ItemStack;
 
 import com.gtnewhorizon.structurelib.StructureLibAPI;
 import com.gtnewhorizon.structurelib.alignment.constructable.ChannelDataAccessor;
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
 
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.Materials;
 import gregtech.api.structure.IStructureChannels;
-import com.gtnewhorizons.coolantloops.common.metatileentity.multi.structure.CoolantPumpStructure;
 
 public enum CoolantStructureChannels implements IStructureChannels {
 
