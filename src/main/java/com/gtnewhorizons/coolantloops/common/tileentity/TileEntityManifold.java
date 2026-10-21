@@ -617,11 +617,21 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
         return findContiguousGroup();
     }
 
+    private String cachedDeviceId;
+
+    @Override
+    public boolean canUpdate() {
+        return false;
+    }
+
     // --- ICoolantLoopDevice Implementation ---
 
     @Override
     public String getDeviceId() {
-        return String.format("manifold_%d_%d_%d", xCoord, yCoord, zCoord);
+        if (cachedDeviceId == null) {
+            cachedDeviceId = "manifold_" + xCoord + "_" + yCoord + "_" + zCoord;
+        }
+        return cachedDeviceId;
     }
 
     @Override

@@ -296,11 +296,15 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
         return survivalBuildPiece("degasser_3x3x7", stackSize, 1, 6, 0, elementBudget, env, false, true);
     }
 
+    private String cachedDeviceId;
+
     @Override
     public String getDeviceId() {
+        if (cachedDeviceId != null) return cachedDeviceId;
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null) {
-            return String.format("degasser_%d_%d_%d", te.getXCoord(), te.getYCoord(), te.getZCoord());
+            cachedDeviceId = "degasser_" + te.getXCoord() + "_" + te.getYCoord() + "_" + te.getZCoord();
+            return cachedDeviceId;
         }
         return "degasser_unbound";
     }

@@ -29,6 +29,8 @@ public class CoolantPumpReservoir {
 
     private final MTECoolantPump pump;
     private final Map<String, Long> dissolvedGases = new java.util.LinkedHashMap<>();
+    private final Map<String, Long> unmodifiableDissolvedGases = Collections.unmodifiableMap(dissolvedGases);
+    private long dissolvedGasesVersion = 0L;
     private long simulatedCoolantLiters = 100000L;
     private long simulatedTankCapacityLiters = 0L;
 
@@ -757,6 +759,7 @@ public class CoolantPumpReservoir {
     public void addDissolvedGas(String gasName, long liters) {
         if (gasName == null || liters <= 0) return;
         dissolvedGases.merge(gasName, liters, Long::sum);
+        dissolvedGasesVersion++;
     }
 
     public long getTotalDissolvedGasLiters() {
@@ -792,7 +795,11 @@ public class CoolantPumpReservoir {
     }
 
     public Map<String, Long> getDissolvedGases() {
-        return Collections.unmodifiableMap(dissolvedGases);
+        return unmodifiableDissolvedGases;
+    }
+
+    public long getDissolvedGasesVersion() {
+        return dissolvedGasesVersion;
     }
 
     public synchronized long extractDissolvedGas(String gasName, long maxLiters) {
@@ -814,6 +821,7 @@ public class CoolantPumpReservoir {
             } else {
                 dissolvedGases.remove(matchedKey);
             }
+            dissolvedGasesVersion++;
         }
         return toExtract;
     }
@@ -882,6 +890,7 @@ public class CoolantPumpReservoir {
 
     public void loadNBTData(NBTTagCompound aNBT) {
         dissolvedGases.clear();
+        dissolvedGasesVersion++;
         if (aNBT.hasKey("mDissolvedGases")) {
             NBTTagCompound gasesTag = aNBT.getCompoundTag("mDissolvedGases");
             for (Object keyObj : gasesTag.func_150296_c()) {

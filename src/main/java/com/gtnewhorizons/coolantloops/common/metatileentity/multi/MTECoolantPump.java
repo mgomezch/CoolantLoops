@@ -2,6 +2,7 @@ package com.gtnewhorizons.coolantloops.common.metatileentity.multi;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -91,8 +92,21 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public MTEHatchPressurizedFluid mSuctionHatch = null;
 
     // Simulation Engine
+    public static class DeviceSegmentBinding {
+
+        public final ICoolantLoopDevice device;
+        public final LoopSegment segment;
+
+        public DeviceSegmentBinding(ICoolantLoopDevice device, LoopSegment segment) {
+            this.device = device;
+            this.segment = segment;
+        }
+    }
+
     protected CoolantLoopEngine mEngine = new CoolantLoopEngine(CoolantFluidProperty.DISTILLED_WATER);
     protected List<ICoolantLoopDevice> mLoopDevices = new ArrayList<>();
+    protected final List<DeviceSegmentBinding> mDeviceBindings = new ArrayList<>();
+    protected long mLastSyncedGasVersion = -1L;
     protected boolean mLoopFormed = false;
     protected String mLoopStatus = CoolantLocalization.get("coolantloops.pump.status.waiting");
     protected Materials mTankMaterial = Materials.Steel;
@@ -252,7 +266,40 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void addLoopDevice(ICoolantLoopDevice dev) {
         if (dev != null && !mLoopDevices.contains(dev)) {
             mLoopDevices.add(dev);
+            dev.setLoopPump(this);
+            LoopSegment seg = null;
+            if (mEngine != null) {
+                for (LoopSegment s : mEngine.getSegments()) {
+                    if (s.getId()
+                        .equals(dev.getDeviceId())) {
+                        seg = s;
+                        break;
+                    }
+                }
+            }
+            mDeviceBindings.add(new DeviceSegmentBinding(dev, seg));
         }
+    }
+
+    public void rebuildDeviceBindings() {
+        mDeviceBindings.clear();
+        if (mEngine == null || mLoopDevices.isEmpty()) {
+            return;
+        }
+        Map<String, LoopSegment> segmentMap = new HashMap<>();
+        for (LoopSegment s : mEngine.getSegments()) {
+            segmentMap.put(s.getId(), s);
+        }
+        for (ICoolantLoopDevice dev : mLoopDevices) {
+            mDeviceBindings.add(new DeviceSegmentBinding(dev, segmentMap.get(dev.getDeviceId())));
+        }
+    }
+
+    public List<DeviceSegmentBinding> getDeviceBindings() {
+        if (mDeviceBindings.isEmpty() && !mLoopDevices.isEmpty()) {
+            rebuildDeviceBindings();
+        }
+        return mDeviceBindings;
     }
 
     public List<ICoolantLoopDevice> getLoopDevices() {
@@ -771,6 +818,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             dev.setLoopPump(this);
             requiredFill += dev.getFillVolumeLiters();
         }
+        rebuildDeviceBindings();
         mRequiredFillLiters = requiredFill;
         mLoopFormed = true;
         mHasEverBeenEnabled = true;
@@ -878,16 +926,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void processCoastingThermalExchange() {
         double flowRate = mEngine.getVolumetricFlowRate();
         if (flowRate > 1e-6) {
-            for (ICoolantLoopDevice dev : mLoopDevices) {
-                LoopSegment seg = null;
-                for (LoopSegment s : mEngine.getSegments()) {
-                    if (s.getId()
-                        .equals(dev.getDeviceId())) {
-                        seg = s;
-                        break;
-                    }
-                }
-                dev.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), seg);
+            for (DeviceSegmentBinding b : getDeviceBindings()) {
+                b.device.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), b.segment);
             }
         }
     }
@@ -966,10 +1006,6 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         IGregTechTileEntity baseTE = getBaseMetaTileEntity();
         if (baseTE == null) {
             return true;
-        }
-
-        for (ICoolantLoopDevice dev : mLoopDevices) {
-            dev.setLoopPump(this);
         }
 
         mReservoir.updateReservoirState();
@@ -1216,16 +1252,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mechanicalWatts / 1000.0);
 
                 // Thermal exchange during deceleration
-                for (ICoolantLoopDevice dev : mLoopDevices) {
-                    LoopSegment seg = null;
-                    for (LoopSegment s : mEngine.getSegments()) {
-                        if (s.getId()
-                            .equals(dev.getDeviceId())) {
-                            seg = s;
-                            break;
-                        }
-                    }
-                    dev.processThermalExchange(mEngine.getVolumetricFlowRate(), 0.05, mEngine.getFluid(), seg);
+                double decelFlowRate = mEngine.getVolumetricFlowRate();
+                for (DeviceSegmentBinding b : getDeviceBindings()) {
+                    b.device.processThermalExchange(decelFlowRate, 0.05, mEngine.getFluid(), b.segment);
                 }
                 return true;
             } else {
@@ -1377,16 +1406,20 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mEngine.setPumpMechanicalPowerWatts(mechanicalWatts);
         degradeRotor(requiredEU);
 
-        // Synchronize absolute dissolved gases across engine and all segments
+        // Synchronize absolute dissolved gases across engine and all segments when changed
         if (mEngine != null) {
-            Map<String, Long> gases = mReservoir.getDissolvedGases();
-            mEngine.setDissolvedGases(gases);
-            double gasFrac = getDissolvedGasFraction();
-            mEngine.setDissolvedGasFraction(gasFrac);
-            long loopLiters = mEngine.getTotalLoopVolumeLiters();
-            for (LoopSegment seg : mEngine.getSegments()) {
-                seg.setDissolvedGases(gases, loopLiters);
-                seg.setDissolvedGasFraction(gasFrac);
+            long currentGasVer = mReservoir.getDissolvedGasesVersion();
+            if (mLastSyncedGasVersion != currentGasVer) {
+                mLastSyncedGasVersion = currentGasVer;
+                Map<String, Long> gases = mReservoir.getDissolvedGases();
+                mEngine.setDissolvedGases(gases);
+                double gasFrac = getDissolvedGasFraction();
+                mEngine.setDissolvedGasFraction(gasFrac);
+                long loopLiters = mEngine.getTotalLoopVolumeLiters();
+                for (LoopSegment seg : mEngine.getSegments()) {
+                    seg.setDissolvedGases(gases, loopLiters);
+                    seg.setDissolvedGasFraction(gasFrac);
+                }
             }
         }
 
@@ -1395,16 +1428,8 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
         // Process thermal exchange across in-line devices matching segment ID
         double flowRate = mEngine.getVolumetricFlowRate();
-        for (ICoolantLoopDevice dev : mLoopDevices) {
-            LoopSegment seg = null;
-            for (LoopSegment s : mEngine.getSegments()) {
-                if (s.getId()
-                    .equals(dev.getDeviceId())) {
-                    seg = s;
-                    break;
-                }
-            }
-            dev.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), seg);
+        for (DeviceSegmentBinding b : getDeviceBindings()) {
+            b.device.processThermalExchange(flowRate, 0.05, mEngine.getFluid(), b.segment);
         }
 
         // Check for catastrophic rupture

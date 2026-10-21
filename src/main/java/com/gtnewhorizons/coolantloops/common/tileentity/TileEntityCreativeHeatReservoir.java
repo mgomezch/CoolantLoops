@@ -60,9 +60,19 @@ public class TileEntityCreativeHeatReservoir extends TileEntity
         }
     }
 
+    private String cachedDeviceId;
+
+    @Override
+    public boolean canUpdate() {
+        return false;
+    }
+
     @Override
     public String getDeviceId() {
-        return String.format("reservoir_%d_%d_%d", xCoord, yCoord, zCoord);
+        if (cachedDeviceId == null) {
+            cachedDeviceId = "reservoir_" + xCoord + "_" + yCoord + "_" + zCoord;
+        }
+        return cachedDeviceId;
     }
 
     @Override

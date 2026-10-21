@@ -288,10 +288,13 @@ public class LoopSegment {
     }
 
     public void setDissolvedGases(Map<String, Long> gases, long totalLoopLiters) {
-        this.dissolvedGases.clear();
         if (gases == null || gases.isEmpty() || totalLoopLiters <= 0L) {
+            if (!this.dissolvedGases.isEmpty()) {
+                this.dissolvedGases.clear();
+            }
             return;
         }
+        this.dissolvedGases.clear();
         long cap = getCapacityLiters();
         double ratio = (double) cap / (double) totalLoopLiters;
         for (Map.Entry<String, Long> entry : gases.entrySet()) {

@@ -232,11 +232,15 @@ public class MTEHatchPressurizedFluid extends MTEHatch implements ICoolantLoopDe
 
     // --- ICoolantLoopDevice Implementation ---
 
+    private String cachedDeviceId;
+
     @Override
     public String getDeviceId() {
+        if (cachedDeviceId != null) return cachedDeviceId;
         IGregTechTileEntity te = getBaseMetaTileEntity();
         if (te != null) {
-            return String.format("hatch_%d_%d_%d", te.getXCoord(), te.getYCoord(), te.getZCoord());
+            cachedDeviceId = "hatch_" + te.getXCoord() + "_" + te.getYCoord() + "_" + te.getZCoord();
+            return cachedDeviceId;
         }
         return "hatch_unbound";
     }

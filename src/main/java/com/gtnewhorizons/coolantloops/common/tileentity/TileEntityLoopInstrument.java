@@ -116,6 +116,7 @@ public class TileEntityLoopInstrument extends TileEntity
     public void setTrackedMetric(TrackedMetric metric) {
         if (metric != null) {
             this.trackedMetric = metric;
+            this.cachedDeviceId = null;
             updateOutputs();
             markDirty();
         }
@@ -288,15 +289,15 @@ public class TileEntityLoopInstrument extends TileEntity
         };
     }
 
+    private String cachedDeviceId;
+
     @Override
     public String getDeviceId() {
-        return String.format(
-            "instrument_%s_%d_%d_%d",
-            trackedMetric.name()
-                .toLowerCase(),
-            xCoord,
-            yCoord,
-            zCoord);
+        if (cachedDeviceId == null) {
+            cachedDeviceId = "instrument_" + trackedMetric.name()
+                .toLowerCase() + "_" + xCoord + "_" + yCoord + "_" + zCoord;
+        }
+        return cachedDeviceId;
     }
 
     @Override
