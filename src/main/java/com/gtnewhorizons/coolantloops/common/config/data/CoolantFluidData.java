@@ -1,9 +1,11 @@
 package com.gtnewhorizons.coolantloops.common.config.data;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Data-driven configuration container for closed-loop coolant fluids.
@@ -307,26 +309,38 @@ public class CoolantFluidData {
         this.fluids = fluids;
     }
 
+    private final Set<String> normalizedLiquidNuclearFuels = new HashSet<>();
+
     public List<String> getLiquidNuclearFuels() {
         return liquidNuclearFuels;
     }
 
     public void setLiquidNuclearFuels(List<String> fuels) {
         this.liquidNuclearFuels = fuels;
+        rebuildNormalizedFuels();
+    }
+
+    public synchronized void rebuildNormalizedFuels() {
+        normalizedLiquidNuclearFuels.clear();
+        if (liquidNuclearFuels != null) {
+            for (String fuel : liquidNuclearFuels) {
+                if (fuel != null) {
+                    normalizedLiquidNuclearFuels.add(
+                        fuel.trim()
+                            .toLowerCase());
+                }
+            }
+        }
     }
 
     public boolean isLiquidNuclearFuel(String name) {
         if (name == null) return false;
-        String clean = name.trim()
-            .toLowerCase();
-        for (String fuel : liquidNuclearFuels) {
-            if (fuel != null && clean.equals(
-                fuel.trim()
-                    .toLowerCase())) {
-                return true;
-            }
+        if (normalizedLiquidNuclearFuels.isEmpty() && !liquidNuclearFuels.isEmpty()) {
+            rebuildNormalizedFuels();
         }
-        return false;
+        return normalizedLiquidNuclearFuels.contains(
+            name.trim()
+                .toLowerCase());
     }
 
     public Map<String, Object> toMap() {

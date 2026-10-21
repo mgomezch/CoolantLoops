@@ -682,16 +682,21 @@ public class LoopGraphCrawler {
         public final List<BlockPosCoord> inputPorts = new ArrayList<>();
         public final List<BlockPosCoord> outputPorts = new ArrayList<>();
 
+        private String cachedGroupId;
+
         public String getGroupId() {
-            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
-            for (BlockPosCoord c : blockCoords) {
-                if (c.x < minX || (c.x == minX && (c.y < minY || (c.y == minY && c.z < minZ)))) {
-                    minX = c.x;
-                    minY = c.y;
-                    minZ = c.z;
+            if (cachedGroupId == null) {
+                int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+                for (BlockPosCoord c : blockCoords) {
+                    if (c.x < minX || (c.x == minX && (c.y < minY || (c.y == minY && c.z < minZ)))) {
+                        minX = c.x;
+                        minY = c.y;
+                        minZ = c.z;
+                    }
                 }
+                cachedGroupId = "manifold_group_" + minX + "_" + minY + "_" + minZ;
             }
-            return String.format("manifold_group_%d_%d_%d", minX, minY, minZ);
+            return cachedGroupId;
         }
     }
 
@@ -894,8 +899,8 @@ public class LoopGraphCrawler {
 
             this.detectedLoopMaterial = expectedTankMaterial != null ? expectedTankMaterial
                 : (pump != null ? pump.getTankMaterial() : null);
-            this.sourceNodeId = String.format("pump_disc_%d_%d_%d", startX, startY, startZ);
-            this.sinkNodeId = String.format("pump_suc_%d_%d_%d", targetX, targetY, targetZ);
+            this.sourceNodeId = "pump_disc_" + startX + "_" + startY + "_" + startZ;
+            this.sinkNodeId = "pump_suc_" + targetX + "_" + targetY + "_" + targetZ;
             addGraphNode(graphNodes, sourceNodeId, NodeType.SOURCE, null);
 
             int firstX = startX + startDir.offsetX;
@@ -1416,8 +1421,9 @@ public class LoopGraphCrawler {
                     }
 
                     CoolantPipingRegistry.PipeProperties props = CoolantPipingRegistry.getProperties(pipe);
+                    String pipeNodeId = "pipe_" + step.x + "_" + step.y + "_" + step.z;
                     LoopSegment seg = new LoopSegment(
-                        String.format("pipe_%d_%d_%d", step.x, step.y, step.z),
+                        pipeNodeId,
                         step.x,
                         step.y,
                         step.z,
@@ -1434,7 +1440,6 @@ public class LoopGraphCrawler {
                     seg.setFlowSizeWeight(getPipeSizeWeight(pipe.mThickNess) * Math.max(1, pipe.mPipeAmount));
                     segments.add(seg);
 
-                    String pipeNodeId = String.format("pipe_%d_%d_%d", step.x, step.y, step.z);
                     addGraphNode(graphNodes, pipeNodeId, NodeType.PIPE, pCoord);
                     addGraphEdge(graphEdges, reverseGraphEdges, step.fromNodeId, pipeNodeId);
 

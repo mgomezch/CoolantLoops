@@ -269,9 +269,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             dev.setLoopPump(this);
             LoopSegment seg = null;
             if (mEngine != null) {
+                String devId = dev.getDeviceId();
                 for (LoopSegment s : mEngine.getSegments()) {
                     if (s.getId()
-                        .equals(dev.getDeviceId())) {
+                        .equals(devId)) {
                         seg = s;
                         break;
                     }
@@ -1246,10 +1247,11 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                     mEngine.setBraking(false);
                 }
 
-                mLoopStatus = String.format(
-                    "Actively decelerating flow: %.1f L/s -> 0.0 L/s (power: %.1f kW)",
-                    mEngine.getFlowRateLitersPerSecond(),
-                    mechanicalWatts / 1000.0);
+                mLoopStatus = "Actively decelerating flow: "
+                    + (Math.round(mEngine.getFlowRateLitersPerSecond() * 10.0) / 10.0)
+                    + " L/s -> 0.0 L/s (power: "
+                    + (Math.round(mechanicalWatts / 100.0) / 10.0)
+                    + " kW)";
 
                 // Thermal exchange during deceleration
                 double decelFlowRate = mEngine.getVolumetricFlowRate();
@@ -1604,9 +1606,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return null;
     }
 
+    private ItemStack mCachedRotorObj = null;
+    private int mCachedRotorDamage = -1;
+
     public boolean updateRotorEfficiency() {
         ItemStack rotor = getRotor();
         if (rotor != null && isMetaGeneratedTool(rotor.getItem())) {
+            if (rotor == mCachedRotorObj && rotor.getItemDamage() == mCachedRotorDamage && mRotorMaterial != null) {
+                return true;
+            }
             try {
                 TurbineStatCalculator calc = new TurbineStatCalculator((MetaGeneratedTool) rotor.getItem(), rotor);
                 double eff = calc.getBaseEfficiency();
@@ -1614,11 +1622,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 mRotorStack = rotor;
                 Materials mat = RotorThermalHelper.getRotorMaterial(rotor);
                 mRotorMaterial = (mat != null && mat != Materials._NULL) ? mat : Materials.Steel;
+                mCachedRotorObj = rotor;
+                mCachedRotorDamage = rotor.getItemDamage();
                 return true;
             } catch (Throwable ignored) {
                 mRotorEfficiency = 1.0;
                 mRotorStack = rotor;
                 mRotorMaterial = Materials.Steel;
+                mCachedRotorObj = rotor;
+                mCachedRotorDamage = rotor.getItemDamage();
                 return true;
             }
         }
@@ -1628,11 +1640,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         }
         mRotorStack = null;
         mRotorMaterial = null;
+        mCachedRotorObj = null;
+        mCachedRotorDamage = -1;
         return false;
     }
 
     public void setRotorStack(ItemStack stack) {
         this.mRotorStack = stack;
+        this.mCachedRotorObj = stack;
+        this.mCachedRotorDamage = stack != null ? stack.getItemDamage() : -1;
         this.mRotorMaterial = RotorThermalHelper.getRotorMaterial(stack);
         if (stack != null && isMetaGeneratedTool(stack.getItem())) {
             try {

@@ -672,7 +672,10 @@ public class TileEntityManifold extends TileEntity implements ICoolantLoopDevice
 
     public String getActivePumpId() {
         if (activePumpId != null) return activePumpId;
-        if (activePumpPos != null) return activePumpPos.toString();
+        if (activePumpPos != null) {
+            activePumpId = activePumpPos.toString();
+            return activePumpId;
+        }
         return null;
     }
 
