@@ -458,7 +458,11 @@ public class FloatingPanelNEIHandler
     @Override
     public List<String> handleTooltip(GuiContainer gui, int mouseX, int mouseY, List<String> currenttip) {
         if (isInsideFloatingPanel(gui, mouseX, mouseY)) {
-            return Collections.emptyList();
+            if (currenttip != null) {
+                currenttip.clear();
+                return currenttip;
+            }
+            return new ArrayList<>();
         }
         return currenttip;
     }

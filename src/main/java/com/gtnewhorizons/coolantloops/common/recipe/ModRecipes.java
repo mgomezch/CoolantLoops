@@ -79,35 +79,69 @@ public class ModRecipes {
         return 6; // Neutronium / tier > 5 repeats tier 2 (Mica)
     }
 
+    private static ItemStack getNHItem(String name) {
+        try {
+            Class<?> clazz = Class.forName("com.dreammaster.item.NHItemList");
+            for (Object constant : clazz.getEnumConstants()) {
+                if (constant.toString()
+                    .equalsIgnoreCase(name)) {
+                    java.lang.reflect.Method m = clazz.getMethod("get", int.class);
+                    return (ItemStack) m.invoke(constant, 1);
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private static ItemStack findItemSafe(String modId, String name, int amount, int meta) {
+        try {
+            net.minecraft.item.Item item = cpw.mods.fml.common.registry.GameRegistry.findItem(modId, name);
+            if (item != null) {
+                return new ItemStack(item, amount, meta);
+            }
+            ItemStack is = cpw.mods.fml.common.registry.GameRegistry.findItemStack(modId, name, amount);
+            if (is != null) {
+                if (meta > 0) is.setItemDamage(meta);
+                return is;
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
     public static ItemStack getInsulationItem(int tier) {
         ItemStack stack = null;
         switch (tier) {
             case 1:
-                stack = GTModHandler.getModItem("dreamcraft", "item.AluminoSilicateWool", 1L);
-                if (stack == null) stack = GTModHandler.getModItem("dreamcraft", "AluminoSilicateWool", 1L);
+                stack = getNHItem("AluminoSilicateWool");
+                if (stack == null) stack = findItemSafe("dreamcraft", "AluminoSilicateWool", 1, 0);
                 if (stack == null) stack = GTOreDictUnificator.get("woolAluminoSilicate", 1L);
                 if (stack == null) stack = GTOreDictUnificator.get(OrePrefixes.plate, Materials.Asbestos, 1L);
                 if (stack == null) stack = new ItemStack(net.minecraft.init.Blocks.wool);
                 break;
             case 2:
-                stack = GTModHandler.getModItem("dreamcraft", "item.MicaInsulatorFoil", 1L);
-                if (stack == null) stack = GTModHandler.getModItem("dreamcraft", "MicaInsulatorFoil", 1L);
+                stack = getNHItem("MicaInsulatorFoil");
+                if (stack == null) stack = findItemSafe("dreamcraft", "MicaInsulatorFoil", 1, 0);
                 if (stack == null) stack = GTOreDictUnificator.get(OrePrefixes.foil, Materials.Mica, 1L);
-                if (stack == null) stack = ItemList.Naquarite_Universal_Insulator_Foil.get(1L);
+                if (stack == null && ItemList.Naquarite_Universal_Insulator_Foil.hasBeenSet()) {
+                    stack = ItemList.Naquarite_Universal_Insulator_Foil.get(1L);
+                }
                 if (stack == null) stack = new ItemStack(net.minecraft.init.Items.paper);
                 break;
             case 3:
-                stack = GTModHandler.getModItem("GalacticraftMars", "item.itemBasicAsteroids", 1L, 7);
-                if (stack == null) stack = GTModHandler.getModItem("GalacticraftMars", "itemBasicAsteroids", 1L, 7);
+                stack = findItemSafe("GalacticraftMars", "itemBasicAsteroids", 1, 7);
+                if (stack == null) stack = findItemSafe("GalacticraftMars", "item.itemBasicAsteroids", 1, 7);
                 if (stack == null) stack = getInsulationItem(2);
                 break;
             case 4:
-                stack = GTModHandler.getModItem("GalaxySpace", "item.ThermalClothT2", 1L);
-                if (stack == null) stack = GTModHandler.getModItem("GalaxySpace", "ThermalClothT2", 1L);
+                stack = findItemSafe("GalaxySpace", "ThermalClothT2", 1, 0);
+                if (stack == null) stack = findItemSafe("GalaxySpace", "item.ThermalClothT2", 1, 0);
                 if (stack == null) stack = getInsulationItem(2);
                 break;
             case 5:
-                stack = ItemList.Naquarite_Universal_Insulator_Foil.get(1L);
+                if (ItemList.Naquarite_Universal_Insulator_Foil.hasBeenSet()) {
+                    stack = ItemList.Naquarite_Universal_Insulator_Foil.get(1L);
+                }
+                if (stack == null) stack = GTOreDictUnificator.get(OrePrefixes.foil, Materials.Naquadah, 1L);
                 if (stack == null) stack = getInsulationItem(2);
                 break;
             default:
