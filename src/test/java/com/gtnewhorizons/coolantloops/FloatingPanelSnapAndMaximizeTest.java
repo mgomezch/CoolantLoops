@@ -311,14 +311,12 @@ public class FloatingPanelSnapAndMaximizeTest {
 
         PanelDragHandle handle = new PanelDragHandle(panel);
         assertFalse(handle.canClickThrough(), "PanelDragHandle must not allow clicks through");
-        assertEquals(
-            com.cleanroommc.modularui.api.widget.Interactable.Result.STOP,
-            handle.onMousePressed(0),
-            "Left click on handle must STOP propagation to lower layers");
-        assertEquals(
-            com.cleanroommc.modularui.api.widget.Interactable.Result.IGNORE,
-            handle.onMousePressed(1),
-            "Right click should not stop interaction");
+        assertTrue(
+            handle instanceof com.cleanroommc.modularui.api.widget.IDraggable,
+            "PanelDragHandle must implement IDraggable");
+        assertFalse(
+            handle instanceof com.cleanroommc.modularui.api.widget.Interactable,
+            "PanelDragHandle must not implement Interactable to avoid bypassing onHoveredClick");
     }
 
     @Test
@@ -329,5 +327,43 @@ public class FloatingPanelSnapAndMaximizeTest {
         assertFalse(
             com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.intersects(panelArea, 200, 200, 50, 50));
         assertFalse(com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler.intersects(null, 0, 0, 10, 10));
+    }
+
+    @Test
+    void testNEIVisibilityPreserved() {
+        com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler handler = new com.gtnewhorizons.coolantloops.common.gui.FloatingPanelNEIHandler();
+        codechicken.nei.VisiblityData vis = new codechicken.nei.VisiblityData();
+        vis.showNEI = true;
+        vis.showItemPanel = true;
+        vis.showBookmarkPanel = true;
+        vis.showUtilityButtons = true;
+        vis.showWidgets = true;
+        vis.showSubsetDropdown = true;
+        vis.showSearchSection = true;
+
+        codechicken.nei.VisiblityData modified = handler.modifyVisiblity(null, vis);
+        assertSame(vis, modified);
+        assertTrue(modified.showNEI, "NEI must remain visible in background");
+        assertTrue(modified.showItemPanel, "Item panel must not be hidden when floating panels exist");
+        assertTrue(modified.showBookmarkPanel, "Bookmark panel must not be hidden");
+        assertTrue(modified.showUtilityButtons, "Utility buttons must not be hidden");
+        assertTrue(modified.showWidgets, "NEI widgets must not be hidden");
+        assertTrue(modified.showSubsetDropdown, "Subset dropdown must not be hidden");
+        assertTrue(modified.showSearchSection, "Search section must not be hidden");
+
+        assertFalse(handler.hideItemPanelSlot(null, 0, 0, 18, 18), "NEI slots must not be hidden");
+    }
+
+    @Test
+    void testFloatingPanelNormalRenderSuppression() {
+        ResizeableFloatingPanel panel = new ResizeableFloatingPanel("render_test_panel");
+        panel.setLastRenderFrameId(42);
+        assertEquals(42, panel.getLastRenderFrameId());
+
+        // When not suppressing normal render, panel is enabled and disablePanelsBelow reflects snap mode
+        assertTrue(panel.isEnabled(), "Panel should be enabled by default");
+        assertFalse(panel.disablePanelsBelow());
+        panel.maximize(new Area(0, 0, 800, 600));
+        assertTrue(panel.disablePanelsBelow());
     }
 }

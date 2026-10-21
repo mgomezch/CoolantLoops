@@ -1,27 +1,43 @@
 package com.gtnewhorizons.coolantloops.common.gui;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.common.MinecraftForge;
+
+import org.lwjgl.opengl.GL11;
 
 import com.cleanroommc.modularui.core.mixins.early.minecraft.GuiContainerAccessor;
+import com.cleanroommc.modularui.drawable.GuiDraw;
 import com.cleanroommc.modularui.screen.ClientScreenHandler;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.ModularScreen;
+import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
+import com.cleanroommc.modularui.utils.Color;
+import com.cleanroommc.modularui.utils.GlStateManager;
+import com.cleanroommc.modularui.widget.WidgetTree;
 import com.cleanroommc.modularui.widget.sizer.Area;
 
+import codechicken.nei.NEIClientConfig;
 import codechicken.nei.VisiblityData;
 import codechicken.nei.api.API;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.api.TaggedInventoryArea;
 import codechicken.nei.guihook.GuiContainerManager;
+import codechicken.nei.guihook.IContainerDrawHandler;
 import codechicken.nei.guihook.IContainerInputHandler;
 import codechicken.nei.guihook.IContainerTooltipHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -29,17 +45,21 @@ import cpw.mods.fml.relauncher.SideOnly;
  * Bridges ModularUI floating panels (such as Coolant Loop Pump graphs) with Not Enough Items (NEI).
  * <p>
  * Ensures floating panels take precedence over NEI widgets:
- * 1. Suppresses NEI widgets (utility buttons, bookmark panel, item panel, subset dropdown, search section)
- * when covered by an open or maximized floating panel, preventing NEI from rendering over floating panel controls.
- * 2. Captures mouse clicks, dragging, and scrolling inside floating panel bounds with higher priority so NEI
- * never intercepts clicks intended for floating panel controls.
+ * 1. Renders floating panels on top of NEI widgets via {@link IContainerDrawHandler#postRenderObjects},
+ * keeping NEI fully visible in the background without jarring visibility pop-in/pop-out.
+ * 2. Captures mouse clicks, dragging, and scrolling inside floating panel bounds with higher priority
+ * so NEI never intercepts clicks intended for floating panel controls.
  * 3. Suppresses NEI tooltips and hotkeys when hovering over floating panels.
  * </p>
  */
 @SideOnly(Side.CLIENT)
-public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputHandler, IContainerTooltipHandler {
+public class FloatingPanelNEIHandler
+    implements INEIGuiHandler, IContainerInputHandler, IContainerTooltipHandler, IContainerDrawHandler {
 
     private static boolean registered = false;
+    private static volatile boolean normalDrawingScreen = false;
+    private static volatile boolean drawingOverNEI = false;
+    private static long renderFrameId = 0;
 
     public static synchronized void register() {
         if (registered) return;
@@ -61,7 +81,68 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
                 GuiContainerManager.inputHandlers.addFirst(handler);
             }
             GuiContainerManager.addTooltipHandler(handler);
+            if (!GuiContainerManager.drawHandlers.contains(handler)) {
+                GuiContainerManager.addDrawHandler(handler);
+            }
+            MinecraftForge.EVENT_BUS.register(handler);
+
+            // Also register peer handler in modularnuclear package if present
+            try {
+                Class<?> peer = Class.forName("com.gtnewhorizons.modularnuclear.common.gui.FloatingPanelNEIHandler");
+                if (peer != FloatingPanelNEIHandler.class) {
+                    peer.getMethod("register")
+                        .invoke(null);
+                }
+            } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
+    }
+
+    public static boolean isNEIActive() {
+        try {
+            if (!Loader.isModLoaded("NotEnoughItems")) return false;
+            return NEIClientConfig.isEnabled() && !NEIClientConfig.isHidden();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static boolean isRecipeViewerActive(ModularScreen screen) {
+        if (screen == null) return false;
+        try {
+            ModularGuiContext ctx = screen.getContext();
+            if (ctx != null && ctx.getRecipeViewerSettings() != null) {
+                return ctx.getRecipeViewerSettings()
+                    .isEnabled(screen);
+            }
+        } catch (Throwable ignored) {}
+        return true;
+    }
+
+    public static boolean isNormalDrawingScreen() {
+        return normalDrawingScreen;
+    }
+
+    public static boolean isDrawingOverNEI() {
+        return drawingOverNEI;
+    }
+
+    public static boolean isSuppressingNormalRender() {
+        if (!isNEIActive() || !normalDrawingScreen || drawingOverNEI) {
+            return false;
+        }
+        ModularScreen screen = ClientScreenHandler.getMuiScreen();
+        return isRecipeViewerActive(screen);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onDrawScreenPre(GuiScreenEvent.DrawScreenEvent.Pre event) {
+        renderFrameId++;
+        normalDrawingScreen = true;
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onDrawScreenPost(GuiScreenEvent.DrawScreenEvent.Post event) {
+        normalDrawingScreen = false;
     }
 
     public static ModularScreen getModularScreen(GuiContainer gui) {
@@ -117,6 +198,11 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
         if (panel instanceof ResizeableFloatingPanel) {
             return ((ResizeableFloatingPanel) panel).getEffectiveArea();
         }
+        try {
+            java.lang.reflect.Method m = panel.getClass()
+                .getMethod("getEffectiveArea");
+            return (Area) m.invoke(panel);
+        } catch (Throwable ignored) {}
         return panel.getArea();
     }
 
@@ -159,74 +245,147 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
         return false;
     }
 
+    // --- IContainerDrawHandler implementation ---
+
     @Override
-    public VisiblityData modifyVisiblity(GuiContainer gui, VisiblityData visiblity) {
+    public void onPreDraw(GuiContainer gui) {}
+
+    @Override
+    public void renderObjects(GuiContainer gui, int mouseX, int mouseY) {
+        normalDrawingScreen = false;
+    }
+
+    @Override
+    public void postRenderObjects(GuiContainer gui, int mouseX, int mouseY) {
+        normalDrawingScreen = false;
+        renderFloatingPanels(gui, mouseX, mouseY);
+    }
+
+    @Override
+    public void renderSlotUnderlay(GuiContainer gui, Slot slot) {}
+
+    @Override
+    public void renderSlotOverlay(GuiContainer gui, Slot slot) {}
+
+    public static void renderFloatingPanels(GuiContainer gui, int mouseX, int mouseY) {
         ModularScreen screen = getModularScreen(gui);
         if (screen == null || screen.getPanelManager() == null) {
-            return visiblity;
+            return;
         }
 
-        int guiLeft = getGuiLeft(gui);
-        int guiTop = getGuiTop(gui);
-        int xSize = getXSize(gui);
-        int ySize = getYSize(gui);
+        List<ModularPanel> openPanels = screen.getPanelManager()
+            .getOpenPanels();
+        if (openPanels == null || openPanels.isEmpty()) {
+            return;
+        }
 
-        for (ModularPanel panel : screen.getPanelManager()
-            .getOpenPanels()) {
+        boolean hasFloating = false;
+        for (ModularPanel panel : openPanels) {
             if (isFloatingPanel(panel) && panel.isOpen()) {
-                Area area = getPanelArea(panel);
-                if (area == null || area.width <= 0 || area.height <= 0) {
-                    continue;
-                }
-
-                // If maximized or covering full screen: completely hide NEI
-                if (isMaximized(panel, gui)) {
-                    visiblity.showNEI = false;
-                    visiblity.showUtilityButtons = false;
-                    visiblity.showBookmarkPanel = false;
-                    visiblity.showItemPanel = false;
-                    visiblity.showSubsetDropdown = false;
-                    visiblity.showSearchSection = false;
-                    visiblity.showWidgets = false;
-                    return visiblity;
-                }
-
-                // 1. Top-left utility buttons (x from 0 to guiLeft or 120, y from 0 to 120)
-                int utilW = Math.max(120, guiLeft);
-                int utilH = Math.max(120, guiTop + 80);
-                if (intersects(area, 0, 0, utilW, utilH)) {
-                    visiblity.showUtilityButtons = false;
-                    visiblity.showWidgets = false;
-                }
-
-                // 2. Bookmarks panel on left
-                int bookW = Math.max(30, guiLeft);
-                if (intersects(area, 0, 0, bookW, gui.height)) {
-                    visiblity.showBookmarkPanel = false;
-                }
-
-                // 3. Item panel on right
-                int itemX = guiLeft + xSize;
-                int itemW = Math.max(30, gui.width - itemX);
-                if (intersects(area, itemX, 0, itemW, gui.height)) {
-                    visiblity.showItemPanel = false;
-                }
-
-                // 4. Subset dropdown at top center
-                int dropH = Math.max(25, guiTop);
-                if (intersects(area, guiLeft, 0, xSize, dropH)) {
-                    visiblity.showSubsetDropdown = false;
-                }
-
-                // 5. Search section at bottom center
-                int searchY = guiTop + ySize;
-                int searchH = Math.max(25, gui.height - searchY);
-                if (intersects(area, guiLeft, searchY, xSize, searchH)) {
-                    visiblity.showSearchSection = false;
-                }
+                hasFloating = true;
+                break;
             }
         }
+        if (!hasFloating) {
+            return;
+        }
 
+        ModularGuiContext context = screen.getContext();
+        if (context == null) {
+            return;
+        }
+
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        drawingOverNEI = true;
+        try {
+            GlStateManager.disableRescaleNormal();
+            net.minecraft.client.renderer.RenderHelper.disableStandardItemLighting();
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.enableBlend();
+            GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableAlpha();
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+
+            context.reset();
+            context.pushViewport(null, context.getScreenArea());
+
+            for (ModularPanel panel : screen.getPanelManager()
+                .getReverseOpenPanels()) {
+                if (isFloatingPanel(panel) && panel.isOpen()) {
+                    if (isAlreadyRenderedThisFrame(panel, renderFrameId)) {
+                        continue;
+                    }
+                    markRenderedThisFrame(panel, renderFrameId);
+
+                    context.updateZ(0);
+                    if (panel.disablePanelsBelow()) {
+                        float alpha = panel.getAlpha();
+                        int color = Color.argb(16, 16, 16, (int) (125.0f * alpha));
+                        GuiDraw.drawRect(
+                            0,
+                            0,
+                            context.getScreenArea()
+                                .w(),
+                            context.getScreenArea()
+                                .h(),
+                            color);
+                    }
+                    WidgetTree.drawTree(panel, context);
+                    GlStateManager.clearDepth(1.0);
+                    GlStateManager.clear(256);
+                }
+            }
+
+            context.updateZ(0);
+            context.popViewport(null);
+
+            if (context.postRenderCallbacks != null && !context.postRenderCallbacks.isEmpty()) {
+                List<Consumer<ModularGuiContext>> callbacks = new ArrayList<>(context.postRenderCallbacks);
+                context.postRenderCallbacks.clear();
+                for (Consumer<ModularGuiContext> cb : callbacks) {
+                    cb.accept(context);
+                }
+            }
+        } catch (Throwable ignored) {} finally {
+            drawingOverNEI = false;
+            GL11.glPopAttrib();
+            GL11.glPopMatrix();
+        }
+    }
+
+    private static boolean isAlreadyRenderedThisFrame(ModularPanel panel, long frameId) {
+        if (panel instanceof ResizeableFloatingPanel) {
+            return ((ResizeableFloatingPanel) panel).getLastRenderFrameId() == frameId;
+        }
+        try {
+            java.lang.reflect.Method m = panel.getClass()
+                .getMethod("getLastRenderFrameId");
+            return ((Long) m.invoke(panel)) == frameId;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static void markRenderedThisFrame(ModularPanel panel, long frameId) {
+        if (panel instanceof ResizeableFloatingPanel) {
+            ((ResizeableFloatingPanel) panel).setLastRenderFrameId(frameId);
+            return;
+        }
+        try {
+            java.lang.reflect.Method m = panel.getClass()
+                .getMethod("setLastRenderFrameId", long.class);
+            m.invoke(panel, frameId);
+        } catch (Throwable ignored) {}
+    }
+
+    // --- INEIGuiHandler implementation ---
+
+    @Override
+    public VisiblityData modifyVisiblity(GuiContainer gui, VisiblityData visiblity) {
+        // Keep NEI visible in background; floating panels render over NEI cleanly.
         return visiblity;
     }
 
@@ -247,22 +406,10 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
 
     @Override
     public boolean hideItemPanelSlot(GuiContainer gui, int x, int y, int w, int h) {
-        ModularScreen screen = getModularScreen(gui);
-        if (screen == null || screen.getPanelManager() == null) {
-            return false;
-        }
-
-        for (ModularPanel panel : screen.getPanelManager()
-            .getOpenPanels()) {
-            if (isFloatingPanel(panel) && panel.isOpen()) {
-                Area area = getPanelArea(panel);
-                if (area != null && intersects(area, x, y, w, h)) {
-                    return true;
-                }
-            }
-        }
         return false;
     }
+
+    // --- IContainerInputHandler implementation ---
 
     @Override
     public boolean mouseClicked(GuiContainer gui, int mouseX, int mouseY, int button) {
@@ -288,6 +435,13 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
 
     @Override
     public boolean keyTyped(GuiContainer gui, char keyChar, int keyCode) {
+        ModularScreen screen = getModularScreen(gui);
+        if (screen != null && screen.getContext() != null) {
+            ModularGuiContext ctx = screen.getContext();
+            if (ctx.isFocused()) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -298,6 +452,8 @@ public class FloatingPanelNEIHandler implements INEIGuiHandler, IContainerInputH
     public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyCode) {
         return false;
     }
+
+    // --- IContainerTooltipHandler implementation ---
 
     @Override
     public List<String> handleTooltip(GuiContainer gui, int mouseX, int mouseY, List<String> currenttip) {

@@ -7,7 +7,6 @@ import com.cleanroommc.modularui.api.layout.IViewport;
 import com.cleanroommc.modularui.api.layout.IViewportStack;
 import com.cleanroommc.modularui.api.widget.IDraggable;
 import com.cleanroommc.modularui.api.widget.IWidget;
-import com.cleanroommc.modularui.api.widget.Interactable;
 import com.cleanroommc.modularui.drawable.text.TextRenderer;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.screen.viewport.ModularGuiContext;
@@ -31,7 +30,7 @@ import com.cleanroommc.modularui.widget.sizer.Area;
  * to drag the window by both the title text and the empty title-bar space without position jumps.
  * </p>
  */
-public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggable, IViewport, Interactable {
+public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggable, IViewport {
 
     private ModularPanel panel;
     private final Area movingArea = new Area();
@@ -87,14 +86,6 @@ public class PanelDragHandle extends Widget<PanelDragHandle> implements IDraggab
     @Override
     public boolean canClickThrough() {
         return false;
-    }
-
-    @Override
-    public Interactable.Result onMousePressed(int button) {
-        if (button == 0) {
-            return Interactable.Result.STOP;
-        }
-        return Interactable.Result.IGNORE;
     }
 
     private static final long DOUBLE_CLICK_TIME_MS = 320L;

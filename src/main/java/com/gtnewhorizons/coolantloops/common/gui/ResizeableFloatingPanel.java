@@ -510,6 +510,24 @@ public class ResizeableFloatingPanel extends ModularPanel {
         return getArea();
     }
 
+    private long lastRenderFrameId = -1;
+
+    public long getLastRenderFrameId() {
+        return this.lastRenderFrameId;
+    }
+
+    public void setLastRenderFrameId(long id) {
+        this.lastRenderFrameId = id;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        if (FloatingPanelNEIHandler.isSuppressingNormalRender()) {
+            return false;
+        }
+        return super.isEnabled();
+    }
+
     @Override
     public boolean canClickThrough() {
         return false;
@@ -517,6 +535,9 @@ public class ResizeableFloatingPanel extends ModularPanel {
 
     @Override
     public boolean disablePanelsBelow() {
+        if (FloatingPanelNEIHandler.isSuppressingNormalRender()) {
+            return false;
+        }
         return this.currentSnap == SnapMode.MAXIMIZED;
     }
 
