@@ -27,6 +27,7 @@ import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityLoopInstrument
 import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
 import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.ICoolantLoopDevice;
+import com.gtnewhorizons.coolantloops.engine.ICoolantPassageHatch;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.BlockPosCoord;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
@@ -35,6 +36,8 @@ import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.NodeType;
 import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 
 import gregtech.api.enums.Materials;
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.metatileentity.MetaTileEntity;
 
 /**
  * Serialized representation of the coolant loop's topological flow graph and telemetry.
@@ -64,8 +67,12 @@ public class CoolantLoopGraphData {
         public int xCoord, yCoord, zCoord;
         public String status = "Normal";
         public double temperature = 20.0;
+        public double temperatureIn = 20.0;
+        public double temperatureOut = 20.0;
         public double flowRateLPerSec = 0.0;
         public double pressureBar = 1.0;
+        public double pressureInBar = 1.0;
+        public double pressureOutBar = 1.0;
         public Map<String, String> extraStats = new LinkedHashMap<>();
 
         public GraphNode() {}
@@ -134,6 +141,22 @@ public class CoolantLoopGraphData {
             case "instrument" -> ModBlocks.loopInstrument != null ? new ItemStack(ModBlocks.loopInstrument) : null;
             case "reservoir" -> ModBlocks.creativeHeatReservoir != null ? new ItemStack(ModBlocks.creativeHeatReservoir)
                 : null;
+            case "core_passage" -> {
+                try {
+                    Class<?> mnMeta = Class
+                        .forName("com.gtnewhorizons.modularnuclear.common.metatileentity.ModMetaTileEntities");
+                    Object hatchField = mnMeta.getField("nuclearHighPressureHatch")
+                        .get(null);
+                    if (hatchField != null) {
+                        java.lang.reflect.Method getStack = hatchField.getClass()
+                            .getMethod("getStackForm", long.class);
+                        yield (ItemStack) getStack.invoke(hatchField, 1L);
+                    }
+                } catch (Throwable ignored) {}
+                yield ModMetaTileEntities.pressurizedFluidHatch != null
+                    ? ModMetaTileEntities.pressurizedFluidHatch.getStackForm(1L)
+                    : null;
+            }
             default -> ModMetaTileEntities.pressurizedFluidHatch != null
                 ? ModMetaTileEntities.pressurizedFluidHatch.getStackForm(1L)
                 : null;
@@ -316,14 +339,17 @@ public class CoolantLoopGraphData {
         String itemType = "default_device";
         String nodeType = fn.type.name();
         int x = 0, y = 0, z = 0;
-        double temp = 20.0;
         double flow = engine.getFlowRateLitersPerSecond();
-        double pressure = 1.0;
         String status = "Normal";
         Map<String, String> extra = new LinkedHashMap<>();
 
+        double tempIn = 20.0;
+        double tempOut = 20.0;
+        double pressureIn = 1.0;
+        double pressureOut = 1.0;
+
         if (fn.type == NodeType.SOURCE) {
-            label = "Pump Discharge";
+            label = "Pump discharge";
             itemType = "coolant_pump";
             if (pump.getBaseMetaTileEntity() != null) {
                 x = pump.getBaseMetaTileEntity()
@@ -333,17 +359,18 @@ public class CoolantLoopGraphData {
                 z = pump.getBaseMetaTileEntity()
                     .getZCoord();
             }
-            temp = pump.getReservoir() != null ? pump.getReservoir()
-                .getReservoirTemperatureCelsius() : 20.0;
-            pressure = engine.getPeakLoopPressureBar();
+            tempIn = pump.getPumpFluidTemperatureCelsius();
+            tempOut = tempIn;
+            pressureIn = 1.0;
+            pressureOut = 1.0 + engine.getPumpHeadPressureBar();
             status = pump.getLoopState()
                 .name();
             extra.put(
-                "Reservoir Level",
+                "Reservoir level",
                 String
                     .format(Locale.US, "%,d / %,d L", pump.getCurrentFillLiters(), pump.getReservoirCapacityLiters()));
-            extra.put("Head Pressure", String.format(Locale.US, "%.2f bar", pressure));
-            extra.put("Pump Power", String.format(Locale.US, "%,d EU/t", pump.getPowerConsumptionEU()));
+            extra.put("Head pressure", String.format(Locale.US, "%.2f bar", engine.getPumpHeadPressureBar()));
+            extra.put("Pump power", String.format(Locale.US, "%,d EU/t", pump.getPowerConsumptionEU()));
             if (pump.getCoolantFluidProperty() != null) {
                 extra.put(
                     "Coolant",
@@ -351,7 +378,7 @@ public class CoolantLoopGraphData {
                         .getFluidName());
             }
         } else if (fn.type == NodeType.SINK) {
-            label = "Pump Suction";
+            label = "Pump suction";
             itemType = "coolant_pump";
             if (pump.getBaseMetaTileEntity() != null) {
                 x = pump.getBaseMetaTileEntity()
@@ -363,14 +390,20 @@ public class CoolantLoopGraphData {
             }
             List<LoopSegment> segs = engine.getSegments();
             if (!segs.isEmpty()) {
-                temp = segs.get(segs.size() - 1)
-                    .getCurrentTemperatureCelsius();
+                LoopSegment last = segs.get(segs.size() - 1);
+                tempIn = last.getCurrentTemperatureCelsius();
+                tempOut = tempIn;
+                pressureIn = last.getOutletPressureBar();
+            } else {
+                tempIn = pump.getPumpFluidTemperatureCelsius();
+                tempOut = tempIn;
+                pressureIn = 1.0;
             }
-            pressure = 1.0;
-            extra.put("Suction Pressure", "1.00 bar (tank head)");
-            extra.put("Return Temperature", String.format(Locale.US, "%.1f °C", temp));
+            pressureOut = 1.0;
+            extra.put("Suction pressure", "1.00 bar (tank head)");
+            extra.put("Return temperature", String.format(Locale.US, "%.1f °C", tempIn));
         } else if (fn.type == NodeType.MANIFOLD_GROUP) {
-            label = "Manifold Group";
+            label = "Manifold";
             itemType = "manifold";
             if (fn.data instanceof LoopGraphCrawler.ManifoldGroup mg) {
                 if (!mg.blockCoords.isEmpty()) {
@@ -382,15 +415,9 @@ public class CoolantLoopGraphData {
                 }
                 int ins = mg.inputPorts.size();
                 int outs = mg.outputPorts.size();
-                if (ins < outs) {
-                    label = "Manifold (splitter)";
-                } else if (ins > outs) {
-                    label = "Manifold (combiner)";
-                }
                 extra.put("Blocks", String.valueOf(mg.blockCoords.size()));
                 extra.put("Ports", String.format("%d in / %d out", ins, outs));
             }
-
         } else if (fn.type == NodeType.DEVICE) {
             Object devObj = fn.data;
             if (devObj instanceof MTEPressurizedHeatExchanger phe) {
@@ -406,7 +433,7 @@ public class CoolantLoopGraphData {
                 }
                 status = phe.getBaseMetaTileEntity() != null && phe.getBaseMetaTileEntity()
                     .isActive() ? "Active" : "Idle";
-                extra.put("Operating Mode", "High-Pressure Convective");
+                extra.put("Operating mode", "High-pressure convective");
             } else if (devObj instanceof MTEPressurizedDegasser degasser) {
                 label = "High-pressure degasser";
                 itemType = "degasser";
@@ -420,9 +447,9 @@ public class CoolantLoopGraphData {
                 }
                 status = degasser.getBaseMetaTileEntity() != null && degasser.getBaseMetaTileEntity()
                     .isActive() ? "Active" : "Idle";
-                extra.put("Purge State", "Circulating");
+                extra.put("Purge state", "Circulating");
             } else if (devObj instanceof MTECoolantBath bath) {
-                label = "Coolant Bath";
+                label = "Coolant bath";
                 itemType = "coolant_bath";
                 if (bath.getBaseMetaTileEntity() != null) {
                     x = bath.getBaseMetaTileEntity()
@@ -436,21 +463,43 @@ public class CoolantLoopGraphData {
                     .isActive() ? "Active" : "Idle";
                 extra.put("Capacity", String.format(Locale.US, "%,d L", bath.getFillVolumeLiters()));
             } else if (devObj instanceof TileEntityLoopInstrument inst) {
-                label = "Loop Instrument";
+                label = "Loop instrument";
                 itemType = "instrument";
                 x = inst.xCoord;
                 y = inst.yCoord;
                 z = inst.zCoord;
                 status = "Monitoring";
             } else if (devObj instanceof TileEntityCreativeHeatReservoir res) {
-                label = "Creative Heat Reservoir";
+                label = "Creative heat reservoir";
                 itemType = "reservoir";
                 x = res.xCoord;
                 y = res.yCoord;
                 z = res.zCoord;
                 status = "Active";
+            } else if (devObj instanceof ICoolantPassageHatch passage) {
+                label = "Nuclear core passage";
+                itemType = "core_passage";
+                IGregTechTileEntity baseTE = null;
+                if (passage instanceof MetaTileEntity mte) {
+                    baseTE = mte.getBaseMetaTileEntity();
+                }
+                if (baseTE != null) {
+                    x = baseTE.getXCoord();
+                    y = baseTE.getYCoord();
+                    z = baseTE.getZCoord();
+                }
+                status = "Active";
+                extra.put(
+                    "Core temperature",
+                    String.format(Locale.US, "%.1f °C", passage.getDeviceTemperatureCelsius()));
+                try {
+                    java.lang.reflect.Field heatField = devObj.getClass()
+                        .getField("mLastHeatOutput");
+                    double heatOut = heatField.getDouble(devObj);
+                    extra.put("Heat output", String.format(Locale.US, "%,.1f HU/s", heatOut));
+                } catch (Throwable ignored) {}
             } else if (devObj instanceof MTEHatchPressurizedFluid hatch) {
-                label = "Passage Hatch";
+                label = "Passage hatch";
                 itemType = "passage_hatch";
                 if (hatch.getBaseMetaTileEntity() != null) {
                     x = hatch.getBaseMetaTileEntity()
@@ -463,11 +512,46 @@ public class CoolantLoopGraphData {
             }
         }
 
+        // Match segment for physical telemetry
+        LoopSegment matchedSeg = null;
+        for (LoopSegment s : engine.getSegments()) {
+            if (s.getId()
+                .equals(nodeId)) {
+                matchedSeg = s;
+                break;
+            }
+        }
+
+        if (matchedSeg == null && fn.type == NodeType.MANIFOLD_GROUP
+            && fn.data instanceof LoopGraphCrawler.ManifoldGroup mg) {
+            for (BlockPosCoord coord : mg.blockCoords) {
+                for (LoopSegment s : engine.getSegments()) {
+                    if (s.getBlockX() == coord.x && s.getBlockY() == coord.y && s.getBlockZ() == coord.z) {
+                        matchedSeg = s;
+                        break;
+                    }
+                }
+                if (matchedSeg != null) break;
+            }
+        }
+
+        if (matchedSeg != null) {
+            flow = engine.getFlowRateLitersPerSecond() * matchedSeg.getFlowFraction();
+            tempIn = matchedSeg.getIncomingTemperatureCelsius();
+            tempOut = matchedSeg.getCurrentTemperatureCelsius();
+            pressureIn = matchedSeg.getInletPressureBar();
+            pressureOut = matchedSeg.getOutletPressureBar();
+        }
+
         GraphNode node = new GraphNode(nodeId, label, itemType, nodeType, x, y, z);
         node.status = status;
-        node.temperature = temp;
+        node.temperatureIn = tempIn;
+        node.temperatureOut = tempOut;
+        node.temperature = tempOut;
+        node.pressureInBar = pressureIn;
+        node.pressureOutBar = pressureOut;
+        node.pressureBar = pressureOut;
         node.flowRateLPerSec = flow;
-        node.pressureBar = pressure;
         node.extraStats = extra;
         return node;
     }
@@ -548,11 +632,15 @@ public class CoolantLoopGraphData {
 
     private static void buildLinearFallbackGraph(MTECoolantPump pump, CoolantLoopEngine engine,
         CoolantLoopGraphData data) {
-        GraphNode source = new GraphNode("source", "Pump Discharge", "coolant_pump", "SOURCE", 0, 0, 0);
+        GraphNode source = new GraphNode("source", "Pump discharge", "coolant_pump", "SOURCE", 0, 0, 0);
         source.temperature = pump.getReservoir() != null ? pump.getReservoir()
             .getReservoirTemperatureCelsius() : 20.0;
+        source.temperatureIn = source.temperature;
+        source.temperatureOut = source.temperature;
         source.flowRateLPerSec = engine.getFlowRateLitersPerSecond();
         source.pressureBar = engine.getPeakLoopPressureBar();
+        source.pressureInBar = 1.0;
+        source.pressureOutBar = source.pressureBar;
         data.nodes.add(source);
 
         String prevId = "source";
@@ -569,20 +657,30 @@ public class CoolantLoopGraphData {
                 label = "High-pressure degasser";
             } else if (dev instanceof MTECoolantBath) {
                 itemType = "coolant_bath";
-                label = "Coolant Bath";
+                label = "Coolant bath";
             }
             GraphNode devNode = new GraphNode(devId, label, itemType, "DEVICE", 0, 0, 0);
             devNode.temperature = engine.getAvgLoopTempCelsius();
+            devNode.temperatureIn = devNode.temperature;
+            devNode.temperatureOut = devNode.temperature;
             devNode.flowRateLPerSec = engine.getFlowRateLitersPerSecond();
+            devNode.pressureBar = engine.getPeakLoopPressureBar();
+            devNode.pressureInBar = devNode.pressureBar;
+            devNode.pressureOutBar = devNode.pressureBar;
             data.nodes.add(devNode);
 
             data.edges.add(new GraphEdge("edge_" + devIdx, prevId, devId));
             prevId = devId;
         }
 
-        GraphNode sink = new GraphNode("sink", "Pump Suction", "coolant_pump", "SINK", 0, 0, 0);
+        GraphNode sink = new GraphNode("sink", "Pump suction", "coolant_pump", "SINK", 0, 0, 0);
         sink.temperature = engine.getAvgLoopTempCelsius();
+        sink.temperatureIn = sink.temperature;
+        sink.temperatureOut = sink.temperature;
         sink.flowRateLPerSec = engine.getFlowRateLitersPerSecond();
+        sink.pressureBar = 1.0;
+        sink.pressureInBar = 1.0;
+        sink.pressureOutBar = 1.0;
         data.nodes.add(sink);
         data.edges.add(new GraphEdge("edge_sink", prevId, "sink"));
     }

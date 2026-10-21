@@ -24,6 +24,9 @@ public class LoopSegment {
     private final double maxTemperatureCelsius;// Maximum safe operating temperature in deg C
 
     private double currentTemperatureCelsius; // Current temperature of coolant in this segment
+    private double incomingTemperatureCelsius = 20.0; // Temperature of coolant entering this segment
+    private double inletPressureBar = 1.0; // Hydraulic pressure entering this segment
+    private double outletPressureBar = 1.0; // Hydraulic pressure exiting this segment
     private double flowFraction = 1.0; // Fraction of loop volumetric flow rate traversing this segment
     private final List<LoopSegment> upstreamSegments = new ArrayList<>();
 
@@ -60,6 +63,7 @@ public class LoopSegment {
         this.maxPressureBar = maxPressureBar;
         this.maxTemperatureCelsius = maxTemperatureCelsius;
         this.currentTemperatureCelsius = initialTempCelsius;
+        this.incomingTemperatureCelsius = initialTempCelsius;
     }
 
     public LoopSegment(String id, ChunkCoordinates coords, double length, double diameter, double roughness,
@@ -199,6 +203,30 @@ public class LoopSegment {
 
     public void setCurrentTemperatureCelsius(double temp) {
         this.currentTemperatureCelsius = temp;
+    }
+
+    public double getIncomingTemperatureCelsius() {
+        return incomingTemperatureCelsius;
+    }
+
+    public void setIncomingTemperatureCelsius(double incomingTemperatureCelsius) {
+        this.incomingTemperatureCelsius = incomingTemperatureCelsius;
+    }
+
+    public double getInletPressureBar() {
+        return inletPressureBar;
+    }
+
+    public void setInletPressureBar(double inletPressureBar) {
+        this.inletPressureBar = inletPressureBar;
+    }
+
+    public double getOutletPressureBar() {
+        return outletPressureBar;
+    }
+
+    public void setOutletPressureBar(double outletPressureBar) {
+        this.outletPressureBar = outletPressureBar;
     }
 
     public double getFlowFraction() {

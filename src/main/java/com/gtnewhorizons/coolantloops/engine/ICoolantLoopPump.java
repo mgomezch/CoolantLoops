@@ -134,6 +134,20 @@ public interface ICoolantLoopPump {
     }
 
     /**
+     * Gets the volumetric flow rate through the pump in liters per second.
+     */
+    default double getFlowRateLitersPerSecond() {
+        return 0.0;
+    }
+
+    /**
+     * Gets the pump mechanical head pressure in bar produced by the motor/impeller.
+     */
+    default double getPumpMechanicalPressureBar() {
+        return 0.0;
+    }
+
+    /**
      * Gets the maximum allowable flow rate in liters per second capped by pipe capacity.
      */
     default double getMaxFlowRateLitersPerSecond() {

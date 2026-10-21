@@ -232,15 +232,15 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         }
 
         // 1. Draw viewport background and border in widget-local coordinates [0, 0, rw, rh]
-        GuiDraw.drawRect(0, 0, rw, rh, 0xEE12161E);
-        GuiDraw.drawRect(0, 0, rw, 1, 0xFF2A3645);
-        GuiDraw.drawRect(0, rh - 1, rw, 1, 0xFF2A3645);
-        GuiDraw.drawRect(0, 0, 1, rh, 0xFF2A3645);
-        GuiDraw.drawRect(rw - 1, 0, 1, rh, 0xFF2A3645);
+        GuiDraw.drawRect(0, 0, rw, rh, 0xFF0A0A0A);
+        GuiDraw.drawRect(0, 0, rw, 1, 0xFF222222);
+        GuiDraw.drawRect(0, rh - 1, rw, 1, 0xFF222222);
+        GuiDraw.drawRect(0, 0, 1, rh, 0xFF222222);
+        GuiDraw.drawRect(rw - 1, 0, 1, rh, 0xFF222222);
 
         if (graphData == null || !graphData.isFormed) {
             String msg = (graphData != null && graphData.failureReason != null) ? graphData.failureReason
-                : "Coolant Loop Not Formed";
+                : "Coolant loop not formed";
             FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
             int maxWrapWidth = Math.max(40, rw - 24);
             @SuppressWarnings("unchecked")
@@ -320,7 +320,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
 
         GL11.glPointSize(1.5f);
         GL11.glBegin(GL11.GL_POINTS);
-        GL11.glColor4f(0.3f, 0.4f, 0.5f, 0.25f);
+        GL11.glColor4f(0.22f, 0.22f, 0.22f, 0.25f);
         for (double gx = 0; gx < gw; gx += gridStep) {
             for (double gy = 0; gy < gh; gy += gridStep) {
                 GL11.glVertex2d(gx, gy);
@@ -338,7 +338,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                 if (edge.waypoints.size() < 2) continue;
 
                 boolean isHovered = (edge == hoveredEdge);
-                float r = 0.36f, g = 0.50f, b = 0.65f, a = 0.90f; // Default steel blue
+                float r = 0.35f, g = 0.38f, b = 0.42f, a = 0.90f; // Neutral dark steel
                 if (edge.data != null) {
                     double temp = edge.data.temperatureCelsius;
                     if (temp > 300.0) {
@@ -352,10 +352,10 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                     }
                 }
                 if (isHovered) {
-                    r = 0.35f;
+                    r = 0.85f;
                     g = 0.85f;
-                    b = 1.0f;
-                    a = 1.0f; // Glowing cyan
+                    b = 0.85f;
+                    a = 1.0f; // Highlighted silver
                 }
 
                 double thickness = isHovered ? 5.0 : 3.5;
@@ -373,7 +373,7 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                     double ny = dx / len * (thickness / 2.0);
 
                     // Outer dark border
-                    float br = 0.08f, bg = 0.10f, bb = 0.14f, ba = 0.85f;
+                    float br = 0.08f, bg = 0.08f, bb = 0.08f, ba = 0.90f;
                     builder.pos(p1.x + nx * 1.5, p1.y + ny * 1.5, 0.0)
                         .color(br, bg, bb, ba)
                         .endVertex();
@@ -415,10 +415,10 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                 if (edge.arrowPoints.size() < 3) continue;
 
                 boolean isHovered = (edge == hoveredEdge);
-                float ar = isHovered ? 1.0f : 0.85f;
-                float ag = isHovered ? 1.0f : 0.95f;
-                float ab = 1.0f;
-                float aa = isHovered ? 1.0f : 0.9f;
+                float ar = isHovered ? 1.0f : 0.75f;
+                float ag = isHovered ? 1.0f : 0.75f;
+                float ab = isHovered ? 1.0f : 0.75f;
+                float aa = isHovered ? 1.0f : 0.85f;
 
                 Point2D tip = edge.arrowPoints.get(0);
                 Point2D left = edge.arrowPoints.get(1);
@@ -445,9 +445,9 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         int nw = (int) node.width;
         int nh = (int) node.height;
 
-        // Node card background
-        int bgColor = isHovered ? 0xF0222F3E : 0xEE1A222C;
-        int borderColor = isHovered ? 0xFF55DDFF : 0xFF3E5066;
+        // Node card background - dark gray neutral
+        int bgColor = isHovered ? 0xF02A2A2A : 0xEE1E1E1E;
+        int borderColor = isHovered ? 0xFF888888 : 0xFF3A3A3A;
 
         GuiDraw.drawRect(nx, ny, nw, nh, bgColor);
         GuiDraw.drawRect(nx, ny, nw, 1, borderColor);
@@ -458,55 +458,119 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         // Render controller icon
         ItemStack stack = node.data != null ? node.data.getItemStack() : null;
         if (stack != null) {
-            GuiDraw.drawItem(stack, nx + 3, ny + (nh - 16) / 2, 16, 16, 0);
+            GuiDraw.drawItem(stack, nx + 4, ny + (nh - 16) / 2, 16, 16, 0);
         }
 
-        // Render label text
         FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
-        String title = node.data != null ? node.data.label : node.id;
-        String subtitle = node.data != null ? String.format(Locale.US, "%.0f°C", node.data.temperature) : "";
+        int textX = nx + 23;
+        int maxTextWidth = nw - 25;
 
-        // Truncate title if needed
-        if (title.length() > 9) {
-            title = title.substring(0, 8) + "…";
+        // 1. Device type in smaller font, with word wrapping (at top)
+        String deviceType = (node.data != null && node.data.label != null) ? node.data.label : "";
+        float titleScale = 0.50f;
+        int wrapWidth = (int) (maxTextWidth / titleScale);
+        @SuppressWarnings("unchecked")
+        List<String> titleLines = fr.listFormattedStringToWidth(deviceType, wrapWidth);
+        int drawnTitleLines = Math.min(2, titleLines.size());
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(textX, ny + 3, 0);
+        GlStateManager.scale(titleScale, titleScale, 1.0f);
+        for (int i = 0; i < drawnTitleLines; i++) {
+            fr.drawString(titleLines.get(i), 0, i * 9, 0xFFE0E0E0, false);
         }
-
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(nx + 21, ny + 4, 0);
-        GlStateManager.scale(0.65f, 0.65f, 1.0f);
-        fr.drawString(title, 0, 0, 0xFFFFFF, false);
         GlStateManager.popMatrix();
 
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(nx + 21, ny + 15, 0);
-        GlStateManager.scale(0.60f, 0.60f, 1.0f);
-        fr.drawString(subtitle, 0, 0, 0xFFCC44, false);
-        GlStateManager.popMatrix();
+        if (node.data != null) {
+            float valScale = 0.52f;
+            int startY = ny + 3 + drawnTitleLines * 5 + 1;
+
+            // Line 1: Temperature in RED (0xFFFF5555)
+            String tempStr;
+            if (Math.abs(node.data.temperatureOut - node.data.temperatureIn) < 0.05) {
+                tempStr = String.format(Locale.US, "%.1f°C", node.data.temperatureIn);
+            } else {
+                double deltaT = node.data.temperatureOut - node.data.temperatureIn;
+                tempStr = String.format(Locale.US, "%.1f°C (%+.1f°C)", node.data.temperatureIn, deltaT);
+            }
+
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(textX, startY, 0);
+            GlStateManager.scale(valScale, valScale, 1.0f);
+            fr.drawString(tempStr, 0, 0, 0xFFFF5555, false);
+            GlStateManager.popMatrix();
+
+            // Line 2: Pressure in YELLOW (0xFFFFFF55)
+            String pressStr;
+            if (Math.abs(node.data.pressureOutBar - node.data.pressureInBar) < 0.005) {
+                pressStr = String.format(Locale.US, "%.2f bar", node.data.pressureInBar);
+            } else {
+                double deltaP = node.data.pressureOutBar - node.data.pressureInBar;
+                pressStr = String.format(Locale.US, "%.2f bar (%+.2f)", node.data.pressureInBar, deltaP);
+            }
+
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(textX, startY + 6, 0);
+            GlStateManager.scale(valScale, valScale, 1.0f);
+            fr.drawString(pressStr, 0, 0, 0xFFFFFF55, false);
+            GlStateManager.popMatrix();
+
+            // Line 3: Flow rate in GREEN (0xFF55FF55)
+            String flowStr = String.format(Locale.US, "%.1f L/s", node.data.flowRateLPerSec);
+
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(textX, startY + 12, 0);
+            GlStateManager.scale(valScale, valScale, 1.0f);
+            fr.drawString(flowStr, 0, 0, 0xFF55FF55, false);
+            GlStateManager.popMatrix();
+        }
     }
 
     public void buildTooltip(RichTooltip t) {
         if (hoveredNode != null && hoveredNode.data != null) {
             GraphNode gn = hoveredNode.data;
-            t.addLine(EnumChatFormatting.AQUA + "" + EnumChatFormatting.BOLD + gn.label);
+            t.addLine(EnumChatFormatting.WHITE + "" + EnumChatFormatting.BOLD + gn.label);
+            t.addLine(EnumChatFormatting.DARK_GRAY + "Device ID: " + EnumChatFormatting.GRAY + gn.id);
             t.addLine(
                 EnumChatFormatting.GRAY + "Position: "
                     + EnumChatFormatting.WHITE
                     + String.format("(%d, %d, %d)", gn.xCoord, gn.yCoord, gn.zCoord));
             t.addLine(EnumChatFormatting.GRAY + "Status: " + EnumChatFormatting.GREEN + gn.status);
+
+            // Flow rate in green
             t.addLine(
-                EnumChatFormatting.GRAY + "Temperature: "
-                    + EnumChatFormatting.GOLD
-                    + String.format(Locale.US, "%.1f °C", gn.temperature));
-            t.addLine(
-                EnumChatFormatting.GRAY + "Flow Rate: "
-                    + EnumChatFormatting.AQUA
+                EnumChatFormatting.GRAY + "Flow rate: "
+                    + EnumChatFormatting.GREEN
                     + String.format(Locale.US, "%.1f L/s", gn.flowRateLPerSec));
-            if (gn.pressureBar > 0) {
+
+            // Temperature in red
+            if (Math.abs(gn.temperatureOut - gn.temperatureIn) < 0.05) {
+                t.addLine(
+                    EnumChatFormatting.GRAY + "Temperature: "
+                        + EnumChatFormatting.RED
+                        + String.format(Locale.US, "%.1f °C", gn.temperatureIn));
+            } else {
+                double deltaT = gn.temperatureOut - gn.temperatureIn;
+                t.addLine(
+                    EnumChatFormatting.GRAY + "Temperature: "
+                        + EnumChatFormatting.RED
+                        + String.format(Locale.US, "%.1f °C (%+.1f °C)", gn.temperatureIn, deltaT));
+            }
+
+            // Pressure in yellow
+            if (Math.abs(gn.pressureOutBar - gn.pressureInBar) < 0.005) {
                 t.addLine(
                     EnumChatFormatting.GRAY + "Pressure: "
-                        + EnumChatFormatting.LIGHT_PURPLE
-                        + String.format(Locale.US, "%.2f bar", gn.pressureBar));
+                        + EnumChatFormatting.YELLOW
+                        + String.format(Locale.US, "%.2f bar", gn.pressureInBar));
+            } else {
+                double deltaP = gn.pressureOutBar - gn.pressureInBar;
+                t.addLine(
+                    EnumChatFormatting.GRAY + "Pressure: "
+                        + EnumChatFormatting.YELLOW
+                        + String.format(Locale.US, "%.2f bar (%+.2f bar)", gn.pressureInBar, deltaP));
             }
+
             if (gn.extraStats != null && !gn.extraStats.isEmpty()) {
                 t.addLine(EnumChatFormatting.DARK_GRAY + "--------------------");
                 for (Map.Entry<String, String> entry : gn.extraStats.entrySet()) {
@@ -517,12 +581,12 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         } else if (hoveredEdge != null && hoveredEdge.data != null) {
             GraphEdge ge = hoveredEdge.data;
             t.addLine(
-                EnumChatFormatting.AQUA + ""
+                EnumChatFormatting.WHITE + ""
                     + EnumChatFormatting.BOLD
                     + ge.pipeMaterial
                     + " "
                     + ge.pipeSize
-                    + " Coolant Pipe");
+                    + " coolant pipe");
             t.addLine(
                 EnumChatFormatting.GRAY + "Length: "
                     + EnumChatFormatting.WHITE
@@ -532,8 +596,8 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                     + EnumChatFormatting.WHITE
                     + String.format(Locale.US, "%.0f mm", ge.diameterM * 1000.0));
             t.addLine(
-                EnumChatFormatting.GRAY + "Flow Rate: "
-                    + EnumChatFormatting.AQUA
+                EnumChatFormatting.GRAY + "Flow rate: "
+                    + EnumChatFormatting.GREEN
                     + String.format(
                         Locale.US,
                         "%.1f L/s (%.2f L/t) [%.0f%%]",
@@ -541,20 +605,20 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
                         ge.flowRateLPerTick,
                         ge.flowFraction * 100.0));
             t.addLine(
-                EnumChatFormatting.GRAY + "Fluid Velocity: "
+                EnumChatFormatting.GRAY + "Fluid velocity: "
                     + EnumChatFormatting.WHITE
                     + String.format(Locale.US, "%.2f m/s", ge.velocityMPerSec));
             t.addLine(
                 EnumChatFormatting.GRAY + "Temperature: "
-                    + EnumChatFormatting.GOLD
+                    + EnumChatFormatting.RED
                     + String
                         .format(Locale.US, "%.1f °C / %.0f °C max", ge.temperatureCelsius, ge.maxTemperatureCelsius));
             t.addLine(
                 EnumChatFormatting.GRAY + "Pressure: "
-                    + EnumChatFormatting.LIGHT_PURPLE
+                    + EnumChatFormatting.YELLOW
                     + String.format(Locale.US, "%.2f bar / %.1f bar max", ge.pressureBar, ge.maxPressureBar));
             t.addLine(
-                EnumChatFormatting.GRAY + "Pressure Drop (ΔP): "
+                EnumChatFormatting.GRAY + "Pressure drop (ΔP): "
                     + EnumChatFormatting.WHITE
                     + String.format(Locale.US, "%.1f mbar", ge.pressureDropMbar));
             t.addLine(

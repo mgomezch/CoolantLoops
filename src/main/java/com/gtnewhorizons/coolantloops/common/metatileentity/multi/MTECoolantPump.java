@@ -1900,6 +1900,16 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     @Override
+    public double getFlowRateLitersPerSecond() {
+        return mEngine != null ? mEngine.getFlowRateLitersPerSecond() : 0.0;
+    }
+
+    @Override
+    public double getPumpMechanicalPressureBar() {
+        return mEngine != null ? mEngine.getPumpHeadPressureBar() : 0.0;
+    }
+
+    @Override
     public double getPeakLoopPressureBar() {
         return mEngine != null ? mEngine.getPeakLoopPressureBar() : 1.0;
     }

@@ -2,6 +2,7 @@ package com.gtnewhorizons.coolantloops.common.gui;
 
 import static gregtech.api.metatileentity.BaseTileEntity.TOOLTIP_DELAY;
 
+import java.util.Locale;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,7 +15,9 @@ import com.cleanroommc.modularui.api.widget.IWidget;
 import com.cleanroommc.modularui.drawable.ItemDrawable;
 import com.cleanroommc.modularui.screen.ModularPanel;
 import com.cleanroommc.modularui.utils.Alignment;
+import com.cleanroommc.modularui.utils.Color;
 import com.cleanroommc.modularui.value.sync.BooleanSyncValue;
+import com.cleanroommc.modularui.value.sync.DoubleSyncValue;
 import com.cleanroommc.modularui.value.sync.DynamicSyncHandler;
 import com.cleanroommc.modularui.value.sync.IntSyncValue;
 import com.cleanroommc.modularui.value.sync.PanelSyncManager;
@@ -75,8 +78,14 @@ public class CoolantLoopMachineGui<T extends MTEMultiBlockBase> extends MTEMulti
         if (multiblock instanceof MTECoolantPump pump) {
             BooleanSyncValue loopFormedSyncer = new BooleanSyncValue(pump::isLoopFormed);
             StringSyncValue loopStatusSyncer = new StringSyncValue(pump::getLoopStatus);
+            DoubleSyncValue pumpPressureSyncer = new DoubleSyncValue(pump::getPumpMechanicalPressureBar);
+            DoubleSyncValue pumpFlowSyncer = new DoubleSyncValue(pump::getFlowRateLitersPerSecond);
+            DoubleSyncValue pumpTempSyncer = new DoubleSyncValue(pump::getPumpFluidTemperatureCelsius);
             syncManager.syncValue("loopFormed", loopFormedSyncer);
             syncManager.syncValue("loopStatus", loopStatusSyncer);
+            syncManager.syncValue("pumpPressure", pumpPressureSyncer);
+            syncManager.syncValue("pumpFlow", pumpFlowSyncer);
+            syncManager.syncValue("pumpTemp", pumpTempSyncer);
 
             IntSyncValue errorIDSyncer = syncManager.findSyncHandler("errorID", IntSyncValue.class);
 
@@ -137,6 +146,35 @@ public class CoolantLoopMachineGui<T extends MTEMultiBlockBase> extends MTEMulti
                     .coverChildrenHeight(0)
                     .syncHandler(loopDiagSyncer)
                     .setEnabledIf(w -> showLoopDiagnostic.get()));
+
+            Supplier<Boolean> showLoopStats = () -> {
+                boolean structureComplete = (errorIDSyncer == null) || ((errorIDSyncer.getValue() & 64) == 0);
+                return structureComplete && loopFormedSyncer.getValue();
+            };
+
+            list.child(
+                IKey.dynamic(
+                    () -> String
+                        .format(Locale.US, "Pump mechanical pressure: %.2f bar", pumpPressureSyncer.getDoubleValue()))
+                    .color(Color.rgb(255, 255, 85))
+                    .asWidget()
+                    .textAlign(Alignment.CenterLeft)
+                    .setEnabledIf(w -> showLoopStats.get()));
+
+            list.child(
+                IKey.dynamic(() -> String.format(Locale.US, "Flow rate: %.1f L/s", pumpFlowSyncer.getDoubleValue()))
+                    .color(Color.rgb(85, 255, 85))
+                    .asWidget()
+                    .textAlign(Alignment.CenterLeft)
+                    .setEnabledIf(w -> showLoopStats.get()));
+
+            list.child(
+                IKey.dynamic(
+                    () -> String.format(Locale.US, "Coolant temperature: %.1f °C", pumpTempSyncer.getDoubleValue()))
+                    .color(Color.rgb(255, 85, 85))
+                    .asWidget()
+                    .textAlign(Alignment.CenterLeft)
+                    .setEnabledIf(w -> showLoopStats.get()));
         }
 
         return list;

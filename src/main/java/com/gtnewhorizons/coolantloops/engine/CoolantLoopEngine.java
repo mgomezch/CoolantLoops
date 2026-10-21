@@ -39,6 +39,7 @@ public class CoolantLoopEngine {
     private String failureReason = null;
     private double peakLoopPressureBar = 0.0;
     private double peakLoopTempCelsius = 20.0;
+    private double pumpHeadPressurePa = 0.0;
     private final Map<String, Long> dissolvedGases = new LinkedHashMap<>();
     private double fallbackGasFraction = 0.0;
     private boolean isBraking = false;
@@ -183,6 +184,14 @@ public class CoolantLoopEngine {
         this.maxPumpHeadPressurePa = maxPumpHeadPressurePa;
     }
 
+    public double getPumpHeadPressurePa() {
+        return pumpHeadPressurePa;
+    }
+
+    public double getPumpHeadPressureBar() {
+        return pumpHeadPressurePa / 1e5;
+    }
+
     public void addSegment(LoopSegment segment) {
         if (segment == null) {
             throw new IllegalArgumentException("Segment cannot be null");
@@ -193,6 +202,7 @@ public class CoolantLoopEngine {
     public void clearSegments() {
         segments.clear();
         volumetricFlowRate = 0.0;
+        pumpHeadPressurePa = 0.0;
         maxVolumetricFlowRate = Double.MAX_VALUE;
         isRuptured = false;
         rupturedSegment = null;
@@ -371,6 +381,7 @@ public class CoolantLoopEngine {
      */
     public void step(double dt) {
         if (isRuptured || segments.isEmpty()) {
+            pumpHeadPressurePa = 0.0;
             return;
         }
 
@@ -388,6 +399,7 @@ public class CoolantLoopEngine {
                 deltaPPump = pHead;
             }
         }
+        this.pumpHeadPressurePa = deltaPPump;
 
         // 2. Compute total circuit friction pressure drop: Delta P_friction(Q)
         double deltaPFriction = 0.0;
@@ -437,23 +449,32 @@ public class CoolantLoopEngine {
         peakLoopPressureBar = currentPressurePa / 1e5;
 
         for (LoopSegment segment : segments) {
+            double inletPressureBar = currentPressurePa / 1e5;
+            segment.setInletPressureBar(inletPressureBar);
+
             double localFlow = volumetricFlowRate * segment.getFlowFraction();
             double segDrop = segment.computePressureDrop(localFlow, fluid);
             currentPressurePa = Math.max(1.0e5, currentPressurePa - segDrop);
 
-            double pressureBar = currentPressurePa / 1e5;
-            if (pressureBar > peakLoopPressureBar) {
-                peakLoopPressureBar = pressureBar;
+            double outletPressureBar = currentPressurePa / 1e5;
+            segment.setOutletPressureBar(outletPressureBar);
+
+            if (inletPressureBar > peakLoopPressureBar) {
+                peakLoopPressureBar = inletPressureBar;
+            }
+            if (outletPressureBar > peakLoopPressureBar) {
+                peakLoopPressureBar = outletPressureBar;
             }
 
             // Burst limit check
-            if (pressureBar > segment.getMaxPressureBar()) {
+            double maxSegPressureBar = Math.max(inletPressureBar, outletPressureBar);
+            if (maxSegPressureBar > segment.getMaxPressureBar()) {
                 isRuptured = true;
                 rupturedSegment = segment;
                 failureReason = String.format(
                     "Pipe segment %s burst! Pressure %.2f bar exceeded maximum rating %.2f bar",
                     segment.getId(),
-                    pressureBar,
+                    maxSegPressureBar,
                     segment.getMaxPressureBar());
                 return;
             }
@@ -506,6 +527,9 @@ public class CoolantLoopEngine {
      */
     private void advectTemperature(double dt) {
         if (volumetricFlowRate <= 1e-7 || segments.size() < 2) {
+            for (LoopSegment seg : segments) {
+                seg.setIncomingTemperatureCelsius(seg.getCurrentTemperatureCelsius());
+            }
             return;
         }
 
@@ -540,6 +564,7 @@ public class CoolantLoopEngine {
                 incomingTemp = totalWeight > 0.0 ? (totalWeightedTemp / totalWeight)
                     : curr.getCurrentTemperatureCelsius();
             }
+            curr.setIncomingTemperatureCelsius(incomingTemp);
 
             double blendedTemp = curr.getCurrentTemperatureCelsius() * (1.0 - replaceFraction)
                 + incomingTemp * replaceFraction;

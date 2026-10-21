@@ -25,10 +25,10 @@ import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData.Grap
  */
 public class SugiyamaLayout {
 
-    public static final double DEFAULT_NODE_WIDTH = 64.0;
-    public static final double DEFAULT_NODE_HEIGHT = 32.0;
-    public static final double LAYER_SPACING_X = 130.0;
-    public static final double NODE_SPACING_Y = 56.0;
+    public static final double DEFAULT_NODE_WIDTH = 84.0;
+    public static final double DEFAULT_NODE_HEIGHT = 42.0;
+    public static final double LAYER_SPACING_X = 150.0;
+    public static final double NODE_SPACING_Y = 62.0;
     public static final double PADDING_X = 24.0;
     public static final double PADDING_Y = 24.0;
 
