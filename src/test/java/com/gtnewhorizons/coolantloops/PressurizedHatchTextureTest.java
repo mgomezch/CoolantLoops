@@ -17,6 +17,7 @@ import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurized
 import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
 
 /**
  * Unit tests verifying that Pressurized Fluid Hatches correctly take on the base casing texture
@@ -201,5 +202,25 @@ public class PressurizedHatchTextureTest {
             Textures.BlockIcons.casingTexturePages[0][CASING_INDEX_HEAT_PROOF],
             inletHatch.getCasingTexture(),
             "Inlet hatch must inherit Bath casing texture (index 11) on structure add");
+    }
+
+    @Test
+    public void testCoolantPumpInputBusTextureOnForm() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_bus");
+        MTEHatchInputBus inputBus = new MTEHatchInputBus("input_bus", 1, new String[0], null);
+
+        IGregTechTileEntity mockTile = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockTile.getMetaTileEntity())
+            .thenReturn(inputBus);
+        Mockito.when(mockTile.isServerSide())
+            .thenReturn(true);
+        inputBus.setBaseMetaTileEntity(mockTile);
+
+        boolean added = pump.addBottomHatch(mockTile, CASING_INDEX_TUNGSTENSTEEL_PIPE);
+        assertTrue(added, "addBottomHatch should accept Input Bus");
+        assertEquals(
+            Textures.BlockIcons.casingTexturePages[0][31],
+            inputBus.getCasingTexture(),
+            "Input bus must inherit pump casing texture (index 31) on structure add");
     }
 }

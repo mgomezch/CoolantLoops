@@ -78,6 +78,7 @@ gt.multiblock.coolant_pump.structure.hatch_discharge=High-pressure fluid hatch (
 gt.multiblock.coolant_pump.structure.hatch_discharge_pos=1x
 gt.multiblock.coolant_pump.structure.hatch_suction=High-pressure fluid hatch (suction)
 gt.multiblock.coolant_pump.structure.hatch_suction_pos=1x
+gt.multiblock.coolant_pump.structure.input_bus=Input bus (optional, 0-1x, for automatic impeller loading)
 gt.multiblock.coolant_pump.structure.rc_tank=Railcraft multiblock tank
 gt.multiblock.coolant_pump.structure.rc_tank_pos=Directly above pump (height 4-8, width 3, 5, 7, 9)
 

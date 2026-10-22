@@ -30,6 +30,9 @@ import com.gtnewhorizons.coolantloops.engine.LoopSegment;
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
+import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
+import gregtech.common.items.IDMetaTool01;
+import gregtech.common.items.MetaGeneratedTool01;
 import mcp.mobius.waila.api.IWailaDataAccessor;
 
 /**
@@ -78,6 +81,8 @@ public class CoolantPumpStructureTest {
             Mockito.when(gregtech.GTMod.proxy.getSeparatorStyle())
                 .thenReturn(gregtech.common.GTProxy.SeparatorStyle.Dashes);
         } catch (Throwable ignored) {}
+
+        com.gtnewhorizons.coolantloops.data.MaterialRotorDatabaseExporter.initEnvironment();
     }
 
     @Test
@@ -1521,5 +1526,120 @@ public class CoolantPumpStructureTest {
         assertEquals(12, Integer.parseInt(matcher.group(1)));
         assertEquals(65, Integer.parseInt(matcher.group(2)));
         assertEquals(30, Integer.parseInt(matcher.group(3)));
+    }
+
+    @Test
+    public void testCoolantPumpInputBusStructureAllowedZeroOrOne() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_structure_bus");
+
+        // 1. Zero input bus is allowed by default
+        assertEquals(0, pump.mInputBusses.size());
+
+        // 2. One input bus is allowed
+        MTEHatchInputBus bus1 = new MTEHatchInputBus("bus1", 1, new String[0], null);
+        IGregTechTileEntity mockTile1 = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockTile1.getMetaTileEntity())
+            .thenReturn(bus1);
+        Mockito.when(mockTile1.isServerSide())
+            .thenReturn(true);
+        bus1.setBaseMetaTileEntity(mockTile1);
+
+        boolean added1 = pump.addBottomHatch(mockTile1, 16 + 15);
+        assertTrue(added1, "Coolant pump must allow 1 input bus replacing casing");
+        assertEquals(1, pump.mInputBusses.size());
+
+        // 3. Second input bus is strictly rejected
+        MTEHatchInputBus bus2 = new MTEHatchInputBus("bus2", 1, new String[0], null);
+        IGregTechTileEntity mockTile2 = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockTile2.getMetaTileEntity())
+            .thenReturn(bus2);
+        Mockito.when(mockTile2.isServerSide())
+            .thenReturn(true);
+        bus2.setBaseMetaTileEntity(mockTile2);
+
+        boolean added2 = pump.addBottomHatch(mockTile2, 16 + 15);
+        assertFalse(added2, "Coolant pump must disallow more than 1 input bus");
+        assertEquals(1, pump.mInputBusses.size());
+    }
+
+    @Test
+    public void testCoolantPumpAutoLoadsImpellerFromInputBus() {
+        MTECoolantPump pump = new MTECoolantPump("test_pump_autoload");
+
+        // Pump starts without impeller
+        assertFalse(pump.hasImpeller());
+        assertFalse(pump.hasRotor());
+        assertNull(pump.getRotor());
+        assertNull(pump.getControllerSlot());
+
+        // Add input bus
+        MTEHatchInputBus bus = new MTEHatchInputBus("input_bus", 1, new String[0], null);
+        IGregTechTileEntity mockTile = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockTile.getMetaTileEntity())
+            .thenReturn(bus);
+        Mockito.when(mockTile.isServerSide())
+            .thenReturn(true);
+        bus.setBaseMetaTileEntity(mockTile);
+        pump.mInputBusses.add(bus);
+
+        // Put a non-rotor item in slot 0
+        net.minecraft.item.Item dummyItem = Mockito.mock(net.minecraft.item.Item.class);
+        ItemStack dummyStack = new ItemStack(dummyItem, 10, 0);
+        bus.setInventorySlotContents(0, dummyStack);
+
+        // Pump still has no impeller and doesn't take the dummy item
+        assertFalse(pump.hasImpeller());
+        assertNull(pump.getRotor());
+        assertEquals(10, bus.getStackInSlot(0).stackSize);
+
+        // Put compatible turbine rotor in slot 1 (stack size 2)
+        ItemStack rotorStack = MetaGeneratedTool01.INSTANCE
+            .getToolWithStats(IDMetaTool01.TURBINE_LARGE.ID, 2, Materials.Steel, Materials.Steel, null);
+        bus.setInventorySlotContents(1, rotorStack);
+
+        // Auto-load impeller
+        assertTrue(pump.checkAndLoadImpellerFromInputBus(), "Should load rotor from input bus");
+        assertTrue(pump.hasImpeller());
+        assertTrue(pump.hasRotor());
+        assertNotNull(pump.getRotor());
+        assertNotNull(pump.getControllerSlot());
+        assertEquals(1, pump.getControllerSlot().stackSize);
+        assertEquals(
+            IDMetaTool01.TURBINE_LARGE.ID,
+            pump.getControllerSlot()
+                .getItemDamage());
+        assertEquals(
+            MetaGeneratedTool01.INSTANCE,
+            pump.getControllerSlot()
+                .getItem());
+
+        // Bus slot 1 decremented by 1 (1 remains)
+        assertNotNull(bus.getStackInSlot(1));
+        assertEquals(1, bus.getStackInSlot(1).stackSize);
+
+        // While controller slot is occupied, auto-load does nothing
+        assertFalse(
+            pump.checkAndLoadImpellerFromInputBus(),
+            "Should not load when controller slot already has impeller");
+        assertEquals(1, bus.getStackInSlot(1).stackSize);
+
+        // Destroy impeller (simulating wear/breakage)
+        pump.destroyImpeller();
+        assertNull(pump.getControllerSlot());
+
+        // Pump should take second rotor when getRotor() is called
+        ItemStack nextRotor = pump.getRotor();
+        assertNotNull(nextRotor);
+        assertEquals(1, nextRotor.stackSize);
+        assertEquals(IDMetaTool01.TURBINE_LARGE.ID, nextRotor.getItemDamage());
+        assertTrue(pump.hasImpeller());
+
+        // Bus slot 1 is now exhausted
+        assertNull(bus.getStackInSlot(1));
+
+        // Destroy second impeller
+        pump.destroyImpeller();
+        assertFalse(pump.hasImpeller());
+        assertNull(pump.getRotor(), "Should return null when input bus is empty of rotors");
     }
 }

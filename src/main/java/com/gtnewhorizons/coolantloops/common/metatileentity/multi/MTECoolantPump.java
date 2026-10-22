@@ -59,6 +59,7 @@ import gregtech.api.items.MetaGeneratedTool;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
+import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
 import gregtech.api.metatileentity.implementations.MTEHatchMaintenance;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.structure.error.PositionedStructureError;
@@ -350,6 +351,14 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     }
 
     @Override
+    public ItemStack getMachineCraftingIcon() {
+        if (getBaseMetaTileEntity() == null) {
+            return null;
+        }
+        return super.getMachineCraftingIcon();
+    }
+
+    @Override
     public ITexture[] getTexture(IGregTechTileEntity aBaseMetaTileEntity, ForgeDirection side, ForgeDirection facing,
         int aColorIndex, boolean aActive, boolean aRedstone) {
         if (side == facing) {
@@ -367,6 +376,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         mSuctionHatch = null;
         mEnergyHatches.clear();
         mMaintenanceHatches.clear();
+        mInputBusses.clear();
 
         // Check Railcraft tank presence above pump
         boolean hasValidTank = verifyRailcraftTankAbove(aBaseMetaTileEntity);
@@ -472,6 +482,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                                 if (!mEnergyHatches.contains(mte)) {
                                     mEnergyHatches.add((MTEHatchEnergy) mte);
                                 }
+                            } else if (mte instanceof MTEHatchInputBus) {
+                                if (!mInputBusses.contains(mte)) {
+                                    mInputBusses.add((MTEHatchInputBus) mte);
+                                }
                             } else {
                                 mLoopStatus = CoolantLocalization
                                     .format("coolantloops.pump.status.invalid_hatch", bx, by, bz);
@@ -543,6 +557,10 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 checkHatchMax(aErrors, HatchElement.Energy, 2);
             }
 
+            if (mInputBusses.size() > 1) {
+                checkHatchMax(aErrors, HatchElement.InputBus, 1);
+            }
+
             if (!aErrors.isEmpty()) {
                 return;
             }
@@ -556,6 +574,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             }
             for (MTEHatchEnergy eh : mEnergyHatches) {
                 eh.updateTexture(casingIndex);
+            }
+            for (MTEHatchInputBus ib : mInputBusses) {
+                ib.updateTexture(casingIndex);
             }
             if (mDischargeHatch != null) {
                 mDischargeHatch.updateTexture(casingIndex);
@@ -573,6 +594,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 }
                 for (MTEHatchEnergy eh : mEnergyHatches) {
                     eh.updateCraftingIcon(icon);
+                }
+                for (MTEHatchInputBus ib : mInputBusses) {
+                    ib.updateCraftingIcon(icon);
                 }
                 if (mDischargeHatch != null) {
                     mDischargeHatch.updateCraftingIcon(icon);
@@ -856,6 +880,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void onPostTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
         super.onPostTick(aBaseMetaTileEntity, aTick);
         if (aBaseMetaTileEntity != null && aBaseMetaTileEntity.isServerSide()) {
+            if (!hasRotor()) {
+                checkAndLoadImpellerFromInputBus();
+            }
             if (mActiveCrawl != null) {
                 stepActiveCrawl();
             } else if (!mLoopFormed && mMachine && aTick % 100 == 0) {
@@ -1568,6 +1595,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
 
     public static boolean isMetaGeneratedTool(Item item) {
         if (item == null) return false;
+        if (item instanceof MetaGeneratedTool) {
+            return true;
+        }
         try {
             Class<?> clazz = item.getClass();
             while (clazz != null && clazz != Object.class) {
@@ -1590,6 +1620,49 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         return false;
     }
 
+    public boolean hasImpeller() {
+        return hasRotor();
+    }
+
+    public boolean checkAndLoadImpellerFromInputBus() {
+        ItemStack controller = getControllerSlot();
+        if (isValidRotor(controller)) {
+            return false;
+        }
+        if (mRotorStack != null && isValidRotor(mRotorStack)) {
+            return false;
+        }
+        if (controller != null && controller.stackSize > 0) {
+            return false;
+        }
+        if (mInputBusses == null || mInputBusses.isEmpty()) {
+            return false;
+        }
+        for (MTEHatchInputBus bus : mInputBusses) {
+            if (bus == null) continue;
+            for (int s = 0; s < bus.getSizeInventory(); s++) {
+                ItemStack st = bus.getStackInSlot(s);
+                if (st != null && isValidRotor(st)) {
+                    ItemStack extracted = bus.decrStackSize(s, 1);
+                    if (extracted != null && extracted.stackSize > 0) {
+                        setInventorySlotContents(getControllerSlotIndex(), extracted);
+                        mRotorStack = extracted;
+                        updateRotorEfficiency();
+                        if (bus.getBaseMetaTileEntity() != null) {
+                            bus.getBaseMetaTileEntity()
+                                .markDirty();
+                        }
+                        if (getBaseMetaTileEntity() != null) {
+                            getBaseMetaTileEntity().markDirty();
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public ItemStack getRotor() {
         ItemStack controller = getControllerSlot();
         if (isValidRotor(controller)) {
@@ -1602,6 +1675,13 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             if (getBaseMetaTileEntity() == null || getBaseMetaTileEntity().getWorld() == null) {
                 return mRotorStack;
             }
+        }
+        if (checkAndLoadImpellerFromInputBus()) {
+            ItemStack loaded = getControllerSlot();
+            if (isValidRotor(loaded)) {
+                return loaded;
+            }
+            return mRotorStack;
         }
         return null;
     }
@@ -1837,6 +1917,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         mRotorStack = null; // Rotor broken!
                         mRotorEfficiency = 0.0;
                         mRotorMaterial = null;
+                        checkAndLoadImpellerFromInputBus();
                     }
                 } else {
                     rotor.setItemDamage(rotor.getItemDamage() + dmg);
@@ -1847,6 +1928,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                         mRotorStack = null; // Rotor broken!
                         mRotorEfficiency = 0.0;
                         mRotorMaterial = null;
+                        checkAndLoadImpellerFromInputBus();
                     }
                 }
             }
@@ -2322,6 +2404,15 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             }
             return addEnergyInputToMachineList(aTileEntity, aBaseCasingIndex);
         }
+        if (aMetaTileEntity instanceof MTEHatchInputBus) {
+            if (mInputBusses.size() >= 1) {
+                return false;
+            }
+            if (aMetaTileEntity.getBaseMetaTileEntity() == null) {
+                aMetaTileEntity.setBaseMetaTileEntity(aTileEntity);
+            }
+            return addInputBusToMachineList(aTileEntity, aBaseCasingIndex);
+        }
         return false;
     }
 
@@ -2492,6 +2583,7 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.frames_pos"))
             .addEnergyHatch(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.energy"), 1)
             .addMaintenanceHatch(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.maintenance"), 1)
+            .addInputBus(StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.input_bus"), 1)
             .addOtherStructurePart(
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_discharge"),
                 StatCollector.translateToLocal("gt.multiblock.coolant_pump.structure.hatch_discharge_pos"))
