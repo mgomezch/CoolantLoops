@@ -28,6 +28,11 @@ public class ModMetaTileEntities {
     public static final int DEGASSER_ID = 32123;
     public static final int COOLANT_BATH_ID = 32124;
     public static final int COOLANT_PIPE_START_ID = 32125;
+    public static final int PIPE_TINY_ID = 32125;
+    public static final int PIPE_SMALL_ID = 32132;
+    public static final int PIPE_MEDIUM_ID = 32139;
+    public static final int PIPE_LARGE_ID = 32146;
+    public static final int PIPE_HUGE_ID = 32153;
     public static final int PRESSURIZED_HATCH_OUTPUT_ID = 32160;
 
     public static final Materials[] COOLANT_PIPE_MATERIALS = new Materials[] { Materials.CastIron, Materials.Steel,
@@ -91,14 +96,14 @@ public class ModMetaTileEntities {
             "multimachine.coolantbath",
             "Coolant Bath");
 
-        int id = COOLANT_PIPE_START_ID;
-        for (int m = 0; m < COOLANT_PIPE_MATERIALS.length; m++) {
-            Materials mat = COOLANT_PIPE_MATERIALS[m];
-            int baseCap = BASE_CAPACITIES[m];
-            int heatRes = HEAT_RESISTANCES[m];
-
-            for (int s = 0; s < PIPE_THICKNESSES.length; s++) {
-                float thick = PIPE_THICKNESSES[s];
+        for (int s = 0; s < PIPE_THICKNESSES.length; s++) {
+            float thick = PIPE_THICKNESSES[s];
+            String sizeName = SIZE_NAMES[s];
+            int sizeBaseId = COOLANT_PIPE_START_ID + s * COOLANT_PIPE_MATERIALS.length;
+            for (int m = 0; m < COOLANT_PIPE_MATERIALS.length; m++) {
+                Materials mat = COOLANT_PIPE_MATERIALS[m];
+                int baseCap = BASE_CAPACITIES[m];
+                int heatRes = HEAT_RESISTANCES[m];
                 int cap;
                 if (s == 0) cap = Math.max(1, baseCap / 6);
                 else if (s == 1) cap = Math.max(1, baseCap / 3);
@@ -106,7 +111,8 @@ public class ModMetaTileEntities {
                 else if (s == 3) cap = baseCap * 2;
                 else cap = baseCap * 4;
 
-                String internalName = "coolantpipe." + mat.mName.toLowerCase() + "." + SIZE_NAMES[s].toLowerCase();
+                int id = sizeBaseId + m;
+                String internalName = "coolantpipe." + sizeName.toLowerCase() + "." + mat.mName.toLowerCase();
                 MTECoolantPipe pipe = new MTECoolantPipe(
                     id,
                     internalName,
@@ -118,9 +124,15 @@ public class ModMetaTileEntities {
                     true);
                 coolantPipes[m][s] = pipe;
                 coolantPipeItems[m][s] = pipe.getStackForm(1L);
-                id++;
             }
         }
+    }
+
+    public static int getPipeSizeBaseId(int sizeIndex) {
+        if (sizeIndex >= 0 && sizeIndex < PIPE_THICKNESSES.length) {
+            return COOLANT_PIPE_START_ID + sizeIndex * COOLANT_PIPE_MATERIALS.length;
+        }
+        return -1;
     }
 
     public static int getMaterialIndex(Materials mat) {
