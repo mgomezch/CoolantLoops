@@ -608,4 +608,71 @@ public class CoolantLoopGraphTest {
         assertFalse(widget.getGraphData().isFormed);
         assertEquals(data.failureReason, widget.getGraphData().failureReason);
     }
+
+    @Test
+    public void testNodeBoundsAndAutoFitCalculation() {
+        CoolantLoopGraphWidget widget = new CoolantLoopGraphWidget();
+        CoolantLoopGraphData data = new CoolantLoopGraphData();
+        data.isFormed = true;
+
+        GraphNode n1 = new GraphNode("n1", "Pump", "coolant_pump", "SOURCE", 0, 0, 0);
+        GraphNode n2 = new GraphNode("n2", "Sink", "coolant_pump", "SINK", 10, 0, 0);
+        data.nodes.add(n1);
+        data.nodes.add(n2);
+        data.edges.add(new GraphEdge("e1", "n1", "n2"));
+
+        widget.setGraphData(data);
+        SugiyamaLayout layout = widget.getLayout();
+
+        double minX = layout.getNodeMinX();
+        double maxX = layout.getNodeMaxX();
+        double minY = layout.getNodeMinY();
+        double maxY = layout.getNodeMaxY();
+
+        assertTrue(maxX > minX, "maxX should be greater than minX");
+        assertTrue(maxY > minY, "maxY should be greater than minY");
+        assertEquals(maxX - minX, layout.getNodeBoundsWidth(), 0.001);
+        assertEquals(maxY - minY, layout.getNodeBoundsHeight(), 0.001);
+        assertEquals((minX + maxX) / 2.0, layout.getNodeCenterX(), 0.001);
+        assertEquals((minY + maxY) / 2.0, layout.getNodeCenterY(), 0.001);
+
+        // Verify bounds tightly enclose real node cards
+        for (LayoutNode node : layout.getNodes()) {
+            if (!node.isDummy) {
+                assertTrue(node.x >= minX, "node x should be >= minX");
+                assertTrue(node.x + node.width <= maxX, "node right edge should be <= maxX");
+                assertTrue(node.y >= minY, "node y should be >= minY");
+                assertTrue(node.y + node.height <= maxY, "node bottom edge should be <= maxY");
+            }
+        }
+    }
+
+    @Test
+    public void testZoomRangeExpandedAndLockToggle() {
+        CoolantLoopGraphWidget widget = new CoolantLoopGraphWidget();
+        assertEquals(0.001f, CoolantLoopGraphWidget.MIN_ZOOM, 0.0001f);
+        assertEquals(1000.0f, CoolantLoopGraphWidget.MAX_ZOOM, 0.0001f);
+
+        // Clamping to expanded zoom limits
+        widget.zoomAt(0.00001f, 100, 100);
+        assertEquals(CoolantLoopGraphWidget.MIN_ZOOM, widget.getZoom(), 0.0001f);
+        assertEquals("0.10%", widget.getZoomString());
+
+        widget.zoomAt(1500.0f, 100, 100);
+        assertEquals(CoolantLoopGraphWidget.MAX_ZOOM, widget.getZoom(), 0.0001f);
+        assertEquals("100000%", widget.getZoomString());
+
+        widget.zoomAt(1.0f, 100, 100);
+        assertEquals("100%", widget.getZoomString());
+
+        widget.zoomAt(0.05f, 100, 100);
+        assertEquals("5.0%", widget.getZoomString());
+
+        // Lock toggle state
+        assertFalse(widget.isAutoFitLocked());
+        widget.toggleAutoFitLocked();
+        assertTrue(widget.isAutoFitLocked());
+        widget.toggleAutoFitLocked();
+        assertFalse(widget.isAutoFitLocked());
+    }
 }

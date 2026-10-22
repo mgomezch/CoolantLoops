@@ -88,6 +88,10 @@ public class SugiyamaLayout {
     private final Map<String, LayoutNode> nodeMap = new LinkedHashMap<>();
     private double boundsWidth = 200.0;
     private double boundsHeight = 150.0;
+    private double nodeMinX = 0.0;
+    private double nodeMinY = 0.0;
+    private double nodeMaxX = 200.0;
+    private double nodeMaxY = 150.0;
 
     public List<LayoutNode> getNodes() {
         return nodes;
@@ -105,6 +109,38 @@ public class SugiyamaLayout {
         return boundsHeight;
     }
 
+    public double getNodeMinX() {
+        return nodeMinX;
+    }
+
+    public double getNodeMinY() {
+        return nodeMinY;
+    }
+
+    public double getNodeMaxX() {
+        return nodeMaxX;
+    }
+
+    public double getNodeMaxY() {
+        return nodeMaxY;
+    }
+
+    public double getNodeBoundsWidth() {
+        return Math.max(DEFAULT_NODE_WIDTH, nodeMaxX - nodeMinX);
+    }
+
+    public double getNodeBoundsHeight() {
+        return Math.max(DEFAULT_NODE_HEIGHT, nodeMaxY - nodeMinY);
+    }
+
+    public double getNodeCenterX() {
+        return (nodeMinX + nodeMaxX) / 2.0;
+    }
+
+    public double getNodeCenterY() {
+        return (nodeMinY + nodeMaxY) / 2.0;
+    }
+
     public LayoutNode getNode(String id) {
         return nodeMap.get(id);
     }
@@ -120,6 +156,10 @@ public class SugiyamaLayout {
         if (graphData == null || graphData.nodes == null || graphData.nodes.isEmpty()) {
             boundsWidth = 200.0;
             boundsHeight = 150.0;
+            nodeMinX = 0.0;
+            nodeMinY = 0.0;
+            nodeMaxX = 200.0;
+            nodeMaxY = 150.0;
             return;
         }
 
@@ -488,18 +528,44 @@ public class SugiyamaLayout {
             }
         }
 
-        // Compute overall bounding box
+        // Compute overall bounding box and exact node card boundaries
         double maxX = 0.0;
         double maxY = 0.0;
+        double nMinX = Double.POSITIVE_INFINITY;
+        double nMinY = Double.POSITIVE_INFINITY;
+        double nMaxX = Double.NEGATIVE_INFINITY;
+        double nMaxY = Double.NEGATIVE_INFINITY;
+        boolean hasRealNodes = false;
+
         for (LayoutNode ln : nodes) {
             double rx = ln.x + ln.width;
             double ry = ln.y + ln.height;
             if (rx > maxX) maxX = rx;
             if (ry > maxY) maxY = ry;
+
+            if (!ln.isDummy) {
+                hasRealNodes = true;
+                if (ln.x < nMinX) nMinX = ln.x;
+                if (ln.y < nMinY) nMinY = ln.y;
+                if (rx > nMaxX) nMaxX = rx;
+                if (ry > nMaxY) nMaxY = ry;
+            }
         }
 
         boundsWidth = maxX + PADDING_X;
         boundsHeight = Math.max(totalGraphH, maxY + PADDING_Y);
+
+        if (hasRealNodes && nMaxX > nMinX && nMaxY > nMinY) {
+            this.nodeMinX = nMinX;
+            this.nodeMinY = nMinY;
+            this.nodeMaxX = nMaxX;
+            this.nodeMaxY = nMaxY;
+        } else {
+            this.nodeMinX = 0.0;
+            this.nodeMinY = 0.0;
+            this.nodeMaxX = boundsWidth;
+            this.nodeMaxY = boundsHeight;
+        }
     }
 
     private void routeEdge(LayoutEdge edge, Map<String, List<String>> adj, List<GraphEdge> rawEdges) {

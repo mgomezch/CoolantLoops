@@ -33,6 +33,9 @@ import com.gtnewhorizons.modularui.api.GlStateManager;
  */
 public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> implements Interactable {
 
+    public static final float MIN_ZOOM = 0.001f;
+    public static final float MAX_ZOOM = 1000.0f;
+
     private final SugiyamaLayout layout = new SugiyamaLayout();
     private CoolantLoopGraphData graphData;
 
@@ -40,6 +43,9 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
     private float panY = 20.0f;
     private float zoom = 1.0f;
     private boolean hasInitialFit = false;
+    private boolean autoFitLocked = false;
+    private int lastWidth = -1;
+    private int lastHeight = -1;
 
     private boolean isDragging = false;
     private int dragMouseButton = 0;
@@ -74,6 +80,8 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
             if (getArea() != null && getArea().w() > 0 && getArea().h() > 0) {
                 fitToView();
                 hasInitialFit = true;
+                lastWidth = getArea().w();
+                lastHeight = getArea().h();
             }
         }
     }
@@ -94,16 +102,42 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         return Math.round(zoom * 100.0f);
     }
 
+    public String getZoomString() {
+        float pct = zoom * 100.0f;
+        if (pct >= 10.0f) {
+            return Math.round(pct) + "%";
+        } else if (pct >= 1.0f) {
+            return String.format(Locale.US, "%.1f%%", pct);
+        } else {
+            return String.format(Locale.US, "%.2f%%", pct);
+        }
+    }
+
+    public boolean isAutoFitLocked() {
+        return autoFitLocked;
+    }
+
+    public void setAutoFitLocked(boolean autoFitLocked) {
+        this.autoFitLocked = autoFitLocked;
+    }
+
+    public void toggleAutoFitLocked() {
+        this.autoFitLocked = !this.autoFitLocked;
+        if (!this.autoFitLocked) {
+            fitToView();
+        }
+    }
+
     public void zoomIn() {
         int vw = (getArea() != null && getArea().w() > 0) ? getArea().w() : 370;
         int vh = (getArea() != null && getArea().h() > 0) ? getArea().h() : 220;
-        zoomAt(Math.min(2.5f, zoom * 1.2f), vw / 2.0f, vh / 2.0f);
+        zoomAt(Math.min(MAX_ZOOM, zoom * 1.25f), vw / 2.0f, vh / 2.0f);
     }
 
     public void zoomOut() {
         int vw = (getArea() != null && getArea().w() > 0) ? getArea().w() : 370;
         int vh = (getArea() != null && getArea().h() > 0) ? getArea().h() : 220;
-        zoomAt(Math.max(0.25f, zoom / 1.2f), vw / 2.0f, vh / 2.0f);
+        zoomAt(Math.max(MIN_ZOOM, zoom / 1.25f), vw / 2.0f, vh / 2.0f);
     }
 
     public void setZoom(float newZoom) {
@@ -113,8 +147,8 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
     }
 
     public void zoomAt(float newZoom, float pivotX, float pivotY) {
-        newZoom = Math.max(0.25f, Math.min(2.5f, newZoom));
-        if (Math.abs(newZoom - zoom) < 0.0001f) return;
+        newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+        if (Math.abs(newZoom - zoom) < 0.00001f) return;
 
         float graphPivotX = (pivotX - panX) / zoom;
         float graphPivotY = (pivotY - panY) / zoom;
@@ -128,11 +162,13 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         this.zoom = 1.0f;
         int vw = (getArea() != null && getArea().w() > 0) ? getArea().w() : 370;
         int vh = (getArea() != null && getArea().h() > 0) ? getArea().h() : 220;
-        double gw = layout.getBoundsWidth();
-        double gh = layout.getBoundsHeight();
-        if (gw > 0 && gh > 0) {
-            this.panX = (float) ((vw - gw * zoom) / 2.0);
-            this.panY = (float) ((vh - gh * zoom) / 2.0);
+        double nw = layout.getNodeBoundsWidth();
+        double nh = layout.getNodeBoundsHeight();
+        if (nw > 0 && nh > 0) {
+            double cx = layout.getNodeCenterX();
+            double cy = layout.getNodeCenterY();
+            this.panX = (float) (vw / 2.0 - cx * this.zoom);
+            this.panY = (float) (vh / 2.0 - cy * this.zoom);
         } else {
             this.panX = 20.0f;
             this.panY = 20.0f;
@@ -145,17 +181,24 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         int vh = getArea().h();
         if (vw <= 0 || vh <= 0) return;
 
-        double gw = layout.getBoundsWidth();
-        double gh = layout.getBoundsHeight();
-        if (gw <= 0 || gh <= 0) return;
+        double nw = layout.getNodeBoundsWidth();
+        double nh = layout.getNodeBoundsHeight();
+        if (nw <= 0 || nh <= 0) return;
 
-        double scaleX = (vw - 32.0) / gw;
-        double scaleY = (vh - 32.0) / gh;
-        double fitScale = Math.max(0.3, Math.min(1.8, Math.min(scaleX, scaleY)));
+        double margin = 16.0;
+        double availW = Math.max(10.0, vw - margin * 2.0);
+        double availH = Math.max(10.0, vh - margin * 2.0);
+
+        double scaleX = availW / nw;
+        double scaleY = availH / nh;
+        double fitScale = Math.min(scaleX, scaleY);
+        fitScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitScale));
 
         this.zoom = (float) fitScale;
-        this.panX = (float) ((vw - gw * zoom) / 2.0);
-        this.panY = (float) ((vh - gh * zoom) / 2.0);
+        double cx = layout.getNodeCenterX();
+        double cy = layout.getNodeCenterY();
+        this.panX = (float) (vw / 2.0 - cx * this.zoom);
+        this.panY = (float) (vh / 2.0 - cy * this.zoom);
     }
 
     @Override
@@ -210,10 +253,10 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         float my = (ctx != null && area != null) ? (ctx.getAbsMouseY() - area.y)
             : (area != null ? area.h() / 2.0f : 0.0f);
         if (scroll == UpOrDown.UP) {
-            zoomAt(Math.min(2.5f, zoom * 1.15f), mx, my);
+            zoomAt(Math.min(MAX_ZOOM, zoom * 1.15f), mx, my);
             return true;
         } else if (scroll == UpOrDown.DOWN) {
-            zoomAt(Math.max(0.25f, zoom / 1.15f), mx, my);
+            zoomAt(Math.max(MIN_ZOOM, zoom / 1.15f), mx, my);
             return true;
         }
         return false;
@@ -225,10 +268,23 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
         int rh = getArea().h();
         if (rw <= 0 || rh <= 0) return;
 
-        // Auto-fit on first layout once data is ready
-        if (!hasInitialFit && graphData != null && graphData.isFormed) {
-            fitToView();
-            hasInitialFit = true;
+        // Auto-fit on first layout once data is ready, or on resize if not locked
+        if (graphData != null && graphData.isFormed) {
+            if (!hasInitialFit) {
+                fitToView();
+                hasInitialFit = true;
+                lastWidth = rw;
+                lastHeight = rh;
+            } else if (lastWidth != rw || lastHeight != rh) {
+                if (!autoFitLocked) {
+                    fitToView();
+                }
+                lastWidth = rw;
+                lastHeight = rh;
+            }
+        } else {
+            lastWidth = rw;
+            lastHeight = rh;
         }
 
         // 1. Draw viewport background and border in widget-local coordinates [0, 0, rw, rh]
