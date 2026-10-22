@@ -238,6 +238,15 @@ public class LoopSegment {
     }
 
     private double flowSizeWeight = 1.0;
+    private boolean manifold = false;
+
+    public boolean isManifold() {
+        return manifold;
+    }
+
+    public void setManifold(boolean manifold) {
+        this.manifold = manifold;
+    }
 
     public double getFlowSizeWeight() {
         return flowSizeWeight;

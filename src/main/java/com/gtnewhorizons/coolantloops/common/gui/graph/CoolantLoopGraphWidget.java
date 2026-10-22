@@ -558,10 +558,12 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
 
             // Line 2: Pressure in YELLOW (0xFFFFFF55)
             String pressStr;
-            if (Math.abs(node.data.pressureOutBar - node.data.pressureInBar) < 0.005) {
+            double deltaP = node.data.pressureOutBar - node.data.pressureInBar;
+            if (Math.abs(deltaP) < 0.0005) {
                 pressStr = String.format(Locale.US, "%.2f bar", node.data.pressureInBar);
+            } else if (Math.abs(deltaP) < 0.005) {
+                pressStr = String.format(Locale.US, "%.2f bar (%+.0f mbar)", node.data.pressureInBar, deltaP * 1000.0);
             } else {
-                double deltaP = node.data.pressureOutBar - node.data.pressureInBar;
                 pressStr = String.format(Locale.US, "%.2f bar (%+.2f)", node.data.pressureInBar, deltaP);
             }
 
@@ -614,13 +616,18 @@ public class CoolantLoopGraphWidget extends Widget<CoolantLoopGraphWidget> imple
             }
 
             // Pressure in yellow
-            if (Math.abs(gn.pressureOutBar - gn.pressureInBar) < 0.005) {
+            double deltaP = gn.pressureOutBar - gn.pressureInBar;
+            if (Math.abs(deltaP) < 0.0005) {
                 t.addLine(
                     EnumChatFormatting.GRAY + "Pressure: "
                         + EnumChatFormatting.YELLOW
                         + String.format(Locale.US, "%.2f bar", gn.pressureInBar));
+            } else if (Math.abs(deltaP) < 0.005) {
+                t.addLine(
+                    EnumChatFormatting.GRAY + "Pressure: "
+                        + EnumChatFormatting.YELLOW
+                        + String.format(Locale.US, "%.2f bar (%+.1f mbar)", gn.pressureInBar, deltaP * 1000.0));
             } else {
-                double deltaP = gn.pressureOutBar - gn.pressureInBar;
                 t.addLine(
                     EnumChatFormatting.GRAY + "Pressure: "
                         + EnumChatFormatting.YELLOW

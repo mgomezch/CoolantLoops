@@ -16,6 +16,9 @@ import org.mockito.Mockito;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 import com.gtnewhorizons.coolantloops.common.tileentity.TileEntityManifold;
+import com.gtnewhorizons.coolantloops.common.gui.graph.CoolantLoopGraphData;
+import com.gtnewhorizons.coolantloops.engine.CoolantFluidProperty;
+import com.gtnewhorizons.coolantloops.engine.CoolantLoopEngine;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlResult;
 import com.gtnewhorizons.coolantloops.engine.LoopGraphCrawler.CrawlSession;
@@ -577,5 +580,142 @@ public class ManifoldGroupAndDagTest {
         assertEquals(
             "Loop structure check could not complete because the loop is too large",
             session.getResult().failureReason);
+    }
+
+    @Test
+    public void testManifoldEnthalpyMixingAndPressureDrop() {
+        WorldTileMap map = new WorldTileMap();
+
+        // 1. Pump discharge at (10, 10, 10) facing EAST, Suction at (10, 10, 8) facing NORTH
+        map.putPipe(11, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 2. Splitter Manifold Group: (12, 10, 10) and (12, 10, 11)
+        map.putManifold(12, 10, 10);
+        map.putManifold(12, 10, 11);
+
+        // 3. Branch A (Medium pipe, thickness 0.5f -> weight 1.0)
+        map.putPipe(13, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 4. Branch B (Large pipe, thickness 0.75f -> weight 2.0)
+        map.putPipe(13, 10, 11, 0.75f, ForgeDirection.WEST, ForgeDirection.EAST);
+        map.putPipe(14, 10, 11, 0.75f, ForgeDirection.WEST, ForgeDirection.EAST);
+
+        // 5. Merger Manifold Group: (15, 10, 10) and (15, 10, 11)
+        map.putManifold(15, 10, 10);
+        map.putManifold(15, 10, 11);
+
+        // 6. Return path back to suction
+        map.putPipe(16, 10, 10, 0.5f, ForgeDirection.WEST, ForgeDirection.NORTH);
+        map.putPipe(16, 10, 9, 0.5f, ForgeDirection.SOUTH, ForgeDirection.WEST);
+        map.putPipe(15, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(14, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(13, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(12, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(11, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.WEST);
+        map.putPipe(10, 10, 9, 0.5f, ForgeDirection.EAST, ForgeDirection.NORTH);
+
+        LoopGraphCrawler crawler = new LoopGraphCrawler(map.world, 100);
+        CrawlResult result = crawler
+            .crawl(10, 10, 10, ForgeDirection.EAST, 10, 10, 8, ForgeDirection.NORTH, "pump:10:10:10");
+
+        assertTrue(result.isSuccess, "Crawl must succeed: " + result.failureReason);
+
+        CoolantLoopEngine engine = new CoolantLoopEngine(CoolantFluidProperty.WATER);
+        for (LoopSegment seg : result.segments) {
+            engine.addSegment(seg);
+        }
+
+        // Set temperatures: inlet pipe at 80 C
+        LoopSegment inletPipe = findSegment(result.segments, "pipe_11_10_10");
+        assertNotNull(inletPipe);
+        inletPipe.setCurrentTemperatureCelsius(80.0);
+
+        // Branch A (1/3 flow) at 40 C
+        LoopSegment segA1 = findSegment(result.segments, "pipe_13_10_10");
+        LoopSegment segA2 = findSegment(result.segments, "pipe_14_10_10");
+        segA1.setCurrentTemperatureCelsius(40.0);
+        segA2.setCurrentTemperatureCelsius(40.0);
+
+        // Branch B (2/3 flow) at 100 C
+        LoopSegment segB1 = findSegment(result.segments, "pipe_13_10_11");
+        LoopSegment segB2 = findSegment(result.segments, "pipe_14_10_11");
+        segB1.setCurrentTemperatureCelsius(100.0);
+        segB2.setCurrentTemperatureCelsius(100.0);
+
+        // Run engine with active pump while maintaining branch temperatures (e.g. heat sources)
+        engine.setPumpPowered(true);
+        engine.setPumpMechanicalPowerWatts(5000.0);
+        for (int i = 0; i < 50; i++) {
+            inletPipe.setCurrentTemperatureCelsius(80.0);
+            segA2.setCurrentTemperatureCelsius(40.0);
+            segB2.setCurrentTemperatureCelsius(100.0);
+            engine.step(0.05);
+        }
+
+        // 1. Verify Splitter Manifold has zero temperature delta
+        LoopSegment split1 = findSegment(result.segments, "manifold_12_10_10");
+        assertNotNull(split1);
+        assertEquals(
+            split1.getIncomingTemperatureCelsius(),
+            split1.getCurrentTemperatureCelsius(),
+            1e-4,
+            "Splitter manifold must conserve enthalpy: current temp == incoming temp");
+
+        // 2. Verify Merger Manifold flow-weighted mixing:
+        // Expected mixed temp: (1/3 * 40.0) + (2/3 * 100.0) = 80.0 C
+        LoopSegment merge1 = findSegment(result.segments, "manifold_15_10_10");
+        assertNotNull(merge1);
+        assertEquals(
+            merge1.getIncomingTemperatureCelsius(),
+            merge1.getCurrentTemperatureCelsius(),
+            1e-4,
+            "Merger manifold must conserve enthalpy: current temp == incoming temp");
+        assertEquals(
+            80.0,
+            merge1.getCurrentTemperatureCelsius(),
+            0.5,
+            "Merger manifold mixed temp must match flow-weighted incoming streams (40 C * 1/3 + 100 C * 2/3 = 80 C)");
+
+        // 3. Verify GraphData representation
+        CoolantLoopGraphData data = CoolantLoopGraphData.buildFrom(null, engine, result);
+        assertNotNull(data);
+
+        CoolantLoopGraphData.GraphNode splitNode = null;
+        CoolantLoopGraphData.GraphNode mergeNode = null;
+        for (CoolantLoopGraphData.GraphNode gn : data.nodes) {
+            if ("manifold_group_12_10_10".equals(gn.id)) {
+                splitNode = gn;
+            } else if ("manifold_group_15_10_10".equals(gn.id)) {
+                mergeNode = gn;
+            }
+        }
+        assertNotNull(splitNode, "Splitter manifold group node must exist in GraphData");
+        assertNotNull(mergeNode, "Merger manifold group node must exist in GraphData");
+
+        // Zero temperature delta on manifold nodes
+        assertEquals(
+            splitNode.temperatureIn,
+            splitNode.temperatureOut,
+            1e-4,
+            "Splitter manifold node must have delta T = 0");
+        assertEquals(
+            mergeNode.temperatureIn,
+            mergeNode.temperatureOut,
+            1e-4,
+            "Merger manifold node must have delta T = 0");
+
+        // Non-zero pressure drop across manifolds
+        assertTrue(
+            splitNode.pressureInBar > splitNode.pressureOutBar,
+            "Splitter manifold must have positive pressure drop across it");
+        assertTrue(
+            mergeNode.pressureInBar > mergeNode.pressureOutBar,
+            "Merger manifold must have positive pressure drop across it");
+
+        // Extra stats telemetry
+        assertTrue(splitNode.extraStats.containsKey("Pressure drop"), "Splitter extra stats must report Pressure drop");
+        assertTrue(splitNode.extraStats.containsKey("Loss coefficient"), "Splitter extra stats must report Loss coefficient");
+        assertEquals("K = 0.50", splitNode.extraStats.get("Loss coefficient"));
     }
 }

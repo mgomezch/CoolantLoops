@@ -566,8 +566,15 @@ public class CoolantLoopEngine {
             }
             curr.setIncomingTemperatureCelsius(incomingTemp);
 
-            double blendedTemp = curr.getCurrentTemperatureCelsius() * (1.0 - replaceFraction)
-                + incomingTemp * replaceFraction;
+            double blendedTemp;
+            if (curr.isManifold()) {
+                // A manifold is a well-mixed junction volume conserving enthalpy:
+                // Fluid leaves at the perfectly mixed incoming temperature with zero thermal lag or temperature gain.
+                blendedTemp = incomingTemp;
+            } else {
+                blendedTemp = curr.getCurrentTemperatureCelsius() * (1.0 - replaceFraction)
+                    + incomingTemp * replaceFraction;
+            }
 
             newTemps[i] = blendedTemp;
             if (blendedTemp > maxTemp) {

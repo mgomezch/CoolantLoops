@@ -1235,6 +1235,13 @@ public class LoopGraphCrawler {
                             coordToManifoldGroup.put(c, mg);
                             visitedPipeAndDevicePositions.add(c);
                         }
+                        double pipeDiam = step.segmentThickness != null
+                            ? CoolantPipingRegistry.getDiameterForThickness(step.segmentThickness)
+                            : 0.05;
+                        double totalManifoldK = groupTiles.isEmpty() ? 0.50 : Math.max(0.50, groupTiles.get(0).getMinorLossK());
+                        int numTiles = Math.max(1, groupTiles.size());
+                        double perTileK = totalManifoldK / numTiles;
+
                         for (TileEntityManifold tile : groupTiles) {
                             tile.setInputSide(groupInputSide);
                             tile.setOutputSide(groupOutputSide);
@@ -1247,12 +1254,13 @@ public class LoopGraphCrawler {
                                 tile.yCoord,
                                 tile.zCoord,
                                 1.0,
-                                0.10,
+                                pipeDiam,
                                 0.000045,
-                                tile.getMinorLossK(),
+                                perTileK,
                                 500.0,
                                 2000.0,
                                 tile.getDeviceTemperatureCelsius());
+                            manSeg.setManifold(true);
                             segments.add(manSeg);
                         }
                         allManifoldGroups.add(mg);
@@ -1944,16 +1952,8 @@ public class LoopGraphCrawler {
                 double flow = nodeFlow.getOrDefault(nodeId, 1.0);
                 List<LoopSegment> segs = getSegmentsForNode(nodeId, segmentMap);
                 if (segs.isEmpty()) continue;
-                FlowNode fn = graphNodes.get(nodeId);
-                if (fn != null && fn.type == NodeType.MANIFOLD_GROUP && segs.size() > 1) {
-                    double perTileFlow = flow / segs.size();
-                    for (LoopSegment s : segs) {
-                        s.setFlowFraction(perTileFlow);
-                    }
-                } else {
-                    for (LoopSegment s : segs) {
-                        s.setFlowFraction(flow);
-                    }
+                for (LoopSegment s : segs) {
+                    s.setFlowFraction(flow);
                 }
             }
 

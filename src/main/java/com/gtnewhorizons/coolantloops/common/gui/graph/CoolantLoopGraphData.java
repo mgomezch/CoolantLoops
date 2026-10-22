@@ -221,29 +221,34 @@ public class CoolantLoopGraphData {
      * Builds a comprehensive topological graph data snapshot from the active pump.
      */
     public static CoolantLoopGraphData buildFrom(MTECoolantPump pump) {
+        return buildFrom(
+            pump,
+            pump != null ? pump.getEngine() : null,
+            pump != null ? pump.getLastCrawlResult() : null);
+    }
+
+    public static CoolantLoopGraphData buildFrom(MTECoolantPump pump, CoolantLoopEngine engine, CrawlResult crawl) {
         CoolantLoopGraphData data = new CoolantLoopGraphData();
-        if (pump == null) {
-            data.isFormed = false;
-            data.failureReason = "No pump controller";
+        if (pump != null) {
+            data.isFormed = pump.isLoopFormed();
+            data.loopState = pump.getLoopState() != null ? pump.getLoopState()
+                .name() : "EMPTY";
+            data.failureReason = pump.getLoopStatus();
+        } else {
+            data.isFormed = crawl != null && crawl.isSuccess;
+            data.loopState = "RUNNING";
+            data.failureReason = crawl != null ? crawl.failureReason : null;
+        }
+
+        if (engine == null) {
             return data;
         }
 
-        data.isFormed = pump.isLoopFormed();
-        data.loopState = pump.getLoopState() != null ? pump.getLoopState()
-            .name() : "EMPTY";
-        data.failureReason = pump.getLoopStatus();
-
-        CoolantLoopEngine engine = pump.getEngine();
-        if (engine == null || !pump.isLoopFormed()) {
-            return data;
-        }
-
-        CoolantFluidProperty fluid = pump.getCoolantFluidProperty();
+        CoolantFluidProperty fluid = pump != null ? pump.getCoolantFluidProperty() : engine.getFluid();
         data.coolantName = fluid != null ? fluid.getFluidName() : "None";
         data.totalFlowRateLPerSec = engine.getFlowRateLitersPerSecond();
         data.peakPressureBar = engine.getPeakLoopPressureBar();
 
-        CrawlResult crawl = pump.getLastCrawlResult();
         Map<String, FlowNode> graphNodes = (crawl != null && crawl.graphNodes != null) ? crawl.graphNodes
             : Collections.emptyMap();
         Map<String, List<String>> graphEdges = (crawl != null && crawl.graphEdges != null) ? crawl.graphEdges
@@ -351,7 +356,7 @@ public class CoolantLoopGraphData {
         if (fn.type == NodeType.SOURCE) {
             label = "Pump discharge";
             itemType = "coolant_pump";
-            if (pump.getBaseMetaTileEntity() != null) {
+            if (pump != null && pump.getBaseMetaTileEntity() != null) {
                 x = pump.getBaseMetaTileEntity()
                     .getXCoord();
                 y = pump.getBaseMetaTileEntity()
@@ -359,28 +364,31 @@ public class CoolantLoopGraphData {
                 z = pump.getBaseMetaTileEntity()
                     .getZCoord();
             }
-            tempIn = pump.getPumpFluidTemperatureCelsius();
+            tempIn = pump != null ? pump.getPumpFluidTemperatureCelsius() : 20.0;
             tempOut = tempIn;
             pressureIn = 1.0;
             pressureOut = 1.0 + engine.getPumpHeadPressureBar();
-            status = pump.getLoopState()
-                .name();
-            extra.put(
-                "Reservoir level",
-                String
-                    .format(Locale.US, "%,d / %,d L", pump.getCurrentFillLiters(), pump.getReservoirCapacityLiters()));
-            extra.put("Head pressure", String.format(Locale.US, "%.2f bar", engine.getPumpHeadPressureBar()));
-            extra.put("Pump power", String.format(Locale.US, "%,d EU/t", pump.getPowerConsumptionEU()));
-            if (pump.getCoolantFluidProperty() != null) {
+            status = (pump != null && pump.getLoopState() != null) ? pump.getLoopState().name() : "Normal";
+            if (pump != null) {
                 extra.put(
-                    "Coolant",
-                    pump.getCoolantFluidProperty()
-                        .getFluidName());
+                    "Reservoir level",
+                    String
+                        .format(Locale.US, "%,d / %,d L", pump.getCurrentFillLiters(), pump.getReservoirCapacityLiters()));
+                extra.put("Head pressure", String.format(Locale.US, "%.2f bar", engine.getPumpHeadPressureBar()));
+                extra.put("Pump power", String.format(Locale.US, "%,d EU/t", pump.getPowerConsumptionEU()));
+                if (pump.getCoolantFluidProperty() != null) {
+                    extra.put(
+                        "Coolant",
+                        pump.getCoolantFluidProperty()
+                            .getFluidName());
+                }
+            } else {
+                extra.put("Head pressure", String.format(Locale.US, "%.2f bar", engine.getPumpHeadPressureBar()));
             }
         } else if (fn.type == NodeType.SINK) {
             label = "Pump suction";
             itemType = "coolant_pump";
-            if (pump.getBaseMetaTileEntity() != null) {
+            if (pump != null && pump.getBaseMetaTileEntity() != null) {
                 x = pump.getBaseMetaTileEntity()
                     .getXCoord();
                 y = pump.getBaseMetaTileEntity()
@@ -395,7 +403,7 @@ public class CoolantLoopGraphData {
                 tempOut = tempIn;
                 pressureIn = last.getOutletPressureBar();
             } else {
-                tempIn = pump.getPumpFluidTemperatureCelsius();
+                tempIn = pump != null ? pump.getPumpFluidTemperatureCelsius() : 20.0;
                 tempOut = tempIn;
                 pressureIn = 1.0;
             }
@@ -522,20 +530,42 @@ public class CoolantLoopGraphData {
             }
         }
 
-        if (matchedSeg == null && fn.type == NodeType.MANIFOLD_GROUP
-            && fn.data instanceof LoopGraphCrawler.ManifoldGroup mg) {
+        if (fn.type == NodeType.MANIFOLD_GROUP && fn.data instanceof LoopGraphCrawler.ManifoldGroup mg) {
+            List<LoopSegment> mgSegs = new ArrayList<>();
             for (BlockPosCoord coord : mg.blockCoords) {
                 for (LoopSegment s : engine.getSegments()) {
                     if (s.getBlockX() == coord.x && s.getBlockY() == coord.y && s.getBlockZ() == coord.z) {
-                        matchedSeg = s;
+                        mgSegs.add(s);
                         break;
                     }
                 }
-                if (matchedSeg != null) break;
+            }
+            if (!mgSegs.isEmpty()) {
+                matchedSeg = mgSegs.get(0);
+                double maxInlet = -Double.MAX_VALUE;
+                double minOutlet = Double.MAX_VALUE;
+                double totalK = 0.0;
+                for (LoopSegment s : mgSegs) {
+                    if (s.getInletPressureBar() > maxInlet) {
+                        maxInlet = s.getInletPressureBar();
+                    }
+                    if (s.getOutletPressureBar() < minOutlet) {
+                        minOutlet = s.getOutletPressureBar();
+                    }
+                    totalK += s.getMinorLossK();
+                }
+                flow = engine.getFlowRateLitersPerSecond() * matchedSeg.getFlowFraction();
+                tempIn = matchedSeg.getIncomingTemperatureCelsius();
+                tempOut = tempIn; // Manifolds conserve enthalpy: uniform mixing with zero delta T
+                pressureIn = (maxInlet != -Double.MAX_VALUE) ? maxInlet : matchedSeg.getInletPressureBar();
+                pressureOut = (minOutlet != Double.MAX_VALUE) ? minOutlet : matchedSeg.getOutletPressureBar();
+                double dropMbar = Math.max(0.0, (pressureIn - pressureOut) * 1000.0);
+                extra.put("Pressure drop", String.format(Locale.US, "%.1f mbar", dropMbar));
+                extra.put("Loss coefficient", String.format(Locale.US, "K = %.2f", totalK));
             }
         }
 
-        if (matchedSeg != null) {
+        if (matchedSeg != null && fn.type != NodeType.MANIFOLD_GROUP) {
             flow = engine.getFlowRateLitersPerSecond() * matchedSeg.getFlowFraction();
             tempIn = matchedSeg.getIncomingTemperatureCelsius();
             tempOut = matchedSeg.getCurrentTemperatureCelsius();
