@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,6 +15,9 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagIntArray;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.StatCollector;
@@ -147,6 +152,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     protected long mLastCrawlStartTime = -1L;
     protected long mLastCrawlCompleteTime = -1L;
     protected LoopGraphCrawler.CrawlSession mActiveCrawl = null;
+    protected boolean mNeedsPostLoadRebind = false;
+    protected int[] mSavedDischargeCoord = null;
+    protected int[] mSavedSuctionCoord = null;
 
     public long getLastCrawlStartTime() {
         return mLastCrawlStartTime;
@@ -880,6 +888,9 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void onPostTick(IGregTechTileEntity aBaseMetaTileEntity, long aTick) {
         super.onPostTick(aBaseMetaTileEntity, aTick);
         if (aBaseMetaTileEntity != null && aBaseMetaTileEntity.isServerSide()) {
+            if (mNeedsPostLoadRebind) {
+                rebindRestoredLoop(aBaseMetaTileEntity);
+            }
             if (!hasRotor()) {
                 checkAndLoadImpellerFromInputBus();
             }
@@ -889,6 +900,125 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
                 crawlLoopGraph();
             }
             stepCoolantLoop();
+            if (mLoopFormed && aTick % 20 == 0) {
+                aBaseMetaTileEntity.markDirty();
+            }
+        }
+    }
+
+    protected void rebindRestoredLoop(IGregTechTileEntity aBaseMetaTileEntity) {
+        World w = aBaseMetaTileEntity.getWorld();
+        if (w == null) return;
+
+        boolean missingOrChanged = false;
+
+        if (mSavedDischargeCoord != null) {
+            int cx = mSavedDischargeCoord[0], cy = mSavedDischargeCoord[1], cz = mSavedDischargeCoord[2];
+            if (!w.blockExists(cx, cy, cz)) return;
+            TileEntity te = w.getTileEntity(cx, cy, cz);
+            if (te instanceof IGregTechTileEntity gte && gte.getMetaTileEntity() instanceof MTEHatchPressurizedFluid ph) {
+                mDischargeHatch = ph;
+            } else {
+                missingOrChanged = true;
+            }
+        } else {
+            missingOrChanged = true;
+        }
+
+        if (mSavedSuctionCoord != null) {
+            int cx = mSavedSuctionCoord[0], cy = mSavedSuctionCoord[1], cz = mSavedSuctionCoord[2];
+            if (!w.blockExists(cx, cy, cz)) return;
+            TileEntity te = w.getTileEntity(cx, cy, cz);
+            if (te instanceof IGregTechTileEntity gte && gte.getMetaTileEntity() instanceof MTEHatchPressurizedFluid ph) {
+                mSuctionHatch = ph;
+            } else {
+                missingOrChanged = true;
+            }
+        } else {
+            missingOrChanged = true;
+        }
+
+        if (mEngine.getSegments().isEmpty()) {
+            missingOrChanged = true;
+        }
+
+        mLoopDevices.clear();
+        Set<String> seenDeviceIds = new HashSet<>();
+
+        if (mLastCrawlResult != null && mLastCrawlResult.graphNodes != null) {
+            for (LoopGraphCrawler.FlowNode node : mLastCrawlResult.graphNodes.values()) {
+                if (node.type == LoopGraphCrawler.NodeType.DEVICE && node.data instanceof LoopGraphCrawler.BlockPosCoord bc) {
+                    if (!w.blockExists(bc.x, bc.y, bc.z)) return;
+                    TileEntity te = w.getTileEntity(bc.x, bc.y, bc.z);
+                    if (te == null) {
+                        missingOrChanged = true;
+                        break;
+                    }
+                    ICoolantLoopDevice dev = null;
+                    if (te instanceof ICoolantLoopDevice) {
+                        dev = (ICoolantLoopDevice) te;
+                    } else if (te instanceof IGregTechTileEntity gte) {
+                        IMetaTileEntity mte = gte.getMetaTileEntity();
+                        if (mte instanceof MTEHatchPressurizedFluid) {
+                            MTEPressurizedHeatExchanger phe = LoopGraphCrawler.findAdjacentPHE(w, bc.x, bc.y, bc.z);
+                            MTEPressurizedDegasser degasser = (phe == null) ? LoopGraphCrawler.findAdjacentDegasser(w, bc.x, bc.y, bc.z) : null;
+                            MTECoolantBath bath = (phe == null && degasser == null) ? LoopGraphCrawler.findAdjacentCoolantBath(w, bc.x, bc.y, bc.z) : null;
+                            if (phe != null) dev = phe;
+                            else if (degasser != null) dev = degasser;
+                            else if (bath != null) dev = bath;
+                            else dev = (ICoolantLoopDevice) mte;
+                        } else if (mte instanceof ICoolantLoopDevice) {
+                            dev = (ICoolantLoopDevice) mte;
+                        }
+                    }
+                    if (dev == null) {
+                        missingOrChanged = true;
+                        break;
+                    }
+                    if (seenDeviceIds.add(dev.getDeviceId())) {
+                        dev.setLoopPump(this);
+                        mLoopDevices.add(dev);
+                    }
+                }
+            }
+        }
+
+        if (mLastCrawlResult != null && mLastCrawlResult.pipePositions != null) {
+            for (LoopGraphCrawler.BlockPosCoord p : mLastCrawlResult.pipePositions) {
+                if (!w.blockExists(p.x, p.y, p.z)) return;
+                TileEntity te = w.getTileEntity(p.x, p.y, p.z);
+                if (te == null) {
+                    missingOrChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (missingOrChanged) {
+            mNeedsPostLoadRebind = false;
+            mLoopFormed = false;
+            mLoopDevices.clear();
+            crawlLoopGraph();
+            return;
+        }
+
+        mNeedsPostLoadRebind = false;
+        rebuildDeviceBindings();
+        if (mLastCrawlResult != null) {
+            mLastCrawlResult = LoopGraphCrawler.CrawlResult.success(
+                mEngine.getSegments(),
+                mLoopDevices,
+                mLastCrawlResult.pipePositions,
+                mLastCrawlResult.maxPumpPipeCapacityLPerSec,
+                mLastCrawlResult.loopMaterial,
+                mLastCrawlResult.pipeConfigs,
+                mLastCrawlResult.graphNodes,
+                mLastCrawlResult.graphEdges);
+        }
+
+        if (mLoopState == LoopState.CIRCULATING && isAllowedToWork()) {
+            aBaseMetaTileEntity.setActive(true);
+            mEngine.setPumpPowered(true);
         }
     }
 
@@ -2322,16 +2452,79 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
         mReservoir.saveNBTData(aNBT);
+        aNBT.setBoolean("mLoopFormed", mLoopFormed);
         aNBT.setString("mLoopState", mLoopState.name());
+        aNBT.setString("mLoopStatus", mLoopStatus != null ? mLoopStatus : "");
         aNBT.setLong("mCurrentFillLiters", mCurrentFillLiters);
         aNBT.setLong("mRequiredFillLiters", mRequiredFillLiters);
         aNBT.setDouble("mRotorDamageAccumulator", mRotorDamageAccumulator);
         aNBT.setBoolean("mPowerFailed", mPowerFailed);
+        aNBT.setBoolean("mHasEverBeenEnabled", mHasEverBeenEnabled);
         if (mTankMaterial != null && mTankMaterial.mName != null) {
             aNBT.setString("mTankMaterial", mTankMaterial.mName);
         }
         if (mRotorMaterial != null && mRotorMaterial.mName != null) {
             aNBT.setString("mRotorMaterial", mRotorMaterial.mName);
+        }
+
+        if (mDischargeHatch != null && mDischargeHatch.getBaseMetaTileEntity() != null) {
+            IGregTechTileEntity dte = mDischargeHatch.getBaseMetaTileEntity();
+            aNBT.setIntArray("discCoord", new int[] { dte.getXCoord(), dte.getYCoord(), dte.getZCoord() });
+        } else if (mSavedDischargeCoord != null) {
+            aNBT.setIntArray("discCoord", mSavedDischargeCoord);
+        }
+        if (mSuctionHatch != null && mSuctionHatch.getBaseMetaTileEntity() != null) {
+            IGregTechTileEntity ste = mSuctionHatch.getBaseMetaTileEntity();
+            aNBT.setIntArray("sucCoord", new int[] { ste.getXCoord(), ste.getYCoord(), ste.getZCoord() });
+        } else if (mSavedSuctionCoord != null) {
+            aNBT.setIntArray("sucCoord", mSavedSuctionCoord);
+        }
+
+        NBTTagCompound engineTag = new NBTTagCompound();
+        mEngine.saveNBTData(engineTag);
+        aNBT.setTag("mEngine", engineTag);
+
+        if (mLastCrawlResult != null && mLastCrawlResult.isSuccess) {
+            NBTTagCompound crawlTag = new NBTTagCompound();
+            crawlTag.setDouble("maxPumpPipeCap", mLastCrawlResult.maxPumpPipeCapacityLPerSec);
+            if (mLastCrawlResult.loopMaterial != null) {
+                crawlTag.setString("loopMaterial", mLastCrawlResult.loopMaterial.mName);
+            }
+            if (mLastCrawlResult.pipePositions != null) {
+                NBTTagList pipeList = new NBTTagList();
+                for (LoopGraphCrawler.BlockPosCoord p : mLastCrawlResult.pipePositions) {
+                    pipeList.appendTag(new NBTTagIntArray(new int[] { p.x, p.y, p.z }));
+                }
+                crawlTag.setTag("pipePositions", pipeList);
+            }
+            if (mLastCrawlResult.graphNodes != null) {
+                NBTTagList nodeList = new NBTTagList();
+                for (LoopGraphCrawler.FlowNode fn : mLastCrawlResult.graphNodes.values()) {
+                    NBTTagCompound nTag = new NBTTagCompound();
+                    nTag.setString("id", fn.id);
+                    nTag.setString("type", fn.type.name());
+                    if (fn.data instanceof LoopGraphCrawler.BlockPosCoord bc) {
+                        nTag.setIntArray("coord", new int[] { bc.x, bc.y, bc.z });
+                    }
+                    nodeList.appendTag(nTag);
+                }
+                crawlTag.setTag("graphNodes", nodeList);
+            }
+            if (mLastCrawlResult.graphEdges != null) {
+                NBTTagList edgeList = new NBTTagList();
+                for (Map.Entry<String, List<String>> e : mLastCrawlResult.graphEdges.entrySet()) {
+                    NBTTagCompound eTag = new NBTTagCompound();
+                    eTag.setString("from", e.getKey());
+                    NBTTagList toList = new NBTTagList();
+                    for (String to : e.getValue()) {
+                        toList.appendTag(new NBTTagString(to));
+                    }
+                    eTag.setTag("to", toList);
+                    edgeList.appendTag(eTag);
+                }
+                crawlTag.setTag("graphEdges", edgeList);
+            }
+            aNBT.setTag("mLastCrawlResult", crawlTag);
         }
     }
 
@@ -2356,6 +2549,12 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
         if (aNBT.hasKey("mPowerFailed")) {
             mPowerFailed = aNBT.getBoolean("mPowerFailed");
         }
+        if (aNBT.hasKey("mHasEverBeenEnabled")) {
+            mHasEverBeenEnabled = aNBT.getBoolean("mHasEverBeenEnabled");
+        }
+        if (aNBT.hasKey("mLoopStatus")) {
+            mLoopStatus = aNBT.getString("mLoopStatus");
+        }
         if (aNBT.hasKey("mTankMaterial")) {
             Materials mat = Materials.get(aNBT.getString("mTankMaterial"));
             if (mat != null) {
@@ -2367,6 +2566,77 @@ public class MTECoolantPump extends MTEEnhancedMultiBlockBase<MTECoolantPump>
             if (mat != null) {
                 mRotorMaterial = mat;
             }
+        }
+        if (aNBT.hasKey("discCoord")) {
+            mSavedDischargeCoord = aNBT.getIntArray("discCoord");
+        }
+        if (aNBT.hasKey("sucCoord")) {
+            mSavedSuctionCoord = aNBT.getIntArray("sucCoord");
+        }
+
+        if (aNBT.hasKey("mEngine", 10)) {
+            mEngine.loadNBTData(aNBT.getCompoundTag("mEngine"));
+        }
+        if (aNBT.hasKey("mLoopFormed")) {
+            mLoopFormed = aNBT.getBoolean("mLoopFormed") && !mEngine.getSegments().isEmpty();
+        }
+
+        if (aNBT.hasKey("mLastCrawlResult", 10)) {
+            NBTTagCompound crawlTag = aNBT.getCompoundTag("mLastCrawlResult");
+            double maxCap = crawlTag.getDouble("maxPumpPipeCap");
+            Materials loopMat = crawlTag.hasKey("loopMaterial") ? Materials.get(crawlTag.getString("loopMaterial")) : null;
+            Set<LoopGraphCrawler.BlockPosCoord> pipePositions = new LinkedHashSet<>();
+            if (crawlTag.hasKey("pipePositions", 9)) {
+                NBTTagList pipeList = crawlTag.getTagList("pipePositions", 11);
+                for (int i = 0; i < pipeList.tagCount(); i++) {
+                    int[] c = pipeList.func_150306_c(i);
+                    if (c.length >= 3) {
+                        pipePositions.add(new LoopGraphCrawler.BlockPosCoord(c[0], c[1], c[2]));
+                    }
+                }
+            }
+            Map<String, LoopGraphCrawler.FlowNode> graphNodes = new LinkedHashMap<>();
+            if (crawlTag.hasKey("graphNodes", 9)) {
+                NBTTagList nodeList = crawlTag.getTagList("graphNodes", 10);
+                for (int i = 0; i < nodeList.tagCount(); i++) {
+                    NBTTagCompound nTag = nodeList.getCompoundTagAt(i);
+                    String id = nTag.getString("id");
+                    LoopGraphCrawler.NodeType type = LoopGraphCrawler.NodeType.valueOf(nTag.getString("type"));
+                    Object data = null;
+                    if (nTag.hasKey("coord")) {
+                        int[] c = nTag.getIntArray("coord");
+                        if (c.length >= 3) data = new LoopGraphCrawler.BlockPosCoord(c[0], c[1], c[2]);
+                    }
+                    graphNodes.put(id, new LoopGraphCrawler.FlowNode(id, type, data));
+                }
+            }
+            Map<String, List<String>> graphEdges = new LinkedHashMap<>();
+            if (crawlTag.hasKey("graphEdges", 9)) {
+                NBTTagList edgeList = crawlTag.getTagList("graphEdges", 10);
+                for (int i = 0; i < edgeList.tagCount(); i++) {
+                    NBTTagCompound eTag = edgeList.getCompoundTagAt(i);
+                    String from = eTag.getString("from");
+                    List<String> toList = new ArrayList<>();
+                    NBTTagList toTags = eTag.getTagList("to", 8);
+                    for (int j = 0; j < toTags.tagCount(); j++) {
+                        toList.add(toTags.getStringTagAt(j));
+                    }
+                    graphEdges.put(from, toList);
+                }
+            }
+            mLastCrawlResult = LoopGraphCrawler.CrawlResult.success(
+                mEngine.getSegments(),
+                mLoopDevices,
+                pipePositions,
+                maxCap,
+                loopMat,
+                null,
+                graphNodes,
+                graphEdges);
+        }
+
+        if (mLoopFormed) {
+            mNeedsPostLoadRebind = true;
         }
     }
 

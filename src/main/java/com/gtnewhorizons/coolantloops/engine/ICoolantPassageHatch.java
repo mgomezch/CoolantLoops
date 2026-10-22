@@ -32,4 +32,9 @@ public interface ICoolantPassageHatch extends ICoolantLoopDevice {
      * Gets the active loop pump associated with this passage, or null if loop is disconnected.
      */
     ICoolantLoopPump getConnectedPump();
+
+    /**
+     * Converts an unspecific or legacy passage hatch to a directional variant if supported.
+     */
+    default void convertToDirectionalVariant(boolean isInput) {}
 }

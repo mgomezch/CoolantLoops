@@ -1718,6 +1718,10 @@ public class LoopGraphCrawler {
                         }
                     } else if (mte instanceof ICoolantPassageHatch) {
                         ICoolantPassageHatch passage = (ICoolantPassageHatch) mte;
+                        passage.convertToDirectionalVariant(true);
+                        if (te instanceof IGregTechTileEntity gte && gte.getMetaTileEntity() instanceof ICoolantPassageHatch p) {
+                            passage = p;
+                        }
                         if (!passage.isPassageInlet()) {
                             finishWithFailure(
                                 CoolantLocalization
@@ -1726,10 +1730,25 @@ public class LoopGraphCrawler {
                         }
                         IGregTechTileEntity outTE = passage.getOppositeHatchTile();
                         if (outTE == null) {
+                            if (world != null) {
+                                int targetY = passage.isPassageInlet() ? step.y - 4 : step.y + 4;
+                                TileEntity fallbackTe = world.getTileEntity(step.x, targetY, step.z);
+                                if (fallbackTe instanceof IGregTechTileEntity fallbackGte
+                                    && fallbackGte.getMetaTileEntity() instanceof ICoolantPassageHatch opp) {
+                                    passage.setOppositeHatch(fallbackGte);
+                                    opp.setOppositeHatch((IGregTechTileEntity) te);
+                                    outTE = fallbackGte;
+                                }
+                            }
+                        }
+                        if (outTE == null) {
                             finishWithFailure(
                                 CoolantLocalization
                                     .format("coolantloops.crawler.passage_no_pair", step.x, step.y, step.z));
                             return true;
+                        }
+                        if (outTE.getMetaTileEntity() instanceof ICoolantPassageHatch outPassage) {
+                            outPassage.convertToDirectionalVariant(false);
                         }
                         if (pump != null) {
                             passage.setConnectedPump(pump);

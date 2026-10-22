@@ -6,6 +6,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ChunkCoordinates;
 
 /**
@@ -440,5 +443,72 @@ public class LoopSegment {
         }
         double velocity = Math.abs(volumetricFlowRate) / area;
         return (fluid.getDensity() * velocity * diameter) / fluid.getDynamicViscosity();
+    }
+
+    public void writeToNBT(NBTTagCompound tag) {
+        tag.setString("id", id != null ? id : "");
+        tag.setInteger("x", blockX);
+        tag.setInteger("y", blockY);
+        tag.setInteger("z", blockZ);
+        tag.setDouble("len", length);
+        tag.setDouble("diam", diameter);
+        tag.setDouble("rough", roughness);
+        tag.setDouble("k", minorLossK);
+        tag.setDouble("pMax", maxPressureBar);
+        tag.setDouble("tMax", maxTemperatureCelsius);
+        tag.setDouble("curTemp", currentTemperatureCelsius);
+        tag.setDouble("inTemp", incomingTemperatureCelsius);
+        tag.setDouble("inP", inletPressureBar);
+        tag.setDouble("outP", outletPressureBar);
+        tag.setDouble("flowFrac", flowFraction);
+        tag.setDouble("weight", flowSizeWeight);
+        tag.setLong("cap", capacityLiters);
+        tag.setBoolean("manifold", manifold);
+        if (customVolumeM3 >= 0.0) {
+            tag.setDouble("customVol", customVolumeM3);
+        }
+        NBTTagList upList = new NBTTagList();
+        for (LoopSegment up : upstreamSegments) {
+            if (up != null && up.getId() != null) {
+                upList.appendTag(new NBTTagString(up.getId()));
+            }
+        }
+        tag.setTag("upstreams", upList);
+    }
+
+    public static LoopSegment readFromNBT(NBTTagCompound tag, List<String> outUpstreamIds) {
+        String id = tag.getString("id");
+        int x = tag.getInteger("x");
+        int y = tag.getInteger("y");
+        int z = tag.getInteger("z");
+        double len = tag.getDouble("len");
+        double diam = tag.getDouble("diam");
+        double rough = tag.getDouble("rough");
+        double k = tag.getDouble("k");
+        double pMax = tag.getDouble("pMax");
+        double tMax = tag.getDouble("tMax");
+        double curTemp = tag.getDouble("curTemp");
+        double inTemp = tag.getDouble("inTemp");
+
+        if (len <= 0) len = 1.0;
+        if (diam <= 0) diam = 0.05;
+
+        LoopSegment seg = new LoopSegment(id, x, y, z, len, diam, rough, k, pMax, tMax, curTemp);
+        seg.setIncomingTemperatureCelsius(inTemp);
+        if (tag.hasKey("inP")) seg.setInletPressureBar(tag.getDouble("inP"));
+        if (tag.hasKey("outP")) seg.setOutletPressureBar(tag.getDouble("outP"));
+        if (tag.hasKey("flowFrac")) seg.setFlowFraction(tag.getDouble("flowFrac"));
+        if (tag.hasKey("weight")) seg.setFlowSizeWeight(tag.getDouble("weight"));
+        if (tag.hasKey("cap")) seg.setCapacityLiters(tag.getLong("cap"));
+        if (tag.hasKey("manifold")) seg.setManifold(tag.getBoolean("manifold"));
+        if (tag.hasKey("customVol")) seg.setCustomVolumeM3(tag.getDouble("customVol"));
+
+        if (outUpstreamIds != null && tag.hasKey("upstreams", 9)) {
+            NBTTagList upList = tag.getTagList("upstreams", 8);
+            for (int i = 0; i < upList.tagCount(); i++) {
+                outUpstreamIds.add(upList.getStringTagAt(i));
+            }
+        }
+        return seg;
     }
 }

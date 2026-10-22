@@ -8,6 +8,9 @@ import java.util.Map;
 
 import com.gtnewhorizons.coolantloops.common.config.CoolantLoopDataRegistry;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+
 /**
  * 1D Closed-Loop Hydrodynamic and Thermodynamic Simulation Engine.
  *
@@ -146,6 +149,10 @@ public class CoolantLoopEngine {
 
     public void setDissolvedGasFraction(double dissolvedGasFraction) {
         this.fallbackGasFraction = Math.max(0.0, Math.min(1.0, dissolvedGasFraction));
+    }
+
+    public CoolantLoopEngine() {
+        this(CoolantFluidProperty.DISTILLED_WATER);
     }
 
     public CoolantLoopEngine(CoolantFluidProperty fluid) {
@@ -587,5 +594,121 @@ public class CoolantLoopEngine {
                 .setCurrentTemperatureCelsius(newTemps[i]);
         }
         peakLoopTempCelsius = maxTemp;
+    }
+
+    public void saveNBTData(NBTTagCompound tag) {
+        if (fluid != null) {
+            tag.setString("fluid", fluid.getFluidName());
+        }
+        tag.setDouble("volumetricFlowRate", volumetricFlowRate);
+        tag.setDouble("maxVolumetricFlowRate", maxVolumetricFlowRate);
+        tag.setDouble("pumpMechanicalPowerWatts", pumpMechanicalPowerWatts);
+        tag.setBoolean("isPumpPowered", isPumpPowered);
+        tag.setBoolean("isBraking", isBraking);
+        tag.setDouble("peakLoopPressureBar", peakLoopPressureBar);
+        tag.setDouble("peakLoopTempCelsius", peakLoopTempCelsius);
+        tag.setDouble("pumpHeadPressurePa", pumpHeadPressurePa);
+        tag.setDouble("fallbackGasFraction", fallbackGasFraction);
+
+        if (!dissolvedGases.isEmpty()) {
+            NBTTagCompound gasesTag = new NBTTagCompound();
+            for (Map.Entry<String, Long> entry : dissolvedGases.entrySet()) {
+                gasesTag.setLong(entry.getKey(), entry.getValue());
+            }
+            tag.setTag("dissolvedGases", gasesTag);
+        }
+
+        NBTTagList segList = new NBTTagList();
+        for (LoopSegment seg : segments) {
+            NBTTagCompound segTag = new NBTTagCompound();
+            seg.writeToNBT(segTag);
+            segList.appendTag(segTag);
+        }
+        tag.setTag("segments", segList);
+    }
+
+    public void loadNBTData(NBTTagCompound tag) {
+        if (tag == null) return;
+        if (tag.hasKey("fluid")) {
+            String fName = tag.getString("fluid");
+            CoolantFluidProperty prop = CoolantFluidProperty.get(fName);
+            if (prop == null) {
+                prop = CoolantFluidProperty.getCanonical(fName);
+            }
+            if (prop != null) {
+                this.fluid = prop;
+            }
+        }
+        if (tag.hasKey("volumetricFlowRate")) {
+            this.volumetricFlowRate = tag.getDouble("volumetricFlowRate");
+        }
+        if (tag.hasKey("maxVolumetricFlowRate")) {
+            this.maxVolumetricFlowRate = tag.getDouble("maxVolumetricFlowRate");
+        }
+        if (tag.hasKey("pumpMechanicalPowerWatts")) {
+            this.pumpMechanicalPowerWatts = tag.getDouble("pumpMechanicalPowerWatts");
+        }
+        if (tag.hasKey("isPumpPowered")) {
+            this.isPumpPowered = tag.getBoolean("isPumpPowered");
+        }
+        if (tag.hasKey("isBraking")) {
+            this.isBraking = tag.getBoolean("isBraking");
+        }
+        if (tag.hasKey("peakLoopPressureBar")) {
+            this.peakLoopPressureBar = tag.getDouble("peakLoopPressureBar");
+        }
+        if (tag.hasKey("peakLoopTempCelsius")) {
+            this.peakLoopTempCelsius = tag.getDouble("peakLoopTempCelsius");
+        }
+        if (tag.hasKey("pumpHeadPressurePa")) {
+            this.pumpHeadPressurePa = tag.getDouble("pumpHeadPressurePa");
+        }
+        if (tag.hasKey("fallbackGasFraction")) {
+            this.fallbackGasFraction = tag.getDouble("fallbackGasFraction");
+        }
+
+        this.dissolvedGases.clear();
+        if (tag.hasKey("dissolvedGases", 10)) {
+            NBTTagCompound gasesTag = tag.getCompoundTag("dissolvedGases");
+            for (Object keyObj : gasesTag.func_150296_c()) {
+                String key = (String) keyObj;
+                this.dissolvedGases.put(key, gasesTag.getLong(key));
+            }
+        }
+
+        this.segments.clear();
+        if (tag.hasKey("segments", 9)) {
+            NBTTagList segList = tag.getTagList("segments", 10);
+            Map<String, LoopSegment> segMap = new LinkedHashMap<>();
+            Map<String, List<String>> upstreamMap = new LinkedHashMap<>();
+
+            for (int i = 0; i < segList.tagCount(); i++) {
+                NBTTagCompound segTag = segList.getCompoundTagAt(i);
+                List<String> upIds = new ArrayList<>();
+                LoopSegment seg = LoopSegment.readFromNBT(segTag, upIds);
+                if (seg != null && seg.getId() != null) {
+                    segMap.put(seg.getId(), seg);
+                    if (!upIds.isEmpty()) {
+                        upstreamMap.put(seg.getId(), upIds);
+                    }
+                }
+            }
+
+            for (Map.Entry<String, List<String>> entry : upstreamMap.entrySet()) {
+                LoopSegment down = segMap.get(entry.getKey());
+                if (down != null) {
+                    for (String upId : entry.getValue()) {
+                        LoopSegment up = segMap.get(upId);
+                        if (up != null) {
+                            down.addUpstreamSegment(up);
+                        }
+                    }
+                }
+            }
+
+            for (LoopSegment seg : segMap.values()) {
+                this.segments.add(seg);
+            }
+        }
     }
 }
