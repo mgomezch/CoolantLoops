@@ -190,6 +190,38 @@ public class MTEPressurizedDegasser extends MTEEnhancedMultiBlockBase<MTEPressur
             return;
         }
 
+        final int casingIndex = 48 + 2;
+        if (mPrimaryInlet != null) {
+            mPrimaryInlet.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mPrimaryInlet.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        if (mPrimaryOutlet != null) {
+            mPrimaryOutlet.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mPrimaryOutlet.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchMaintenance mh : mMaintenanceHatches) {
+            mh.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchEnergy eh : mEnergyHatches) {
+            eh.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                eh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchOutput oh : mOutputHatches) {
+            oh.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                oh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+
         checkMaintenance();
         if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
             aBaseMetaTileEntity.enableWorking();

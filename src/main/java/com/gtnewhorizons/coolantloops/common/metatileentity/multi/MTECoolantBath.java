@@ -650,6 +650,38 @@ public class MTECoolantBath extends MTEEnhancedMultiBlockBase<MTECoolantBath>
             mSlots = newSlots;
         }
 
+        final int casingIndex = CASING_INDEX_HEAT_PROOF;
+        if (mPrimaryInlet != null) {
+            mPrimaryInlet.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mPrimaryInlet.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        if (mPrimaryOutlet != null) {
+            mPrimaryOutlet.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mPrimaryOutlet.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchMaintenance mh : mMaintenanceHatches) {
+            mh.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                mh.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchInputBus ib : mInputBusses) {
+            ib.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                ib.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+        for (MTEHatchOutputBus ob : mOutputBusses) {
+            ob.updateTexture(casingIndex);
+            if (getBaseMetaTileEntity() != null) {
+                ob.updateCraftingIcon(getMachineCraftingIcon());
+            }
+        }
+
         checkMaintenance();
         if (aBaseMetaTileEntity != null && !aBaseMetaTileEntity.isAllowedToWork()) {
             aBaseMetaTileEntity.enableWorking();

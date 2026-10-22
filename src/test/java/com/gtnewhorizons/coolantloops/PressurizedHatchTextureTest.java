@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.gtnewhorizons.coolantloops.common.metatileentity.hatch.MTEHatchPressurizedFluid;
+import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantBath;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTECoolantPump;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedDegasser;
 import com.gtnewhorizons.coolantloops.common.metatileentity.multi.MTEPressurizedHeatExchanger;
@@ -179,5 +180,26 @@ public class PressurizedHatchTextureTest {
             Textures.BlockIcons.casingTexturePages[0][50],
             inletHatch.getCasingTexture(),
             "Inlet hatch must inherit Degasser casing texture (index 50) on structure add");
+    }
+
+    @Test
+    public void testCoolantBathHatchTextureOnForm() {
+        MTECoolantBath bath = new MTECoolantBath("test_bath");
+        MTEHatchPressurizedFluid inletHatch = new MTEHatchPressurizedFluid("inlet", 1, new String[0], null);
+        inletHatch.setMode(MTEHatchPressurizedFluid.HatchMode.SUCTION);
+
+        IGregTechTileEntity mockTile = Mockito.mock(IGregTechTileEntity.class);
+        Mockito.when(mockTile.getMetaTileEntity())
+            .thenReturn(inletHatch);
+        Mockito.when(mockTile.isServerSide())
+            .thenReturn(true);
+        inletHatch.setBaseMetaTileEntity(mockTile);
+
+        boolean added = bath.addInletHatch(mockTile, CASING_INDEX_HEAT_PROOF);
+        assertTrue(added, "addInletHatch should accept Pressurized Fluid Hatch");
+        assertEquals(
+            Textures.BlockIcons.casingTexturePages[0][CASING_INDEX_HEAT_PROOF],
+            inletHatch.getCasingTexture(),
+            "Inlet hatch must inherit Bath casing texture (index 11) on structure add");
     }
 }
