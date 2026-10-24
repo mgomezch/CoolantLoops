@@ -29,6 +29,7 @@ import com.gtnewhorizons.coolantloops.engine.CoolantPipingRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.Dyes;
 import gregtech.api.enums.Materials;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.ITexture;
@@ -140,7 +141,13 @@ public class MTECoolantPipe extends MTEFluidPipe {
     }
 
     public short[] getPipeMaterialRgba() {
-        return mMaterial != null && mMaterial.mRGBa != null ? mMaterial.mRGBa : new short[] { 255, 255, 255, 255 };
+        if (mMaterial != null && mMaterial.mRGBa != null && mMaterial.mRGBa.length >= 3) {
+            if (mMaterial.mRGBa.length == 4) {
+                return mMaterial.mRGBa;
+            }
+            return new short[] { mMaterial.mRGBa[0], mMaterial.mRGBa[1], mMaterial.mRGBa[2], 255 };
+        }
+        return new short[] { 255, 255, 255, 255 };
     }
 
     public int getPipeMaterialColorInt() {
@@ -236,7 +243,7 @@ public class MTECoolantPipe extends MTEFluidPipe {
     public ITexture[] getTexture(IGregTechTileEntity base, ForgeDirection side, int connections, int colorIndex,
         boolean connected, boolean redstoneLevel) {
         ITexture[] baseTextures = super.getTexture(base, side, connections, colorIndex, connected, redstoneLevel);
-        ITexture insulation = getInsulationOverlay();
+        ITexture insulation = getInsulationOverlay(colorIndex);
         if (insulation != null && baseTextures != null && baseTextures.length > 0) {
             ITexture[] result = new ITexture[baseTextures.length + 1];
             result[0] = baseTextures[0];
@@ -248,9 +255,14 @@ public class MTECoolantPipe extends MTEFluidPipe {
     }
 
     protected ITexture getInsulationOverlay() {
+        return getInsulationOverlay(-1);
+    }
+
+    protected ITexture getInsulationOverlay(int colorIndex) {
         try {
             if (INSULATION_OVERLAY_ICON == null) return null;
-            return TextureFactory.of(INSULATION_OVERLAY_ICON);
+            short[] rgba = Dyes.getModulation(colorIndex, getPipeMaterialRgba());
+            return TextureFactory.of(INSULATION_OVERLAY_ICON, rgba);
         } catch (Throwable t) {
             return null;
         }

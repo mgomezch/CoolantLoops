@@ -12,7 +12,9 @@ import org.mockito.Mockito;
 
 import com.gtnewhorizons.coolantloops.common.metatileentity.pipe.MTECoolantPipe;
 
+import gregtech.api.enums.Dyes;
 import gregtech.api.enums.Materials;
+import gregtech.api.interfaces.IColorModulationContainer;
 import gregtech.api.interfaces.ITexture;
 
 public class CoolantPipeVisualTest {
@@ -124,7 +126,49 @@ public class CoolantPipeVisualTest {
         ITexture[] textures = pipe
             .getTexture(null, net.minecraftforge.common.util.ForgeDirection.NORTH, 0, -1, false, false);
         assertNotNull(textures, "Pipe textures must not be null");
-        assertTrue(textures.length >= 1, "Must contain base and optional insulation textures");
+        assertTrue(textures.length >= 2, "Must contain base and insulation textures");
+        assertTrue(
+            textures[1] instanceof IColorModulationContainer,
+            "Insulation texture must implement IColorModulationContainer");
+        short[] rgba = ((IColorModulationContainer) textures[1]).getRGBA();
+        assertArrayEquals(Materials.Steel.mRGBa, rgba, "Steel pipe insulation must use Steel mRGBa reference color");
+    }
+
+    @Test
+    public void testPipeMaterialColorAdoptionAcrossMaterials() {
+        Materials[] testMaterials = { Materials.CastIron, Materials.Steel, Materials.StainlessSteel, Materials.Titanium,
+            Materials.TungstenSteel, Materials.Osmium, Materials.Neutronium };
+
+        for (Materials mat : testMaterials) {
+            MTECoolantPipe pipe = new MTECoolantPipe("pipe." + mat.mName, 0.50F, mat, 240, 2500, true);
+            assertEquals(mat, pipe.getPipeMaterial());
+            assertArrayEquals(mat.mRGBa, pipe.getPipeMaterialRgba(), "Pipe material RGBA must match " + mat.mName);
+
+            ITexture[] textures = pipe
+                .getTexture(null, net.minecraftforge.common.util.ForgeDirection.NORTH, 0, -1, false, false);
+            assertNotNull(textures);
+            assertTrue(textures.length >= 2);
+            assertTrue(textures[1] instanceof IColorModulationContainer);
+            short[] insulationRgba = ((IColorModulationContainer) textures[1]).getRGBA();
+            assertArrayEquals(
+                mat.mRGBa,
+                insulationRgba,
+                "Insulation overlay texture must be tinted with material reference color for " + mat.mName);
+        }
+    }
+
+    @Test
+    public void testPipeDyeColorModulation() {
+        MTECoolantPipe pipe = new MTECoolantPipe("test.coolantpipe", 0.50F, Materials.Steel, 240, 2500, true);
+        int dyeIndex = 14; // Orange
+        ITexture[] textures = pipe
+            .getTexture(null, net.minecraftforge.common.util.ForgeDirection.NORTH, 0, dyeIndex, false, false);
+        assertNotNull(textures);
+        assertTrue(textures.length >= 2);
+        assertTrue(textures[1] instanceof IColorModulationContainer);
+        short[] insulationRgba = ((IColorModulationContainer) textures[1]).getRGBA();
+        short[] expectedDyeRgba = Dyes.getModulation(dyeIndex, Materials.Steel.mRGBa);
+        assertArrayEquals(expectedDyeRgba, insulationRgba, "Dyed pipe must use dye modulation color");
     }
 
     static class DummyDeviceTile extends net.minecraft.tileentity.TileEntity
